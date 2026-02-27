@@ -8,15 +8,10 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup,
-  OAuthProvider
+  signInWithPopup
 } from 'firebase/auth';
 import { 
   getFirestore, 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  serverTimestamp,
   doc, 
   getDoc, 
   setDoc 
@@ -41,7 +36,9 @@ import {
   ShieldAlert,
   Activity,
   Smartphone,
-  Shield
+  Shield,
+  Info,
+  Link2
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION (VINCULADA) ---
@@ -66,7 +63,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState([]);
   const [generatedLink, setGeneratedLink] = useState('');
   const [captureData, setCaptureData] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -101,62 +97,31 @@ export default function App() {
       }
     });
 
-    // BRIDGE LOGIC: Silent Capture and Auto-Redirect
+    // BRIDGE LOGIC: Secure Auto-Redirect (No Storage for testing phase)
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t') || params.get('to');
     const m = params.get('m') || params.get('msg');
     const c = params.get('c') || params.get('company');
 
     if (t && m) {
-      const bridgeData = { to: t, msg: m, company: c || 'Verified Protocol' };
-      setCaptureData(bridgeData);
+      setCaptureData({ to: t, msg: m, company: c || 'Verified Host' });
       setView('bridge');
       
-      // Silent Handshake & Auto-Redirect
-      const runHandshake = async () => {
-        try {
-          let geo = { city: 'Unknown', country_name: 'Unknown', ip: '0.0.0.0' };
-          const geoReq = await fetch('https://ipapi.co/json/');
-          if (geoReq.ok) geo = await geoReq.json();
-
-          // Save silent lead for the PRO Dashboard
-          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), {
-            nome_cliente: "VISITOR_SIGNAL",
-            telefone_cliente: "REDIRECT_ACTIVE",
-            destino: t,
-            mensagem: m,
-            localizacao: `${geo.city}, ${geo.country_name}`,
-            ip: geo.ip,
-            dispositivo: navigator.userAgent,
-            created_at: serverTimestamp(),
-            ownerId: "PUBLIC_GEN"
-          });
-        } catch (e) { console.warn("Silent capture bypassed."); }
-        
-        setTimeout(() => {
-          const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-          window.location.href = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
-        }, 2000);
-      };
+      const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+      const smsLink = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
       
-      runHandshake();
+      // Delay for security animation (Anti-Bot Logic)
+      setTimeout(() => {
+        window.location.href = smsLink;
+      }, 2500);
     }
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user || user.isAnonymous || view !== 'dashboard' || (!userProfile?.isSubscribed && user.uid !== ADMIN_MASTER_ID)) return;
-    const leadsCol = collection(db, 'artifacts', appId, 'public', 'data', 'leads');
-    return onSnapshot(leadsCol, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const filtered = user.uid === ADMIN_MASTER_ID ? data : data.filter(l => l.ownerId === user.uid || l.ownerId === "PUBLIC_GEN");
-      setLogs(filtered.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-    });
-  }, [user, view, userProfile]);
-
   const handleGenerate = () => {
     if (!genTo) return;
     const baseUrl = window.location.origin;
+    // Sublime short link generation (t=to, m=msg, c=company)
     const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&c=${encodeURIComponent(companyName || 'Verified Partner')}`;
     setGeneratedLink(shortLink);
   };
@@ -172,30 +137,8 @@ export default function App() {
     setLoading(false);
   };
 
-  const handleSocialLogin = async (providerType) => {
-    setLoading(true);
-    try {
-      let provider;
-      if (providerType === 'apple') provider = new OAuthProvider('apple.com');
-      else provider = new GoogleAuthProvider();
-      
-      await signInWithPopup(auth, provider);
-      setIsMenuOpen(false);
-      setView('dashboard');
-    } catch (e) { alert("Social auth failed."); }
-    setLoading(false);
-  };
-
-  const activatePro = async () => {
-    setLoading(true);
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    await setDoc(docRef, { isSubscribed: true }, { merge: true });
-    setUserProfile({ ...userProfile, isSubscribed: true });
-    setLoading(false);
-  };
-
   return (
-    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased overflow-x-hidden flex flex-col">
+    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col">
       <style>{`
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -206,6 +149,7 @@ export default function App() {
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; }
         .input-premium:focus { border-color: #25F4EE; box-shadow: 0 0 15px rgba(37,244,238,0.2); background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        @keyframes progress { from { width: 0%; } to { width: 100%; } }
         * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
@@ -220,7 +164,7 @@ export default function App() {
         </button>
       </nav>
 
-      {/* Menu Lateral */}
+      {/* Slide Menu */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
@@ -234,7 +178,7 @@ export default function App() {
                 <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-[#25F4EE]"><Lock size={18} /> MEMBER LOGIN</button>
               ) : (
                 <>
-                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-[#25F4EE]"><LayoutDashboard size={18} /> OPERATOR DASHBOARD</button>
+                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-[#25F4EE]"><LayoutDashboard size={18} /> DASHBOARD</button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-[#FE2C55]"><LogOut size={18} /> LOGOUT</button>
                 </>
               )}
@@ -267,24 +211,24 @@ export default function App() {
 
             <main className="space-y-6">
               <div className="lighthouse-neon-wrapper shadow-3xl">
-                <div className="lighthouse-neon-content p-7 sm:p-10">
+                <div className="lighthouse-neon-content p-7 sm:p-10 text-left">
                   <div className="flex items-center gap-2 mb-8">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b] animate-pulse"></div>
                     <h3 className="text-[11px] font-black uppercase tracking-widest text-white/60">Free Link Generator</h3>
                   </div>
-                  <div className="space-y-6 text-left">
+                  <div className="space-y-6">
                     <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Destination Number</label>
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold text-sm" placeholder="+1 (555) 000-0000" />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Company Label</label>
+                       <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Company / Personal Name</label>
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50" placeholder="e.g. Apple Support" />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Pre-Written SMS Content</label>
-                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter message to pre-fill..." />
-                       <p className="text-[8px] text-white/20 uppercase font-black italic">This message will be pre-filled when the link is accessed.</p>
+                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Message to be pre-filled in the SMS app..." />
+                       <p className="text-[8px] text-white/20 uppercase font-black italic">This content appears ready-to-send for the final user.</p>
                     </div>
                     <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2">Generate Smart Link <ChevronRight size={16} /></button>
                   </div>
@@ -296,19 +240,32 @@ export default function App() {
                   <div className="bg-white p-5 rounded-3xl inline-block mb-8 shadow-xl">
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/>
                   </div>
+                  
                   <div className="mb-6">
-                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-2">Selectable URL:</label>
-                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-[10px] text-[#25F4EE] font-mono text-center outline-none cursor-text" />
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-2">Selectable Protocol URL:</label>
+                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] text-[#25F4EE] font-mono text-center outline-none cursor-text border-dashed" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4 w-full">
-                    <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 transition-all">
+
+                  <div className="grid grid-cols-2 gap-4 w-full mb-6">
+                    <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                       {copied ? <Check size={20} className="text-[#25F4EE]" /> : <Copy size={20} className="text-white/40" />}
                       <span className="text-[9px] font-black uppercase mt-2 text-white/50 tracking-widest text-center px-1">Quick Copy</span>
                     </button>
-                    <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 transition-all">
+                    <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                       <ExternalLink size={20} className="text-white/40" />
                       <span className="text-[9px] font-black uppercase mt-1 text-white/50 tracking-widest text-center px-1">Live Test</span>
                     </button>
+                  </div>
+
+                  <div className="p-5 bg-[#25F4EE]/5 border border-[#25F4EE]/10 rounded-2xl text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info size={14} className="text-[#25F4EE]" />
+                      <span className="text-[10px] font-black text-[#25F4EE] uppercase tracking-widest">Usage Protocol</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 font-bold uppercase leading-relaxed tracking-wider">
+                      Integrate this link into <span className="text-white">website buttons</span> (e.g., 'Contact Us') or share it in <span className="text-white">social chats</span>. 
+                      When clicked, it triggers a secure handshake and instantly opens the SMS app with your message.
+                    </p>
                   </div>
                 </div>
               )}
@@ -318,7 +275,7 @@ export default function App() {
                   <Rocket size={16} className="opacity-70 group-hover:animate-bounce" /> 
                   ACTIVATE YOUR 7-DAY FREE TRIAL
                 </button>
-                <p className="text-center text-[10px] text-[#25F4EE] font-black mt-5 uppercase tracking-[0.2em] italic">Unlock lead history and live geo-signals</p>
+                <p className="text-center text-[10px] text-[#25F4EE] font-black mt-5 uppercase tracking-[0.2em] leading-relaxed italic drop-shadow-[0_0_5px_rgba(37,244,238,0.5)]">Activate PRO to unlock data capture and live analytics</p>
               </div>
             </main>
 
@@ -352,24 +309,39 @@ export default function App() {
           </div>
         )}
 
+        {/* BRIDGE VIEW: Fast Secure Handshake (Instant Redirection) */}
         {view === 'bridge' && (
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
               <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
-                <Shield size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-12" />
-                <h2 className="text-3xl font-black italic mb-3 uppercase leading-none text-white text-glow-white">SECURITY HANDSHAKE</h2>
-                <p className="text-[#25F4EE] text-[11px] font-black uppercase tracking-[0.4em] mb-12">Establishing Secure SMS Route...</p>
-                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-12 max-w-xs">
-                   <div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_2s_ease-in-out]"></div>
+                <div className="relative mb-12">
+                   <Shield size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE]" />
                 </div>
+                <h2 className="text-3xl font-black italic mb-3 uppercase tracking-tighter leading-none text-white text-glow-white">SECURITY HANDSHAKE</h2>
+                <p className="text-[#25F4EE] text-[11px] font-black uppercase tracking-[0.4em] mb-12">Establishing Secure SMS Route...</p>
+                
+                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-12 max-w-xs">
+                   <div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left" style={{animation: 'progress 2s ease-in-out forwards'}}></div>
+                </div>
+
                 <div className="p-6 bg-white/5 rounded-3xl border border-white/5 text-center">
                    <p className="text-[10px] text-white/50 uppercase font-black tracking-widest leading-relaxed">
-                      Authorized Host: <span className="text-white font-black">{captureData?.company}</span>
+                      Authorized Destination: <span className="text-white font-black italic tracking-normal">{captureData?.company}</span>
                    </p>
                    <p className="text-[9px] text-white/20 mt-4 uppercase font-black italic">
-                      Redirecting to native messaging app...
+                      Opening native messaging application...
                    </p>
                 </div>
+                
+                <button 
+                  onClick={() => {
+                    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+                    window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
+                  }}
+                  className="mt-12 text-[10px] font-black text-[#25F4EE] border-b border-[#25F4EE]/30 uppercase tracking-[0.2em] hover:text-white transition-all"
+                >
+                   Click here if not redirected automatically
+                </button>
               </div>
             </div>
           </div>
@@ -386,45 +358,27 @@ export default function App() {
                     <p className="text-white/40 text-sm mb-12 uppercase tracking-widest leading-relaxed">
                       Identity unmasked. Unlock <span className="text-white font-bold">Live Geo-Signals</span> and lead history.
                     </p>
-                    <button onClick={activatePro} disabled={loading} className="btn-strategic text-[11px]">
-                      {loading ? "AUTHENTICATING..." : "CONFIRM FREE TRIAL ACTIVATION"} <Rocket size={20} />
+                    <button onClick={() => { setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { isSubscribed: true }, { merge: true }); setUserProfile({ ...userProfile, isSubscribed: true }); }} className="btn-strategic text-[11px]">
+                      CONFIRM FREE TRIAL ACTIVATION <Rocket size={20} />
                     </button>
                   </div>
                 </div>
               </div>
             )}
-
-            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-20">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-20 text-left">
               <div>
                 <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">LIVE INTEL</h2>
                 <p className="text-[#25F4EE] text-[11px] font-black uppercase tracking-[0.8em] mt-2 drop-shadow-[0_0:10px_#25F4EE]">Operator Command Center</p>
               </div>
               <div className="bg-[#0a0a0a] border border-white/10 px-10 py-7 rounded-[2.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
-                  <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Active Signals</p>
-                  <p className="text-5xl font-black text-[#25F4EE] drop-shadow-[0_0:15px_#25F4EE]">{logs.length}</p>
+                  <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Protocol Capacity</p>
+                  <p className="text-5xl font-black text-[#25F4EE] drop-shadow-[0_0:15px_#25F4EE]">Unlimited</p>
               </div>
             </div>
-
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl backdrop-blur-3xl">
-              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Network Activity</span>
-                 <Activity size={18} className="text-[#25F4EE] animate-pulse" />
-              </div>
-              <div className="max-h-[60vh] overflow-y-auto">
-                {logs.map(l => (
-                  <div key={l.id} className="p-10 border-b border-white/5 hover:bg-white/[0.04] transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-6 text-left">
-                    <div>
-                      <div className="font-black text-2xl text-white group-hover:text-[#25F4EE] transition-colors uppercase italic tracking-tighter">{l.nome_cliente}</div>
-                      <div className="text-[12px] text-[#25F4EE] font-black mt-1 uppercase tracking-[0.4em]">{l.localizacao}</div>
-                    </div>
-                    <div className="text-white/60 italic text-right">
-                      <div className="text-[11px] mt-1 font-mono tracking-widest">{l.ip}</div>
-                      <div className="text-[9px] text-[#FE2C55] mt-2 font-black uppercase bg-[#FE2C55]/15 px-3 py-1 rounded-full inline-block">Ref: {l.destino}</div>
-                    </div>
-                  </div>
-                ))}
-                {logs.length === 0 && <div className="p-20 text-center text-white/20 font-black uppercase text-xs tracking-widest italic">Awaiting connection signals...</div>}
-              </div>
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl backdrop-blur-3xl text-center p-20">
+               <ShieldCheck size={64} className="mx-auto mb-6 text-white/20" />
+               <p className="text-white/40 uppercase font-black text-xs tracking-widest">Lead capture is currently disabled in test mode.</p>
+               <p className="text-[#25F4EE] uppercase font-black text-[10px] mt-4 tracking-[0.4em]">Redirect links are operating at 100% capacity.</p>
             </div>
           </div>
         )}
@@ -435,13 +389,10 @@ export default function App() {
               <div className="lighthouse-neon-content p-10 sm:p-14 relative">
                 <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase tracking-tighter leading-none text-white text-center">Command Access</h2>
                 <div className="space-y-4 text-left">
-                  <button onClick={() => handleSocialLogin('google')} className="btn-strategic text-[10px] w-full"><Globe size={18} /> Google Authentication</button>
-                  <button onClick={() => handleSocialLogin('apple')} className="btn-strategic text-[10px] w-full"><Smartphone size={18} /> Apple ID Connection</button>
-                  <div className="h-px bg-white/10 w-full my-4" />
-                  <input type="email" placeholder="EMAIL" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-3" />
-                  <input type="password" placeholder="PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-4" />
+                  <input type="email" placeholder="OPERATOR ID" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-3" />
+                  <input type="password" placeholder="SECURITY KEY" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-4" />
                   <button onClick={() => handleAuth(true)} className="btn-strategic text-[11px] mt-4 shadow-xl w-full">Authorize Terminal</button>
-                  <button onClick={() => handleAuth(false)} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all">Establish Terminal</button>
+                  <button onClick={() => handleAuth(false)} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all">Establish Profile</button>
                 </div>
               </div>
             </div>
