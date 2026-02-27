@@ -24,7 +24,7 @@ import {
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
   UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck,
-  Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star
+  Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, PlayCircle
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -291,7 +291,10 @@ export default function App() {
                   <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60">SMART SMS GENERATOR</h3></div>
                   <div className="space-y-8">
                     <div className="space-y-3">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Destination Mobile Number ex: (+1 999 999 9999)</label>
+                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-tight block">
+                         Destination Mobile Number
+                         <span className="block text-[#25F4EE] opacity-80 mt-1">ex: (+1 999 999 9999)</span>
+                       </label>
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold" placeholder="The number that will receive the SMS" />
                     </div>
                     <div className="space-y-3">
@@ -311,8 +314,8 @@ export default function App() {
               {generatedLink && (
                 <div className="animate-in zoom-in-95 duration-500 space-y-6">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
-                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
+                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
+                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-6 border-dashed" />
                     <div className="grid grid-cols-2 gap-6 w-full">
                       <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span></button>
                       <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] font-black uppercase italic mt-1 text-white/50 tracking-widest">Live Test</span></button>
@@ -419,9 +422,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* MASTER CONTROL PANEL (EXCLUSIVE VIEW) */}
+            {/* MASTER CONTROL PANEL */}
             {user?.uid === ADMIN_MASTER_ID && (
-               <div className="animate-in fade-in duration-700">
+               <div className="mb-20 animate-in fade-in duration-700">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20">
                      <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
                         <Users size={48} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
@@ -430,12 +433,12 @@ export default function App() {
                      </div>
                      <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
                         <Star size={48} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Nexus Active</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Paid Members</p>
                         <p className="text-5xl font-black italic text-amber-500">{allUsers.filter(u => u.isSubscribed).length}</p>
                      </div>
                      <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
                         <Server size={48} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">System Traffic</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Global Traffic</p>
                         <p className="text-5xl font-black italic text-[#FE2C55]">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
                      </div>
                      <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
