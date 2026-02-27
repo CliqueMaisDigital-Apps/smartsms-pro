@@ -23,7 +23,7 @@ import {
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
-  UserCheck, UserMinus, Gift, Bot, Mail, Phone, ShoppingCart
+  UserCheck, UserMinus, Gift, Bot, Mail, Phone, ShoppingCart, Eye, EyeOff
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -43,7 +43,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER IDENTITY (OWNER) ---
-// Instructions: Register below first, then copy your UID from Firebase Console and paste it here.
+// Instructions: Register first, then copy your UID from Firebase Console and paste it here.
 const ADMIN_MASTER_ID = "MASTER_USER_ID"; 
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
@@ -64,13 +64,16 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   
-  // Registration Inputs
+  // Registration States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
-  // Generator Inputs
+  // Generator States
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -128,7 +131,8 @@ export default function App() {
       }
 
       await updateDoc(ownerRef, { usageCount: increment(1) });
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+      const publicRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
+      await updateDoc(publicRef, { usageCount: increment(1) });
 
       if (ownerProfile.isSubscribed || ownerProfile.isUnlimited) {
         try {
@@ -149,12 +153,14 @@ export default function App() {
     }, 3000);
   };
 
-  const handleAuth = async (isLogin) => {
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
     try {
-      if (isLogin) {
+      if (isLoginMode) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
+        if (password !== confirmPassword) throw new Error("Passwords do not match.");
         const u = await createUserWithEmailAndPassword(auth, email, password);
         const newProfile = {
           fullName, phone, email,
@@ -168,7 +174,7 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), newProfile);
       }
       setView('home');
-    } catch (e) { alert("Identity Error: Authentication protocol failed."); }
+    } catch (e) { alert("Protocol Identity Error: " + e.message); }
     setLoading(false);
   };
 
@@ -199,6 +205,7 @@ export default function App() {
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 700; }
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
         * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
@@ -223,9 +230,9 @@ export default function App() {
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-10 flex-1 text-left">
+            <div className="flex flex-col gap-8 flex-1 text-left">
               {!user ? (
-                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE]">
+                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors">
                    <Lock size={18} /> REGISTER IDENTITY
                 </button>
               ) : (
@@ -234,7 +241,7 @@ export default function App() {
                      <p className="text-[9px] font-black text-white/30 uppercase mb-1">Identity Active</p>
                      <p className="text-xs font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Operator'}</p>
                   </div>
-                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
+                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <LayoutDashboard size={18} /> {user.uid === ADMIN_MASTER_ID ? "MASTER CONTROL" : "OPERATOR HUB"}
                   </button>
                   <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
@@ -247,8 +254,8 @@ export default function App() {
               )}
               <div className="h-px bg-white/5 w-full my-4" />
               <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em]">
-                <a href="#" className="hover:text-white transition-colors">Privacy Protocol</a>
-                <a href="#" className="hover:text-white transition-colors">Security Terms</a>
+                <a href="#" className="hover:text-white transition-colors">PRIVACY PROTOCOL</a>
+                <a href="#" className="hover:text-white transition-colors">SECURITY TERMS</a>
                 <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
               </div>
             </div>
@@ -256,11 +263,11 @@ export default function App() {
         </>
       )}
 
-      {/* Ambient background glows */}
-      <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
-      <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
-
+      {/* Main UI */}
       <div className="pt-24 flex-1 pb-10 relative">
+        <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
+        <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
+
         {view === 'home' && (
           <div className="w-full max-w-[520px] mx-auto px-4 z-10 relative text-center">
             <header className="mb-12 flex flex-col items-center">
@@ -285,7 +292,7 @@ export default function App() {
                        <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1">Pre-written message</label>
                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter pre-written message text here..." />
                     </div>
-                    <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2 italic">Generate Smart Link <ChevronRight size={16} /></button>
+                    <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2 italic font-black uppercase">Generate Smart Link <ChevronRight size={16} /></button>
                   </div>
                 </div>
               </div>
@@ -302,7 +309,7 @@ export default function App() {
               )}
 
               {!user && (
-                <button onClick={() => setView('auth')} className="btn-strategic text-[11px] max-w-[340px] !bg-white !text-black group mx-auto mt-10 italic">
+                <button onClick={() => setView('auth')} className="btn-strategic text-[11px] max-w-[340px] !bg-white !text-black group mx-auto mt-10 italic font-black uppercase">
                   <Rocket size={16} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES
                 </button>
               )}
@@ -322,7 +329,7 @@ export default function App() {
                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={40} className="text-amber-500" /></div>
                        <h3 className="text-2xl font-black italic text-white uppercase mb-4">Nexus Access Offer</h3>
                        <p className="text-[11px] text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-10">Don't lose your traffic flow. Unlock <span className="text-white border-b border-white/20">Unlimited Redirections</span> and automatic lead logging now.</p>
-                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-[10px] italic">Upgrade Identity ($9/MO)</button>
+                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-[10px] italic font-black uppercase">Upgrade Identity ($9/MO)</button>
                     </div>
                   </div>
                 ) : (
@@ -439,16 +446,42 @@ export default function App() {
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-10 sm:p-14 relative">
                 <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white">Protocol Identity</h2>
-                <form onSubmit={(e) => { e.preventDefault(); handleAuth(false); }} className="space-y-4">
-                  <div className="space-y-4 mb-10">
-                     <input required placeholder="FULL OPERATOR NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs uppercase italic" />
-                     <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs uppercase italic" />
-                     <div className="h-px bg-white/5 w-full my-4" />
-                     <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs uppercase italic" />
-                     <input required type="password" placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  {!isLoginMode && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Full Operator Name</label>
+                        <input required placeholder="OPERATOR FULL NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs uppercase italic" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Valid Mobile (+1...)</label>
+                        <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs uppercase italic" />
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Email Identity</label>
+                    <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs uppercase italic" />
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black">{loading ? "AUTHENTICATING..." : "Establish Identity"}</button>
-                  <button type="button" onClick={() => handleAuth(true)} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all">Existing Identity? Access</button>
+                  <div className="space-y-1 relative">
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
+                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-9 text-white/30 hover:text-[#25F4EE]">{showPass ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+                  </div>
+                  {!isLoginMode && (
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Confirm Password</label>
+                      <input required type={showPass ? "text" : "password"} placeholder="REPEAT PASSWORD" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                    </div>
+                  )}
+                  
+                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-6">
+                    {loading ? "AUTHENTICATING..." : isLoginMode ? "Authorize Station" : "Establish Identity"}
+                  </button>
+                  
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all">
+                    {isLoginMode ? "Establish New Identity? Register" : "Existing Identity? Login"}
+                  </button>
                 </form>
               </div>
             </div>
@@ -462,7 +495,7 @@ export default function App() {
            <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-3xl">
               <div className="lighthouse-neon-content p-8">
                  <div className="flex justify-between items-center mb-8">
-                    <div className="flex items-center gap-2 text-neon-cyan"><Bot size={24} /><span className="text-xs font-black uppercase italic tracking-widest">SMART SUPPORT</span></div>
+                    <div className="flex items-center gap-2 text-neon-cyan"><Bot size={24} /><span className="text-xs font-black uppercase italic tracking-widest text-glow-white">SMART SUPPORT</span></div>
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={20}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-5 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center text-center">
