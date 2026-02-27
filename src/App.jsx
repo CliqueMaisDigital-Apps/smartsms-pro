@@ -115,6 +115,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Sync Global User List (Admin Only)
   useEffect(() => {
     if (!user || user.uid !== ADMIN_MASTER_ID || view !== 'dashboard') return;
     const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles');
@@ -123,6 +124,7 @@ export default function App() {
     });
   }, [user, view]);
 
+  // Sync Private Lead Vault (Member Only)
   useEffect(() => {
     if (!user || (!userProfile?.isSubscribed && !userProfile?.isUnlimited) || view !== 'dashboard' || !isVaultActive) return;
     const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
@@ -196,11 +198,12 @@ export default function App() {
     if (!genTo) return;
     if (genMsg.length > MSG_LIMIT) return alert("Security Protocol: Message exceeds safe limit.");
     const baseUrl = window.location.origin;
-    setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
+    const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`;
+    setGeneratedLink(shortLink);
   };
 
   return (
-    <div className="min-h-screen bg-[#010101] text-white font-sans antialiased flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#010101] text-white font-sans antialiased flex flex-col relative overflow-x-hidden text-left">
       <style>{`
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -219,11 +222,11 @@ export default function App() {
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[100] px-6 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-white/10 p-1.5 rounded-lg border border-white/10 shadow-lg shadow-white/5"><Zap size={20} className="text-white fill-white" /></div>
-          <span className="text-lg font-black italic tracking-tighter uppercase text-white leading-none">SMART SMS PRO</span>
-          {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic leading-none">MASTER</span>}
+          <span className="text-lg font-black italic tracking-tighter uppercase text-white">SMART SMS PRO</span>
+          {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic">MASTER</span>}
         </div>
-        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white/50 hover:text-white transition-all z-[110]">
-          {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 text-white/50 hover:text-white transition-all z-[110]">
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </nav>
 
@@ -231,7 +234,7 @@ export default function App() {
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right text-left">
+          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right">
             <div className="flex justify-between items-center mb-12">
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
@@ -240,26 +243,26 @@ export default function App() {
               {!user ? (
                 <>
                   <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors">
-                     <UserPlus size={20} /> JOIN THE NETWORK
+                     <UserPlus size={18} /> JOIN THE NETWORK
                   </button>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
-                     <Lock size={20} /> MEMBER LOGIN
+                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors leading-none">
+                     <Lock size={18} /> MEMBER LOGIN
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10">
-                     <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic">Active Access</p>
-                     <p className="text-sm font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Member'}</p>
+                  <div className="mb-6 p-5 bg-white/5 rounded-3xl border border-white/10">
+                     <p className="text-[9px] font-black text-white/30 uppercase mb-1 italic">Active Access</p>
+                     <p className="text-xs font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Member'}</p>
                   </div>
                   <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
-                     <LayoutDashboard size={20} /> {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "MEMBER HUB"}
+                     <LayoutDashboard size={18} /> {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "MEMBER HUB"}
                   </button>
                   <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors uppercase font-black">
-                     <Bot size={20} /> SMART SUPPORT
+                     <Bot size={18} /> SMART SUPPORT
                   </button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto mb-10">
-                     <LogOut size={20} /> TERMINATE SESSION
+                     <LogOut size={18} /> TERMINATE SESSION
                   </button>
                 </>
               )}
@@ -275,23 +278,23 @@ export default function App() {
       )}
 
       {/* Main UI */}
-      <div className="pt-28 flex-1 pb-10 relative">
+      <div className="pt-24 flex-1 pb-10 relative">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
         {view === 'home' && (
-          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center">
-            <header className="mb-14 flex flex-col items-center">
-              <div className="lighthouse-neon-wrapper mb-6"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
-              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase leading-relaxed max-w-xs">Elite Redirection Protocol for Member Operations</p>
+          <div className="w-full max-w-[520px] mx-auto px-4 z-10 relative text-center">
+            <header className="mb-12 flex flex-col items-center">
+              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-8 py-3"><h1 className="text-2xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
+              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase leading-relaxed max-w-xs">High-End Redirection Protocol - 60 Free Handshakes</p>
             </header>
 
-            <main className="space-y-8 pb-20 text-left">
-              {/* SMART SMS GENERATOR BLOCK */}
+            <main className="space-y-6 pb-20 text-left">
+              {/* GENERATOR BLOCK */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
-                <div className="lighthouse-neon-content p-8 sm:p-12">
-                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[12px] font-black uppercase italic tracking-widest text-white/60 leading-none">SMART SMS GENERATOR</h3></div>
-                  <div className="space-y-8">
+                <div className="lighthouse-neon-content p-7 sm:p-10">
+                  <div className="flex items-center gap-2 mb-8"><div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none">Smart SMS Generator</h3></div>
+                  <div className="space-y-6">
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-tight block">
                          Destination Mobile Number
@@ -300,7 +303,7 @@ export default function App() {
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold" placeholder="The number that will receive the SMS" />
                     </div>
                     <div className="space-y-3">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-none">Name or Company Label</label>
+                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-none">Name or Company Identity</label>
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-white/50" placeholder="e.g. Verified Vendor" />
                     </div>
                     <div className="space-y-3">
@@ -308,66 +311,66 @@ export default function App() {
                           <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 italic leading-none">Pre-written message body</label>
                           <span className={`text-[9px] font-black tracking-widest ${genMsg.length > MSG_LIMIT ? 'text-[#FE2C55]' : 'text-white/20'}`}>{genMsg.length}/{MSG_LIMIT}</span>
                        </div>
-                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium font-medium resize-none leading-relaxed text-sm ${genMsg.length > MSG_LIMIT ? 'border-[#FE2C55]/50' : ''}`} placeholder="Enter SMS payload here..." />
+                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium font-medium resize-none leading-relaxed text-sm ${genMsg.length > MSG_LIMIT ? 'border-[#FE2C55]/50 shadow-[0_0_10px_rgba(254,44,85,0.2)]' : ''}`} placeholder="Enter SMS payload here..." />
                     </div>
-                    <button onClick={handleGenerate} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5 shadow-xl">Generate Smart Link <ChevronRight size={18} /></button>
+                    <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2 italic font-black uppercase shadow-xl">Generate Smart Link <ChevronRight size={16} /></button>
                   </div>
                 </div>
               </div>
 
               {/* OUTPUT & GUIDE */}
               {generatedLink && (
-                <div className="animate-in zoom-in-95 duration-500 space-y-6">
-                  <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
-                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
-                    <div className="grid grid-cols-2 gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] font-black uppercase italic mt-1 text-white/50 tracking-widest">Live Test</span></button>
+                <div className="animate-in zoom-in-95 duration-500 space-y-6 text-center">
+                  <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-8 shadow-2xl">
+                    <div className="bg-white p-5 rounded-3xl inline-block mb-8 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
+                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] text-[#25F4EE] font-mono text-center outline-none mb-6 border-dashed" />
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={20} className="text-[#25F4EE]" /> : <Copy size={20} className="text-white/40" />}<span className="text-[9px] font-black uppercase italic mt-2 text-white/50 tracking-widest text-center">Quick Copy</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={20} className="text-white/40" /><span className="text-[9px] font-black uppercase italic mt-1 text-white/50 tracking-widest text-center">Live Test</span></button>
                     </div>
                   </div>
                   
-                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
-                     <div className="flex items-center gap-2 mb-8 text-neon-cyan"><Info size={20}/><h4 className="text-[12px] font-black uppercase italic tracking-widest">Protocol Deployment Guide</h4></div>
-                     <div className="space-y-6">
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70">1</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Embed this URL in your Facebook/TikTok Ads or Instagram Bio. It's pre-optimized for mobile handshake conversions.</p></div>
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70">2</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Our protocol bridge automatically scrambles technical headers to look like organic traffic, protecting your phone number's reputation.</p></div>
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-[#25F4EE]/20 flex items-center justify-center text-[11px] font-black shrink-0 text-[#25F4EE]">3</div><p className="text-[11px] text-[#25F4EE] font-black leading-relaxed italic">PRO TIP: Become a Member to log visitor IPs, Cities, and Device identities before the SMS is even triggered.</p></div>
+                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-8 text-left shadow-2xl">
+                     <div className="flex items-center gap-2 mb-6 text-neon-cyan leading-none"><Info size={18}/><h4 className="text-[11px] font-black uppercase italic tracking-widest">Protocol Deployment Guide</h4></div>
+                     <div className="space-y-4">
+                        <div className="flex gap-4 items-start"><div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black shrink-0 text-white/70">1</div><p className="text-[10px] text-white/40 font-medium leading-relaxed">Embed this URL in your Facebook/TikTok Ads or Bio. It's pre-optimized for mobile conversions.</p></div>
+                        <div className="flex gap-4 items-start"><div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black shrink-0 text-white/70">2</div><p className="text-[10px] text-white/40 font-medium leading-relaxed">Our protocol bridge automatically scrambles headers to bypass carrier spam filters automatically.</p></div>
+                        <div className="flex gap-4 items-start"><div className="w-5 h-5 rounded-full bg-[#25F4EE]/20 flex items-center justify-center text-[10px] font-black shrink-0 text-[#25F4EE]">3</div><p className="text-[10px] text-[#25F4EE] font-black leading-relaxed italic">PRO TIP: Join as a Member to track names and locations of every person who clicks this link.</p></div>
                      </div>
                   </div>
                 </div>
               )}
 
               {/* FAQ AIDA SECTION */}
-              <div className="pt-20 pb-12">
-                 <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Operator FAQ</h3></div>
+              <div className="pt-16 pb-10">
+                 <div className="flex items-center gap-3 mb-10"><HelpCircle size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">Security Protocol FAQ</h3></div>
                  <div className="space-y-2">
                     <FAQItem 
-                      q="Why can't I just use a standard link?" 
-                      a="Attention: Carriers use advanced AI to block 'naked' SMS links. Interest: Our Scrambled Handshake Protocol disguises the traffic as an organic referral. Desire: By using our links, you ensure 100% delivery of your message to the recipient's phone." 
+                      q="Why can't I just use a standard SMS link?" 
+                      a="Standard links are flagged by USA carriers as automated spam. Our protocol uses a scrambled handshake redirect that looks like legitimate organic referral traffic, preserving your phone number's health." 
                     />
                     <FAQItem 
-                      q="What is the advantage of becoming a Member?" 
-                      a="Attention: Free users are limited to 60 handshakes. Desire: Members get Unlimited Traffic + Automatic Lead Logging. Action: Upgrade to Nexus to track every click, name, and location in your own private data vault." 
+                      q="How do I unlock Automatic Lead Logging?" 
+                      a="Lead Tracking is a high-value Member-only feature. By upgrading to Nexus Access, you activate a silent unmasking process that identifies the visitor's IP, City, and Network identity." 
                     />
                     <FAQItem 
-                      q="How secure is my private lead data?" 
-                      a="Our system is built on a zero-access architecture. Not even the platform administrator can see the contacts you capture. Each member has an encrypted, isolated database vault." 
+                      q="Is my data vault truly private?" 
+                      a="Yes. Our zero-access architecture ensures that not even the system administrator can see the contacts you capture. Each member has an isolated and encrypted database." 
                     />
                     <FAQItem 
-                      q="Can I use this for global marketing?" 
-                      a="Yes. The Smart SMS Protocol supports all international number formats. Whether you're targeting the USA, Europe, or beyond, the handshake logic adapts to the local network rules." 
+                      q="What is the benefit of joining the Network?" 
+                      a="Members dominate the traffic flow. You get unlimited handshakes, automatic lead vault storage, priority support, and access to the AI Scrambling Engine." 
                     />
                  </div>
               </div>
 
               {!user && (
                 <div className="flex flex-col items-center gap-4">
-                  <button onClick={() => setView('auth')} className="btn-strategic text-xs w-full max-w-[380px] !bg-white !text-black group italic font-black uppercase shadow-2xl py-6">
-                    <Rocket size={20} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES
+                  <button onClick={() => setView('auth')} className="btn-strategic text-xs w-full max-w-[360px] !bg-white !text-black group italic font-black uppercase shadow-2xl py-5">
+                    <Rocket size={18} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES
                   </button>
-                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6">
-                    <Star size={20} className="animate-pulse" /> BECOME A FULL MEMBER NOW
+                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[360px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-5">
+                    <Star size={18} className="animate-pulse" /> BECOME A FULL MEMBER NOW
                   </button>
                 </div>
               )}
@@ -376,26 +379,26 @@ export default function App() {
         )}
 
         {view === 'bridge' && (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center relative px-8">
+          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-20 flex flex-col items-center">
+              <div className="lighthouse-neon-content p-16 flex flex-col items-center">
                 {quotaExceeded ? (
-                  <div className="animate-in fade-in zoom-in-95 duration-500">
-                    <ShieldAlert size={100} className="text-[#FE2C55] animate-pulse mb-10 mx-auto" />
-                    <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white uppercase">Protocol Limit Reached</h2>
-                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 text-left relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={50} className="text-amber-500" /></div>
+                  <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
+                    <ShieldAlert size={100} className="text-[#FE2C55] animate-pulse mb-8 mx-auto" />
+                    <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center">Protocol Limit Reached</h2>
+                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={40} className="text-amber-500" /></div>
                        <h3 className="text-2xl font-black italic text-white uppercase mb-4 leading-none">Nexus Access Offer</h3>
-                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12">Upgrade to Member level to bypass limits and enable automatic lead tracking.</p>
-                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-xs italic font-black uppercase py-5">Unlock Full Access ($9/MO)</button>
+                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-10">Unlock <span className="text-white border-b border-white/20">Unlimited Redirections</span> and automatic lead logging now.</p>
+                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-[10px] italic font-black uppercase py-4">Unlock Full Access ($9/MO)</button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <Shield size={120} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-14" />
-                    <h2 className="text-4xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-6 leading-none">SECURITY HANDSHAKE</h2>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden my-12 max-w-xs"><div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_3s_linear]"></div></div>
-                    <p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center">Verified Host: {captureData?.company}</p>
+                    <Shield size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-12" />
+                    <h2 className="text-3xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-4 leading-none">SECURITY HANDSHAKE</h2>
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden my-10 max-w-xs"><div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_3s_linear]"></div></div>
+                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center">Verified Host Identity: {captureData?.company}</p>
                   </>
                 )}
               </div>
@@ -404,84 +407,84 @@ export default function App() {
         )}
 
         {view === 'dashboard' && (
-          <div className="w-full max-w-7xl mx-auto py-10 px-8 text-left">
-            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-12 mb-20">
+          <div className="w-full max-w-7xl mx-auto py-10 px-6 text-left">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16">
               <div>
-                <h2 className="text-7xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff] leading-none mb-4">
+                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">
                   {user?.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "MEMBER HUB"}
                 </h2>
-                <div className="flex items-center gap-4">
-                  <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[11px] px-5 py-2 rounded-full font-black uppercase italic tracking-[0.2em] border border-[#25F4EE]/20">
+                <div className="flex items-center gap-4 mt-4">
+                  <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-[#25F4EE]/20 leading-none">
                     {user?.uid === ADMIN_MASTER_ID ? "MASTER OVERRIDE" : `${userProfile?.tier || 'TRIAL'} ACCESS`}
                   </span>
                   {(userProfile?.isSubscribed || userProfile?.isUnlimited) && (
-                    <span className="bg-amber-500/10 text-amber-500 text-[11px] px-5 py-2 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic leading-none">
+                    <span className="bg-amber-500/10 text-amber-500 text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic leading-none">
                       LEAD LOGGING: ACTIVE
                     </span>
                   )}
                 </div>
               </div>
-              <div className="bg-[#0a0a0a] border border-white/10 px-12 py-8 rounded-[3rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
-                  <p className="text-[11px] font-black text-white/30 uppercase italic tracking-widest mb-2 flex items-center gap-1 leading-none"><RefreshCw size={12}/> Network Usage</p>
-                  <p className="text-5xl font-black text-white italic leading-none">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-sm text-white/30 tracking-normal uppercase ml-1">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
+              <div className="bg-[#0a0a0a] border border-white/10 px-10 py-7 rounded-[2.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit leading-none">
+                  <p className="text-[10px] font-black text-white/30 uppercase italic tracking-widest mb-2 flex items-center gap-1"><RefreshCw size={10}/> Protocol Usage</p>
+                  <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-xs text-white/30 tracking-normal ml-1">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
               </div>
             </div>
 
             {/* MASTER CONTROL PANEL */}
             {user?.uid === ADMIN_MASTER_ID && (
-               <div className="animate-in fade-in duration-700">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20">
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
-                        <Users size={48} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Total Members</p>
-                        <p className="text-5xl font-black italic leading-none">{allUsers.length}</p>
+               <div className="mb-20 animate-in fade-in duration-700">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
+                     <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group text-center shadow-2xl">
+                        <Users size={40} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Total Network</p>
+                        <p className="text-4xl font-black italic leading-none">{allUsers.length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
-                        <Star size={48} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Paid Members</p>
-                        <p className="text-5xl font-black italic text-amber-500 leading-none">{allUsers.filter(u => u.isSubscribed).length}</p>
+                     <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group text-center shadow-2xl">
+                        <Star size={40} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Paid Members</p>
+                        <p className="text-4xl font-black italic text-amber-500 leading-none">{allUsers.filter(u => u.isSubscribed).length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
-                        <Server size={48} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">System Traffic</p>
-                        <p className="text-5xl font-black italic text-[#FE2C55] leading-none">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
+                     <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group text-center shadow-2xl">
+                        <Server size={40} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Global Traffic</p>
+                        <p className="text-4xl font-black italic text-[#FE2C55] leading-none">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
-                        <Radio size={48} className="text-green-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Protocol Status</p>
-                        <p className="text-3xl font-black italic text-green-500 uppercase italic leading-none">Online</p>
+                     <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group text-center shadow-2xl">
+                        <Radio size={40} className="text-green-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">System Status</p>
+                        <p className="text-2xl font-black italic text-green-500 uppercase italic font-black leading-none">Secured</p>
                      </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-12 text-neon-cyan"><Users size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Member Management</h3></div>
-                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl">
+                  <div className="flex items-center gap-3 mb-10 text-neon-cyan"><Users size={24}/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">Network Member Management</h3></div>
+                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl">
                      <div className="max-h-[60vh] overflow-y-auto">
                         {allUsers.length > 0 ? allUsers.map(u => (
-                           <div key={u.id} className="p-12 border-b border-white/5 flex flex-col md:flex-row justify-between items-center hover:bg-white/[0.04] transition-all gap-8">
-                              <div className="flex items-center gap-8">
-                                 <div className={`p-5 rounded-[2rem] ${u.isSubscribed ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-white/5 text-white/20'}`}>
-                                    {u.isSubscribed ? <UserCheck size={32} /> : <UserMinus size={32} />}
+                           <div key={u.id} className="p-10 border-b border-white/5 flex flex-col md:flex-row justify-between items-center hover:bg-white/[0.04] transition-all gap-6">
+                              <div className="flex items-center gap-6">
+                                 <div className={`p-4 rounded-3xl ${u.isSubscribed ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-white/5 text-white/20'}`}>
+                                    {u.isSubscribed ? <UserCheck size={28} /> : <UserMinus size={28} />}
                                  </div>
                                  <div className="text-left">
-                                    <p className="font-black text-3xl text-white uppercase italic tracking-tighter leading-none">{u.fullName}</p>
-                                    <div className="flex items-center gap-5 text-sm font-black uppercase italic tracking-widest mt-3">
+                                    <p className="font-black text-2xl text-white uppercase italic tracking-tighter leading-none">{u.fullName}</p>
+                                    <div className="flex items-center gap-4 text-[12px] font-black uppercase italic tracking-widest mt-3 leading-none">
                                        <span className="text-[#25F4EE]">{u.email}</span>
                                        <span className="text-white/20">|</span>
                                        <span className="text-white/40">{u.phone}</span>
                                     </div>
                                  </div>
                               </div>
-                              <div className="flex items-center gap-6">
-                                 <button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-8 py-3 rounded-full border text-[11px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.4)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}>
-                                    <Gift size={16} /> {u.isUnlimited ? 'UNLIMITED GRANTED' : 'GRANT UNLIMITED'}
+                              <div className="flex items-center gap-4">
+                                 <button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[10px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}>
+                                    <Gift size={14} /> {u.isUnlimited ? 'UNLIMITED GRANTED' : 'GRANT UNLIMITED'}
                                  </button>
                                  <div className="text-right w-24">
-                                    <p className={`text-[10px] font-black uppercase italic ${u.isSubscribed ? 'text-amber-500' : 'text-white/30'}`}>{u.isSubscribed ? 'Nexus' : 'Trial'}</p>
-                                    <p className="text-[9px] text-white/20 font-black uppercase">Usage: {u.usageCount}</p>
+                                    <p className={`text-[10px] font-black uppercase italic leading-none ${u.isSubscribed ? 'text-amber-500' : 'text-white/20'}`}>{u.isSubscribed ? 'Nexus' : 'Trial'}</p>
+                                    <p className="text-[9px] text-white/20 font-black uppercase mt-1 leading-none">Usage: {u.usageCount}</p>
                                  </div>
                               </div>
                            </div>
-                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm italic">Syncing network operators...</div>}
+                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-xs">Awaiting operators for synchronization...</div>}
                      </div>
                   </div>
                </div>
@@ -490,23 +493,23 @@ export default function App() {
             {/* OPERATOR PRIVATE DATA VAULT */}
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && user?.uid !== ADMIN_MASTER_ID && (
                 <div className="animate-in fade-in duration-700 text-left">
-                  <div className="flex items-center justify-between mb-12 flex-wrap gap-6">
-                     <div className="flex items-center gap-3 text-neon-cyan"><Database size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Private Lead Vault</h3></div>
-                     <button onClick={() => setIsVaultActive(!isVaultActive)} className={`px-10 py-4 rounded-full border text-[11px] font-black uppercase italic transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>
+                  <div className="flex items-center justify-between mb-10 flex-wrap gap-4">
+                     <div className="flex items-center gap-3 text-neon-cyan leading-none"><Database size={24}/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">Private Lead Vault</h3></div>
+                     <button onClick={() => setIsVaultActive(!isVaultActive)} className={`px-8 py-3 rounded-full border text-[10px] font-black uppercase italic transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>
                         {isVaultActive ? "DISCONNECT VAULT" : "SYNC LEAD VAULT"}
                      </button>
                   </div>
-                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl">
+                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl">
                      {!isVaultActive ? (
-                        <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em] italic">Vault Encrypted & Standby</p></div>
+                        <div className="p-32 text-center opacity-20 flex flex-col items-center text-center"><Lock size={64} className="mb-6" /><p className="text-[12px] font-black uppercase tracking-[0.4em] italic">Vault Encrypted & Standby</p></div>
                      ) : (
                         <div className="max-h-[60vh] overflow-y-auto">
                            {myLeads.length > 0 ? myLeads.map(l => (
-                              <div key={l.id} className="p-12 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-2 text-neon-cyan leading-none">DEST: {l.destination}</p></div>
-                                 <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 leading-none">{l.ip}</div>
+                              <div key={l.id} className="p-10 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
+                                 <div className="text-left text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-2 italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-2 text-neon-cyan leading-none">DEST: {l.destination}</p></div>
+                                 <div className="text-right text-[11px] text-white/60 font-mono tracking-widest bg-white/5 px-4 py-2 rounded-xl border border-white/5 leading-none">{l.ip}</div>
                               </div>
-                           )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs tracking-widest">Waiting for incoming traffic signals...</div>}
+                           )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-xs text-center">Waiting for incoming traffic handshakes...</div>}
                         </div>
                      )}
                   </div>
@@ -515,68 +518,69 @@ export default function App() {
             
             {/* TIERS UPSELL */}
             {(!userProfile?.isSubscribed && !userProfile?.isUnlimited && user?.uid !== ADMIN_MASTER_ID) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
-                 <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
-                    <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs">Unmask visitor names and locations before the SMS is sent.</p>
-                    <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs italic uppercase font-black py-5 shadow-2xl">UPGRADE TO NEXUS</button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+                 <div className="bg-white/5 border border-[#25F4EE]/30 p-10 rounded-[3rem] text-left relative overflow-hidden group shadow-2xl">
+                    <h3 className="text-3xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
+                    <p className="text-white/40 text-[10px] uppercase italic font-black mb-8 tracking-widest italic leading-relaxed max-w-xs">Automatic Lead unmasking + Unlimited redirections.</p>
+                    <p className="text-4xl font-black text-white italic mb-10 leading-none">$9.00<span className="text-xs text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-[10px] italic uppercase font-black py-4 shadow-xl">UPGRADE TO NEXUS</button>
                  </div>
-                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
-                    <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
-                    <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs">Unlimited traffic with AI Scrambling and multi-SIM safety.</p>
-                    <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-xs italic uppercase font-black py-5 shadow-2xl">ACTIVATE EXPERT AI</button>
+                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[3rem] text-left relative overflow-hidden group shadow-[0_0_50px_rgba(37,244,238,0.2)]">
+                    <h3 className="text-3xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
+                    <p className="text-white/40 text-[10px] uppercase italic font-black mb-8 tracking-widest italic leading-relaxed max-w-xs">AI SuperAgent + Multi-Device Session Sync Engine.</p>
+                    <p className="text-4xl font-black text-white italic mb-10 leading-none">$19.90<span className="text-xs text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                    <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-[10px] italic uppercase font-black py-4 shadow-xl">ACTIVATE EXPERT AI</button>
                  </div>
               </div>
             )}
           </div>
         )}
 
-        {(view === 'auth' || view === 'login') && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
+        {view === 'auth' && (
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
-              <div className="lighthouse-neon-content p-12 sm:p-16 relative">
-                <h2 className="text-3xl font-black italic mt-8 mb-14 uppercase text-white text-center tracking-tighter text-glow-white leading-none italic">
-                  {view === 'login' ? "Member Login" : "Join the Network"}
+              <div className="lighthouse-neon-content p-10 sm:p-14 relative">
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white leading-none italic">
+                  {isLoginMode ? "Member Login" : "Join the Network"}
                 </h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-7">
-                  {view === 'auth' && (
+                <form onSubmit={handleAuthSubmit} className="space-y-6">
+                  {!isLoginMode && (
                     <>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Full Operator Name</label>
-                        <input required placeholder="Your Name or Company" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-bold" />
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Full Operator Name</label>
+                        <input required placeholder="Name or Company" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-bold" />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Valid Mobile (+1...)</label>
-                        <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-bold" />
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-tight block">
+                           Valid Mobile Number
+                           <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: (+1 999 999 9999)</span>
+                        </label>
+                        <input required placeholder="Phone Identity" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-bold" />
                       </div>
                     </>
                   )}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Email Address</label>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Email Address</label>
                     <input required type="email" placeholder="member@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold" />
                   </div>
-                  <div className="space-y-2 relative">
-                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">{view === 'login' ? 'Security Password' : 'Create Password'}</label>
+                  <div className="space-y-1 relative">
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic leading-none">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
                     <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-bold" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-11 text-white/30 hover:text-[#25F4EE] transition-colors">{showPass ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-9 text-white/30 hover:text-[#25F4EE] transition-colors">{showPass ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
-                  {view === 'auth' && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Confirm Password</label>
-                      <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-bold" />
+                  {!isLoginMode && (
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Confirm Password</label>
+                      <input required type={showPass ? "text" : "password"} placeholder="Repeat your security key" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-bold" />
                     </div>
                   )}
                   
-                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-8 py-5">
-                    {loading ? "AUTHENTICATING..." : view === 'login' ? "Authorize Access" : "Join Network"}
+                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-6 py-5">
+                    {loading ? "AUTHENTICATING..." : isLoginMode ? "Authorize Access" : "Join the Network"}
                   </button>
                   
-                  <button type="button" onClick={() => setView(view === 'login' ? 'auth' : 'login')} className="w-full text-[11px] font-black text-white/20 uppercase italic mt-16 text-center hover:text-white transition-all uppercase italic tracking-widest leading-none">
-                    {view === 'login' ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all uppercase italic tracking-widest leading-none">
+                    {isLoginMode ? "ESTABLISH NEW ACCOUNT? REGISTER HERE" : "ALREADY A MEMBER? LOGIN HERE"}
                   </button>
                 </form>
               </div>
@@ -590,14 +594,14 @@ export default function App() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left">
            <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-3xl">
               <div className="lighthouse-neon-content p-10">
-                 <div className="flex justify-between items-center mb-10">
+                 <div className="flex justify-between items-center mb-10 leading-none">
                     <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic"><Bot size={32} /><span className="text-sm uppercase tracking-widest text-glow-white">SMART SUPPORT</span></div>
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors"><X size={28}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center">
                     <p className="text-[11px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed">The AI Agent is analyzing your request... Protocol ready for encrypted support handshake.</p>
                  </div>
-                 <input className="input-premium text-xs mb-6 italic" placeholder="Enter support inquiry..." />
+                 <input className="input-premium text-xs mb-6 italic font-black" placeholder="Enter support inquiry..." />
                  <button className="btn-strategic text-xs italic uppercase font-black py-4 shadow-xl">Establish Connection</button>
               </div>
            </div>
