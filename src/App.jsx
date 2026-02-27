@@ -95,7 +95,7 @@ export default function App() {
 
     if (t && m && o) {
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
-      handleProtocolHandshake(t, m, o);
+      handleProtocolHandshake(t, m, o, params.get('c'));
     }
     return () => unsubscribe();
   }, []);
@@ -118,7 +118,7 @@ export default function App() {
     });
   }, [user, userProfile, view, isVaultActive]);
 
-  const handleProtocolHandshake = async (to, msg, ownerId) => {
+  const handleProtocolHandshake = async (to, msg, ownerId, company) => {
     setView('bridge');
     setTimeout(async () => {
       const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
@@ -244,7 +244,7 @@ export default function App() {
                   <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <LayoutDashboard size={18} /> {user.uid === ADMIN_MASTER_ID ? "MASTER CONTROL" : "OPERATOR HUB"}
                   </button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
+                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <Bot size={18} /> SMART SUPPORT
                   </button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto mb-10">
@@ -445,33 +445,35 @@ export default function App() {
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-10 sm:p-14 relative">
-                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white">Protocol Identity</h2>
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white">
+                  {isLoginMode ? "OPERATOR LOGIN" : "PROTOCOL IDENTITY"}
+                </h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-4">
                   {!isLoginMode && (
                     <>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Full Operator Name</label>
-                        <input required placeholder="OPERATOR FULL NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs uppercase italic" />
+                        <input required placeholder="OPERATOR FULL NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs italic" />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Valid Mobile (+1...)</label>
-                        <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs uppercase italic" />
+                        <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs italic" />
                       </div>
                     </>
                   )}
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Email Identity</label>
-                    <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs uppercase italic" />
+                    <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs italic" />
                   </div>
                   <div className="space-y-1 relative">
                     <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs italic" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-9 text-white/30 hover:text-[#25F4EE]">{showPass ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
                   {!isLoginMode && (
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Confirm Password</label>
-                      <input required type={showPass ? "text" : "password"} placeholder="REPEAT PASSWORD" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                      <input required type={showPass ? "text" : "password"} placeholder="REPEAT PASSWORD" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs italic" />
                     </div>
                   )}
                   
@@ -480,7 +482,7 @@ export default function App() {
                   </button>
                   
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all">
-                    {isLoginMode ? "Establish New Identity? Register" : "Existing Identity? Login"}
+                    {isLoginMode ? "ESTABLISH NEW IDENTITY? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
                   </button>
                 </form>
               </div>
@@ -499,9 +501,9 @@ export default function App() {
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={20}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-5 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center text-center">
-                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
+                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
                  </div>
-                 <input className="input-premium text-xs mb-4 uppercase italic" placeholder="Enter support inquiry..." />
+                 <input className="input-premium text-xs mb-4 italic" placeholder="Enter support inquiry..." />
                  <button className="btn-strategic text-[10px] italic uppercase font-black">Establish Connection</button>
               </div>
            </div>
