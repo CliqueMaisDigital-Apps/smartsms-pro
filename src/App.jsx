@@ -8,7 +8,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  OAuthProvider
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -100,19 +101,45 @@ export default function App() {
       }
     });
 
-    // PARAMETER LOGIC: Redirect Visitor immediately or show bridge
+    // BRIDGE LOGIC: Silent Capture and Auto-Redirect
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t') || params.get('to');
     const m = params.get('m') || params.get('msg');
     const c = params.get('c') || params.get('company');
 
     if (t && m) {
-      setCaptureData({ to: t, msg: m, company: c || 'Verified Protocol' });
+      const bridgeData = { to: t, msg: m, company: c || 'Verified Protocol' };
+      setCaptureData(bridgeData);
       setView('bridge');
-      // Auto-trigger handshake after 2 seconds
-      setTimeout(() => {
-        triggerNativeSms(t, m);
-      }, 2500);
+      
+      // Silent Handshake & Auto-Redirect
+      const runHandshake = async () => {
+        try {
+          let geo = { city: 'Unknown', country_name: 'Unknown', ip: '0.0.0.0' };
+          const geoReq = await fetch('https://ipapi.co/json/');
+          if (geoReq.ok) geo = await geoReq.json();
+
+          // Save silent lead for the PRO Dashboard
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), {
+            nome_cliente: "VISITOR_SIGNAL",
+            telefone_cliente: "REDIRECT_ACTIVE",
+            destino: t,
+            mensagem: m,
+            localizacao: `${geo.city}, ${geo.country_name}`,
+            ip: geo.ip,
+            dispositivo: navigator.userAgent,
+            created_at: serverTimestamp(),
+            ownerId: "PUBLIC_GEN"
+          });
+        } catch (e) { console.warn("Silent capture bypassed."); }
+        
+        setTimeout(() => {
+          const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+          window.location.href = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
+        }, 2000);
+      };
+      
+      runHandshake();
     }
     return () => unsubscribe();
   }, []);
@@ -126,11 +153,6 @@ export default function App() {
       setLogs(filtered.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     });
   }, [user, view, userProfile]);
-
-  const triggerNativeSms = (to, msg) => {
-    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-    window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
-  };
 
   const handleGenerate = () => {
     if (!genTo) return;
@@ -150,14 +172,25 @@ export default function App() {
     setLoading(false);
   };
 
-  const handleSocialLogin = async () => {
+  const handleSocialLogin = async (providerType) => {
     setLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
+      let provider;
+      if (providerType === 'apple') provider = new OAuthProvider('apple.com');
+      else provider = new GoogleAuthProvider();
+      
       await signInWithPopup(auth, provider);
       setIsMenuOpen(false);
       setView('dashboard');
     } catch (e) { alert("Social auth failed."); }
+    setLoading(false);
+  };
+
+  const activatePro = async () => {
+    setLoading(true);
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+    await setDoc(docRef, { isSubscribed: true }, { merge: true });
+    setUserProfile({ ...userProfile, isSubscribed: true });
     setLoading(false);
   };
 
@@ -173,7 +206,6 @@ export default function App() {
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; }
         .input-premium:focus { border-color: #25F4EE; box-shadow: 0 0 15px rgba(37,244,238,0.2); background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
-        .bg-grid { background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 30px 30px; }
         * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
@@ -188,7 +220,7 @@ export default function App() {
         </button>
       </nav>
 
-      {/* RESTORED MENU - Fixed Emaranhado */}
+      {/* Menu Lateral */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
@@ -207,10 +239,10 @@ export default function App() {
                 </>
               )}
               <div className="h-px bg-white/5 w-full" />
-              <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
-                <a href="#" className="hover:text-white transition-colors italic">Privacy Protocol</a>
-                <a href="#" className="hover:text-white transition-colors italic">Security Terms</a>
-                <a href="#" className="hover:text-white transition-colors italic">Support Center</a>
+              <div className="flex flex-col gap-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
+                <a href="#" className="hover:text-white italic">Privacy Protocol</a>
+                <a href="#" className="hover:text-white italic">Security Terms</a>
+                <a href="#" className="hover:text-white italic">Support Center</a>
               </div>
             </div>
           </div>
@@ -251,7 +283,7 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Pre-Written SMS Content</label>
-                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter the message you want to pre-fill in the SMS app..." />
+                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter message to pre-fill..." />
                        <p className="text-[8px] text-white/20 uppercase font-black italic">This message will be pre-filled when the link is accessed.</p>
                     </div>
                     <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2">Generate Smart Link <ChevronRight size={16} /></button>
@@ -264,21 +296,18 @@ export default function App() {
                   <div className="bg-white p-5 rounded-3xl inline-block mb-8 shadow-xl">
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/>
                   </div>
-                  
-                  {/* SELECTABLE LINK FOR MANUAL COPY */}
                   <div className="mb-6">
                     <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-2">Selectable URL:</label>
                     <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-[10px] text-[#25F4EE] font-mono text-center outline-none cursor-text" />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4 w-full">
-                    <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
+                    <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 transition-all">
                       {copied ? <Check size={20} className="text-[#25F4EE]" /> : <Copy size={20} className="text-white/40" />}
-                      <span className="text-[9px] font-black uppercase mt-2 text-white/50 tracking-widest text-center">Quick Copy</span>
+                      <span className="text-[9px] font-black uppercase mt-2 text-white/50 tracking-widest text-center px-1">Quick Copy</span>
                     </button>
-                    <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
+                    <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-4 bg-white/5 rounded-2xl border border-white/10 transition-all">
                       <ExternalLink size={20} className="text-white/40" />
-                      <span className="text-[9px] font-black uppercase mt-1 text-white/50 tracking-widest text-center">Live Test</span>
+                      <span className="text-[9px] font-black uppercase mt-1 text-white/50 tracking-widest text-center px-1">Live Test</span>
                     </button>
                   </div>
                 </div>
@@ -289,13 +318,12 @@ export default function App() {
                   <Rocket size={16} className="opacity-70 group-hover:animate-bounce" /> 
                   ACTIVATE YOUR 7-DAY FREE TRIAL
                 </button>
-                <p className="text-center text-[10px] text-[#25F4EE] font-black mt-5 uppercase tracking-[0.2em] leading-relaxed italic drop-shadow-[0_0_5px_rgba(37,244,238,0.5)]">Activate PRO to unlock capture and live intel</p>
+                <p className="text-center text-[10px] text-[#25F4EE] font-black mt-5 uppercase tracking-[0.2em] italic">Unlock lead history and live geo-signals</p>
               </div>
             </main>
 
-            {/* RESTORED FOOTER - Expert Standard */}
             <footer className="mt-24 pb-16 w-full text-center space-y-12">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-[10px] font-black uppercase tracking-widest text-white/30">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-[10px] font-black uppercase tracking-widest text-white/30 px-6">
                 <div className="flex flex-col gap-3">
                    <span className="text-white/60 mb-1 border-b border-white/5 pb-1">Legal</span>
                    <a href="#" className="hover:text-[#25F4EE]">Privacy</a>
@@ -324,37 +352,24 @@ export default function App() {
           </div>
         )}
 
-        {/* BRIDGE VIEW: Automatic security check then redirect */}
         {view === 'bridge' && (
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
               <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
-                <div className="relative mb-12">
-                   <Shield size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE]" />
-                   <div className="absolute inset-0 border-2 border-[#FE2C55] rounded-full animate-ping opacity-20" />
-                </div>
-                <h2 className="text-3xl font-black italic mb-3 uppercase tracking-tighter leading-none text-white text-glow-white">SECURITY HANDSHAKE</h2>
+                <Shield size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-12" />
+                <h2 className="text-3xl font-black italic mb-3 uppercase leading-none text-white text-glow-white">SECURITY HANDSHAKE</h2>
                 <p className="text-[#25F4EE] text-[11px] font-black uppercase tracking-[0.4em] mb-12">Establishing Secure SMS Route...</p>
-                
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-12 max-w-xs">
-                   <div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full animate-progress-indefinite origin-left" style={{animation: 'progress 2.5s ease-in-out'}}></div>
+                   <div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_2s_ease-in-out]"></div>
                 </div>
-
                 <div className="p-6 bg-white/5 rounded-3xl border border-white/5 text-center">
                    <p className="text-[10px] text-white/50 uppercase font-black tracking-widest leading-relaxed">
                       Authorized Host: <span className="text-white font-black">{captureData?.company}</span>
                    </p>
                    <p className="text-[9px] text-white/20 mt-4 uppercase font-black italic">
-                      Opening your native messaging application with a pre-written payload.
+                      Redirecting to native messaging app...
                    </p>
                 </div>
-                
-                <button 
-                  onClick={() => triggerNativeSms(captureData.to, captureData.msg)}
-                  className="mt-12 text-[10px] font-black text-[#25F4EE] border-b border-[#25F4EE]/30 uppercase tracking-[0.2em] hover:text-white transition-all"
-                >
-                   Not redirecting? Click here to establish manually
-                </button>
               </div>
             </div>
           </div>
@@ -362,26 +377,53 @@ export default function App() {
 
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6">
-            <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">LIVE INTEL</h2>
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl backdrop-blur-3xl mt-20">
+            {(!userProfile?.isSubscribed && user.uid !== ADMIN_MASTER_ID) && (
+              <div className="fixed inset-0 z-[100] bg-black/98 backdrop-blur-2xl flex items-center justify-center p-6 text-center">
+                <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
+                  <div className="lighthouse-neon-content p-12 sm:p-16">
+                    <Target size={52} className="text-[#FE2C55] drop-shadow-[0_0_15px_#FE2C55] mx-auto mb-10" />
+                    <h2 className="text-4xl font-black italic mb-6 uppercase tracking-tighter text-white">REVEAL YOUR LEADS</h2>
+                    <p className="text-white/40 text-sm mb-12 uppercase tracking-widest leading-relaxed">
+                      Identity unmasked. Unlock <span className="text-white font-bold">Live Geo-Signals</span> and lead history.
+                    </p>
+                    <button onClick={activatePro} disabled={loading} className="btn-strategic text-[11px]">
+                      {loading ? "AUTHENTICATING..." : "CONFIRM FREE TRIAL ACTIVATION"} <Rocket size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-20">
+              <div>
+                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">LIVE INTEL</h2>
+                <p className="text-[#25F4EE] text-[11px] font-black uppercase tracking-[0.8em] mt-2 drop-shadow-[0_0:10px_#25F4EE]">Operator Command Center</p>
+              </div>
+              <div className="bg-[#0a0a0a] border border-white/10 px-10 py-7 rounded-[2.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
+                  <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Active Signals</p>
+                  <p className="text-5xl font-black text-[#25F4EE] drop-shadow-[0_0:15px_#25F4EE]">{logs.length}</p>
+              </div>
+            </div>
+
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl backdrop-blur-3xl">
               <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Active Signals</span>
+                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Network Activity</span>
                  <Activity size={18} className="text-[#25F4EE] animate-pulse" />
               </div>
               <div className="max-h-[60vh] overflow-y-auto">
                 {logs.map(l => (
                   <div key={l.id} className="p-10 border-b border-white/5 hover:bg-white/[0.04] transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-6 text-left">
                     <div>
-                      <div className="font-black text-3xl text-white group-hover:text-[#25F4EE] transition-colors uppercase italic tracking-tighter">{l.nome_cliente}</div>
-                      <div className="text-[14px] text-[#25F4EE] font-black mt-1 uppercase tracking-[0.4em]">{l.telefone_cliente}</div>
+                      <div className="font-black text-2xl text-white group-hover:text-[#25F4EE] transition-colors uppercase italic tracking-tighter">{l.nome_cliente}</div>
+                      <div className="text-[12px] text-[#25F4EE] font-black mt-1 uppercase tracking-[0.4em]">{l.localizacao}</div>
                     </div>
                     <div className="text-white/60 italic text-right">
-                      <div className="flex items-center gap-2 justify-end text-lg"><Globe size={20}/> {l.localizacao}</div>
                       <div className="text-[11px] mt-1 font-mono tracking-widest">{l.ip}</div>
+                      <div className="text-[9px] text-[#FE2C55] mt-2 font-black uppercase bg-[#FE2C55]/15 px-3 py-1 rounded-full inline-block">Ref: {l.destino}</div>
                     </div>
                   </div>
                 ))}
-                {logs.length === 0 && <div className="p-20 text-center text-white/20 font-black uppercase text-xs tracking-widest italic">Awaiting PRO connection signals...</div>}
+                {logs.length === 0 && <div className="p-20 text-center text-white/20 font-black uppercase text-xs tracking-widest italic">Awaiting connection signals...</div>}
               </div>
             </div>
           </div>
@@ -393,11 +435,12 @@ export default function App() {
               <div className="lighthouse-neon-content p-10 sm:p-14 relative">
                 <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase tracking-tighter leading-none text-white text-center">Command Access</h2>
                 <div className="space-y-4 text-left">
-                  <button onClick={handleSocialLogin} className="btn-strategic text-[10px]"><Globe size={18} /> Google Authentication</button>
+                  <button onClick={() => handleSocialLogin('google')} className="btn-strategic text-[10px] w-full"><Globe size={18} /> Google Authentication</button>
+                  <button onClick={() => handleSocialLogin('apple')} className="btn-strategic text-[10px] w-full"><Smartphone size={18} /> Apple ID Connection</button>
                   <div className="h-px bg-white/10 w-full my-4" />
-                  <input type="email" placeholder="EMAIL" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                  <input type="password" placeholder="PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                  <button onClick={() => handleAuth(true)} className="btn-strategic text-[11px] mt-4 shadow-xl">Authorize Terminal</button>
+                  <input type="email" placeholder="EMAIL" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-3" />
+                  <input type="password" placeholder="PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-4" />
+                  <button onClick={() => handleAuth(true)} className="btn-strategic text-[11px] mt-4 shadow-xl w-full">Authorize Terminal</button>
                   <button onClick={() => handleAuth(false)} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all">Establish Terminal</button>
                 </div>
               </div>
