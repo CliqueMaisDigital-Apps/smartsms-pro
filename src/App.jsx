@@ -23,7 +23,7 @@ import {
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
-  UserCheck, UserMinus, Gift, Bot
+  UserCheck, UserMinus, Gift, Bot, Mail, Phone, ShoppingCart
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -43,6 +43,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER IDENTITY (OWNER) ---
+// Instructions: Register below first, then copy your UID from Firebase Console and paste it here.
 const ADMIN_MASTER_ID = "MASTER_USER_ID"; 
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
@@ -63,10 +64,13 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   
+  // Registration Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+
+  // Generator Inputs
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -93,16 +97,20 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Sync Global User List (Admin Only)
   useEffect(() => {
     if (!user || user.uid !== ADMIN_MASTER_ID || view !== 'dashboard') return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles');
+    return onSnapshot(usersCol, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, view]);
 
+  // Sync Private Lead Vault (Operator Only)
   useEffect(() => {
     if (!user || (!userProfile?.isSubscribed && !userProfile?.isUnlimited) || view !== 'dashboard' || !isVaultActive) return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+    const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+    return onSnapshot(leadsCol, (snap) => {
       setMyLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, userProfile, view, isVaultActive]);
@@ -148,12 +156,19 @@ export default function App() {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const newProfile = { fullName, phone, email, tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: false, created_at: serverTimestamp() };
+        const newProfile = {
+          fullName, phone, email,
+          tier: 'FREE_TRIAL',
+          usageCount: 0,
+          isSubscribed: false,
+          isUnlimited: false,
+          created_at: serverTimestamp()
+        };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), newProfile);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), newProfile);
       }
       setView('home');
-    } catch (e) { alert("Identity Error: Protocol mismatch."); }
+    } catch (e) { alert("Identity Error: Authentication protocol failed."); }
     setLoading(false);
   };
 
@@ -168,7 +183,8 @@ export default function App() {
     if (!user) { setView('auth'); return; }
     if (!genTo) return;
     const baseUrl = window.location.origin;
-    setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
+    const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`;
+    setGeneratedLink(shortLink);
   };
 
   return (
@@ -183,7 +199,6 @@ export default function App() {
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 700; }
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
-        .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
         * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
@@ -192,7 +207,7 @@ export default function App() {
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-white/10 p-1 rounded-lg border border-white/10 shadow-lg shadow-white/5"><Zap size={18} className="text-white fill-white" /></div>
           <span className="text-md font-black italic tracking-tighter uppercase text-white">SMART SMS PRO</span>
-          {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase">MASTER</span>}
+          {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic">MASTER</span>}
         </div>
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 text-white/50 hover:text-white transition-all z-[110]">
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -208,14 +223,14 @@ export default function App() {
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-8 flex-1 text-left">
+            <div className="flex flex-col gap-10 flex-1 text-left">
               {!user ? (
-                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors">
+                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE]">
                    <Lock size={18} /> REGISTER IDENTITY
                 </button>
               ) : (
                 <>
-                  <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="mb-6 p-5 bg-white/5 rounded-3xl border border-white/10">
                      <p className="text-[9px] font-black text-white/30 uppercase mb-1">Identity Active</p>
                      <p className="text-xs font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Operator'}</p>
                   </div>
@@ -225,15 +240,15 @@ export default function App() {
                   <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <Bot size={18} /> SMART SUPPORT
                   </button>
-                  <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto">
+                  <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto mb-10">
                      <LogOut size={18} /> TERMINATE SESSION
                   </button>
                 </>
               )}
               <div className="h-px bg-white/5 w-full my-4" />
               <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em]">
-                <a href="#" className="hover:text-white transition-colors">PRIVACY PROTOCOL</a>
-                <a href="#" className="hover:text-white transition-colors">SECURITY TERMS</a>
+                <a href="#" className="hover:text-white transition-colors">Privacy Protocol</a>
+                <a href="#" className="hover:text-white transition-colors">Security Terms</a>
                 <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
               </div>
             </div>
@@ -241,11 +256,11 @@ export default function App() {
         </>
       )}
 
-      {/* Main UI */}
-      <div className="pt-24 flex-1 pb-10 relative">
-        <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
-        <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
+      {/* Ambient background glows */}
+      <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
+      <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
+      <div className="pt-24 flex-1 pb-10 relative">
         {view === 'home' && (
           <div className="w-full max-w-[520px] mx-auto px-4 z-10 relative text-center">
             <header className="mb-12 flex flex-col items-center">
@@ -388,7 +403,7 @@ export default function App() {
                         <div className="max-h-[60vh] overflow-y-auto">
                            {myLeads.map(l => (
                               <div key={l.id} className="p-10 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1">DEST: {l.destination}</p></div>
+                                 <div className="text-left text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1">DEST: {l.destination}</p></div>
                                  <div className="text-right text-[11px] text-white/60 font-mono tracking-widest bg-white/5 px-4 py-2 rounded-xl border border-white/5">{l.ip}</div>
                               </div>
                            ))}
@@ -406,13 +421,13 @@ export default function App() {
                     <h3 className="text-3xl font-black italic text-white uppercase mb-2">Nexus Access</h3>
                     <p className="text-white/40 text-[10px] uppercase italic font-black mb-8 tracking-widest italic leading-relaxed">Unlimited redirections + Automatic Lead Logging.</p>
                     <p className="text-4xl font-black text-white italic mb-10">$9.00<span className="text-xs text-white/30 font-medium tracking-normal"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-[10px] italic uppercase">UPGRADE TO NEXUS</button>
+                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-[10px] italic uppercase font-black">UPGRADE TO NEXUS</button>
                  </div>
                  <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[3rem] text-left relative overflow-hidden group shadow-[0_0_50px_rgba(37,244,238,0.2)]">
                     <h3 className="text-3xl font-black italic text-white uppercase mb-2">Expert Agent</h3>
                     <p className="text-white/40 text-[10px] uppercase italic font-black mb-8 tracking-widest italic leading-relaxed">AI SuperAgent + Multi-SIM + Bulk Ingestion.</p>
                     <p className="text-4xl font-black text-white italic mb-10">$19.90<span className="text-xs text-white/30 font-medium tracking-normal"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-[10px] italic uppercase">ACTIVATE EXPERT AI</button>
+                    <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-[10px] italic uppercase font-black">ACTIVATE EXPERT AI</button>
                  </div>
               </div>
             )}
@@ -430,7 +445,7 @@ export default function App() {
                      <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs uppercase italic" />
                      <div className="h-px bg-white/5 w-full my-4" />
                      <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs uppercase italic" />
-                     <input required type="password" placeholder="SECURITY KEY" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
+                     <input required type="password" placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs uppercase italic" />
                   </div>
                   <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black">{loading ? "AUTHENTICATING..." : "Establish Identity"}</button>
                   <button type="button" onClick={() => handleAuth(true)} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all">Existing Identity? Access</button>
@@ -451,7 +466,7 @@ export default function App() {
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={20}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-5 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center text-center">
-                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
+                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
                  </div>
                  <input className="input-premium text-xs mb-4 uppercase italic" placeholder="Enter support inquiry..." />
                  <button className="btn-strategic text-[10px] italic uppercase font-black">Establish Connection</button>
