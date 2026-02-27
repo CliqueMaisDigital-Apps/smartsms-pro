@@ -23,7 +23,7 @@ import {
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
-  UserCheck, UserMinus, Gift, Bot, Eye, EyeOff
+  UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -43,7 +43,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER IDENTITY (OWNER) ---
-// SEARCH FOR THIS LINE WITH CTRL+F TO PASTE YOUR UID
+// SEARCH FOR THIS LINE AND PASTE YOUR UID FROM FIREBASE IMAGE
 const ADMIN_MASTER_ID = "W41IbExRiYb7HJ0Dx3up3JEUAqf2"; 
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
@@ -64,7 +64,7 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   
-  // Auth Form States
+  // Registration States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -95,44 +95,45 @@ export default function App() {
 
     if (t && m && o) {
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
-      handleProtocolHandshake(t, m, o, params.get('c'));
+      handleProtocolHandshake(t, m, o);
     }
     return () => unsubscribe();
   }, []);
 
-  // MASTER SYNC: List users for Admin
+  // MASTER DATA SYNC (All users list)
   useEffect(() => {
-    if (!user || user.uid !== ADMIN_MASTER_ID || view !== 'dashboard') return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+    if (!user || user.uid !== ADMIN_MASTER_ID || (view !== 'dashboard' && view !== 'home')) return;
+    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles');
+    return onSnapshot(usersCol, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, view]);
 
-  // OPERATOR SYNC: Private Leads for Subscriber/VIP
+  // OPERATOR DATA SYNC (Private leads)
   useEffect(() => {
     if (!user || (!userProfile?.isSubscribed && !userProfile?.isUnlimited) || view !== 'dashboard' || !isVaultActive) return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+    const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+    return onSnapshot(leadsCol, (snap) => {
       setMyLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, userProfile, view, isVaultActive]);
 
-  const handleProtocolHandshake = async (to, msg, ownerId, company) => {
+  const handleProtocolHandshake = async (to, msg, ownerId) => {
     setView('bridge');
     setTimeout(async () => {
       const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
       const d = await getDoc(ownerRef);
       const ownerProfile = d.data();
 
-      // Check quota (60) unless Subscribed or Unlimited
       if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.usageCount || 0) >= 60) {
         setQuotaExceeded(true);
         return;
       }
 
       await updateDoc(ownerRef, { usageCount: increment(1) });
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+      const publicRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
+      await updateDoc(publicRef, { usageCount: increment(1) });
 
-      // Record lead if allowed
       if (ownerProfile.isSubscribed || ownerProfile.isUnlimited) {
         try {
           const geoReq = await fetch('https://ipapi.co/json/');
@@ -161,11 +162,13 @@ export default function App() {
       } else {
         if (password !== confirmPassword) throw new Error("Passwords do not match.");
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const newProfile = { 
-          fullName, phone, email, 
-          tier: 'FREE_TRIAL', usageCount: 0, 
-          isSubscribed: false, isUnlimited: false, 
-          created_at: serverTimestamp() 
+        const newProfile = {
+          fullName, phone, email,
+          tier: 'FREE_TRIAL',
+          usageCount: 0,
+          isSubscribed: false,
+          isUnlimited: false,
+          created_at: serverTimestamp()
         };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), newProfile);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), newProfile);
@@ -186,7 +189,8 @@ export default function App() {
     if (!user) { setView('auth'); return; }
     if (!genTo) return;
     const baseUrl = window.location.origin;
-    setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
+    const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`;
+    setGeneratedLink(shortLink);
   };
 
   return (
@@ -201,7 +205,6 @@ export default function App() {
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 700; }
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
-        .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
         * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
@@ -221,12 +224,12 @@ export default function App() {
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-0 right-0 w-72 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right">
+          <div className="fixed top-0 right-0 w-72 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right text-left">
             <div className="flex justify-between items-center mb-12">
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-8 flex-1 text-left">
+            <div className="flex flex-col gap-8 flex-1">
               {!user ? (
                 <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors">
                    <Lock size={18} /> REGISTER IDENTITY
@@ -250,8 +253,8 @@ export default function App() {
               )}
               <div className="h-px bg-white/5 w-full my-4" />
               <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em]">
-                <a href="#" className="hover:text-white transition-colors uppercase">Privacy Protocol</a>
-                <a href="#" className="hover:text-white transition-colors uppercase">Security Terms</a>
+                <a href="#" className="hover:text-white transition-colors uppercase italic font-black">Privacy Protocol</a>
+                <a href="#" className="hover:text-white transition-colors uppercase italic font-black">Security Terms</a>
                 <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
               </div>
             </div>
@@ -320,7 +323,7 @@ export default function App() {
                 {quotaExceeded ? (
                   <div className="animate-in fade-in zoom-in-95 duration-500">
                     <ShieldAlert size={80} className="text-[#FE2C55] animate-pulse mb-8 mx-auto" />
-                    <h2 className="text-3xl font-black italic uppercase text-white mb-4 leading-tight text-glow-white">Protocol Limit Reached</h2>
+                    <h2 className="text-3xl font-black italic uppercase text-white mb-4 leading-tight text-glow-white uppercase">Protocol Limit Reached</h2>
                     <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 text-left relative overflow-hidden group">
                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={40} className="text-amber-500" /></div>
                        <h3 className="text-2xl font-black italic text-white uppercase mb-4">Nexus Access Offer</h3>
@@ -345,25 +348,27 @@ export default function App() {
           <div className="w-full max-w-7xl mx-auto py-10 px-6 text-left">
             <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16">
               <div>
-                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">{user?.uid === ADMIN_MASTER_ID ? "MASTER CONTROL" : "OPERATOR HUB"}</h2>
+                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">
+                  {user?.uid === ADMIN_MASTER_ID ? "MASTER CONTROL CENTER" : "OPERATOR HUB"}
+                </h2>
                 <div className="flex items-center gap-4 mt-4">
                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-[#25F4EE]/20">{userProfile?.tier || 'TRIAL'} IDENTITY</span>
                   {(userProfile?.isSubscribed || userProfile?.isUnlimited) && <span className="bg-amber-500/10 text-amber-500 text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic">LEAD LOGGING: ACTIVE</span>}
                 </div>
               </div>
               <div className="bg-[#0a0a0a] border border-white/10 px-10 py-7 rounded-[2.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
-                  <p className="text-[10px] font-black text-white/30 uppercase italic tracking-widest mb-1 flex items-center gap-1"><RefreshCw size={10}/> Protocol Usage</p>
+                  <p className="text-[10px] font-black text-white/30 uppercase italic tracking-widest mb-1 flex items-center gap-1"><RefreshCw size={10}/> Network Usage</p>
                   <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-xs text-white/30 tracking-normal">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
               </div>
             </div>
 
-            {/* MASTER CONTROL PANEL */}
+            {/* MASTER CONTROL PANEL (EXCLUSIVE VIEW) */}
             {user?.uid === ADMIN_MASTER_ID && (
                <div className="mb-20 animate-in fade-in duration-700">
                   <div className="flex items-center gap-3 mb-10 text-neon-cyan"><Users size={24}/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest">Global Network Management</h3></div>
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl">
                      <div className="max-h-[60vh] overflow-y-auto">
-                        {allUsers.map(u => (
+                        {allUsers.length > 0 ? allUsers.map(u => (
                            <div key={u.id} className="p-10 border-b border-white/5 flex flex-col md:flex-row justify-between items-center hover:bg-white/[0.04] transition-all gap-6">
                               <div className="flex items-center gap-6">
                                  <div className={`p-4 rounded-3xl ${u.isSubscribed ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-white/20'}`}>
@@ -382,15 +387,19 @@ export default function App() {
                                  <button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[10px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}>
                                     <Gift size={14} /> {u.isUnlimited ? 'UNLIMITED GRANTED' : 'GRANT UNLIMITED'}
                                  </button>
+                                 <div className="text-right w-24">
+                                    <p className={`text-[9px] font-black uppercase ${u.isSubscribed ? 'text-green-500' : 'text-[#FE2C55]'}`}>{u.tier}</p>
+                                    <p className="text-[9px] text-white/20 uppercase font-black">Used: {u.usageCount}</p>
+                                 </div>
                               </div>
                            </div>
-                        ))}
+                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-xs">Waiting for network operators...</div>}
                      </div>
                   </div>
                </div>
             )}
 
-            {/* OPERATOR DATA VAULT */}
+            {/* OPERATOR DATA VAULT (PRIVATE LEADS) */}
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && user?.uid !== ADMIN_MASTER_ID && (
                 <div className="animate-in fade-in duration-700">
                   <div className="flex items-center justify-between mb-10 flex-wrap gap-4">
@@ -401,15 +410,19 @@ export default function App() {
                   </div>
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl">
                      {!isVaultActive ? (
-                        <div className="p-32 text-center opacity-20 flex flex-col items-center"><Lock size={64} className="mb-6" /><p className="text-[12px] font-black uppercase italic tracking-[0.4em]">Vault in Standby Mode</p></div>
+                        <div className="p-32 text-center opacity-20 flex flex-col items-center"><Lock size={64} className="mb-6" /><p className="text-[12px] font-black uppercase tracking-[0.4em]">Vault in Standby Mode</p></div>
                      ) : (
                         <div className="max-h-[60vh] overflow-y-auto">
-                           {myLeads.map(l => (
+                           {myLeads.length > 0 ? myLeads.map(l => (
                               <div key={l.id} className="p-10 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1 text-neon-cyan uppercase">DEST: {l.destination}</p></div>
+                                 <div className="text-left text-left">
+                                    <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p>
+                                    <p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p>
+                                    <p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1 text-neon-cyan uppercase italic">DEST: {l.destination}</p>
+                                 </div>
                                  <div className="text-right text-[11px] text-white/60 font-mono tracking-widest bg-white/5 px-4 py-2 rounded-xl border border-white/5">{l.ip}</div>
                               </div>
-                           ))}
+                           )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-xs">Waiting for incoming traffic signals...</div>}
                         </div>
                      )}
                   </div>
@@ -462,13 +475,13 @@ export default function App() {
                   </div>
                   <div className="space-y-1 relative">
                     <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
-                    <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs italic" />
+                    <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs italic" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-9 text-white/30 hover:text-[#25F4EE]">{showPass ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
                   {!isLoginMode && (
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">Confirm Password</label>
-                      <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs italic" />
+                      <input required type={showPass ? "text" : "password"} placeholder="Repeat password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs italic" />
                     </div>
                   )}
                   
@@ -477,7 +490,7 @@ export default function App() {
                   </button>
                   
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all uppercase italic">
-                    {isLoginMode ? "Establish New Identity? Register Here" : "Already a member? Login Here"}
+                    {isLoginMode ? "ESTABLISH NEW IDENTITY? REGISTER HERE" : "ALREADY A MEMBER? LOGIN HERE"}
                   </button>
                 </form>
               </div>
@@ -496,7 +509,7 @@ export default function App() {
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={20}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-5 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center text-center">
-                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
+                    <p className="text-[10px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center">The AI Agent is analyzing your inquiry... Protocol ready for encrypted support handshake.</p>
                  </div>
                  <input className="input-premium text-xs mb-4 italic" placeholder="Enter support inquiry..." />
                  <button className="btn-strategic text-[10px] italic uppercase font-black">Establish Connection</button>
@@ -510,24 +523,24 @@ export default function App() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30">
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Legal</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">Privacy</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">Terms</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">Privacy</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">Terms</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Standards</span>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">CCPA</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">GDPR</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">CCPA</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">GDPR</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Global</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">USA</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">EUROPE</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">USA</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">EUROPE</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Support</span>
              <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">Terminal</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">Abuse</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">Terminal</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">Abuse</a>
           </div>
         </div>
         <p className="text-[11px] text-white/20 font-black tracking-[5px] uppercase italic drop-shadow-2xl text-center">© 2026 ClickMoreDigital | High-End Security Protocol</p>
