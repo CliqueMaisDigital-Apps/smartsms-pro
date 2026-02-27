@@ -23,7 +23,7 @@ import {
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
-  UserCheck, UserMinus, Gift, Bot, Mail, Phone, ShoppingCart, Eye, EyeOff
+  UserCheck, UserMinus, Gift, Bot, Eye, EyeOff
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -43,8 +43,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER IDENTITY (OWNER) ---
-// Instructions: Register first, then copy your UID from Firebase Console and paste it here.
-const ADMIN_MASTER_ID = "MASTER_USER_ID"; 
+// SEARCH FOR THIS LINE WITH CTRL+F TO PASTE YOUR UID
+const ADMIN_MASTER_ID = "W41IbExRiYb7HJ0Dx3up3JEUAqf2"; 
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
@@ -64,7 +64,7 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   
-  // Registration States
+  // Auth Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -100,20 +100,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync Global User List (Admin Only)
+  // MASTER SYNC: List users for Admin
   useEffect(() => {
     if (!user || user.uid !== ADMIN_MASTER_ID || view !== 'dashboard') return;
-    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles');
-    return onSnapshot(usersCol, (snap) => {
+    return onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, view]);
 
-  // Sync Private Lead Vault (Operator Only)
+  // OPERATOR SYNC: Private Leads for Subscriber/VIP
   useEffect(() => {
     if (!user || (!userProfile?.isSubscribed && !userProfile?.isUnlimited) || view !== 'dashboard' || !isVaultActive) return;
-    const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
-    return onSnapshot(leadsCol, (snap) => {
+    return onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
       setMyLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, userProfile, view, isVaultActive]);
@@ -125,15 +123,16 @@ export default function App() {
       const d = await getDoc(ownerRef);
       const ownerProfile = d.data();
 
+      // Check quota (60) unless Subscribed or Unlimited
       if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.usageCount || 0) >= 60) {
         setQuotaExceeded(true);
         return;
       }
 
       await updateDoc(ownerRef, { usageCount: increment(1) });
-      const publicRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
-      await updateDoc(publicRef, { usageCount: increment(1) });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
 
+      // Record lead if allowed
       if (ownerProfile.isSubscribed || ownerProfile.isUnlimited) {
         try {
           const geoReq = await fetch('https://ipapi.co/json/');
@@ -162,13 +161,11 @@ export default function App() {
       } else {
         if (password !== confirmPassword) throw new Error("Passwords do not match.");
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const newProfile = {
-          fullName, phone, email,
-          tier: 'FREE_TRIAL',
-          usageCount: 0,
-          isSubscribed: false,
-          isUnlimited: false,
-          created_at: serverTimestamp()
+        const newProfile = { 
+          fullName, phone, email, 
+          tier: 'FREE_TRIAL', usageCount: 0, 
+          isSubscribed: false, isUnlimited: false, 
+          created_at: serverTimestamp() 
         };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), newProfile);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), newProfile);
@@ -189,8 +186,7 @@ export default function App() {
     if (!user) { setView('auth'); return; }
     if (!genTo) return;
     const baseUrl = window.location.origin;
-    const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`;
-    setGeneratedLink(shortLink);
+    setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
   };
 
   return (
@@ -238,13 +234,13 @@ export default function App() {
               ) : (
                 <>
                   <div className="mb-6 p-5 bg-white/5 rounded-3xl border border-white/10">
-                     <p className="text-[9px] font-black text-white/30 uppercase mb-1">Identity Active</p>
+                     <p className="text-[9px] font-black text-white/30 uppercase mb-1 italic">Identity Active</p>
                      <p className="text-xs font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Operator'}</p>
                   </div>
-                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-white hover:text-[#25F4EE] transition-colors">
+                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <LayoutDashboard size={18} /> {user.uid === ADMIN_MASTER_ID ? "MASTER CONTROL" : "OPERATOR HUB"}
                   </button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase tracking-widest text-white hover:text-[#25F4EE] transition-colors">
+                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors">
                      <Bot size={18} /> SMART SUPPORT
                   </button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto mb-10">
@@ -254,8 +250,8 @@ export default function App() {
               )}
               <div className="h-px bg-white/5 w-full my-4" />
               <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em]">
-                <a href="#" className="hover:text-white transition-colors">PRIVACY PROTOCOL</a>
-                <a href="#" className="hover:text-white transition-colors">SECURITY TERMS</a>
+                <a href="#" className="hover:text-white transition-colors uppercase">Privacy Protocol</a>
+                <a href="#" className="hover:text-white transition-colors uppercase">Security Terms</a>
                 <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
               </div>
             </div>
@@ -281,16 +277,16 @@ export default function App() {
                   <div className="flex items-center gap-2 mb-8"><div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60">Protocol Configuration</h3></div>
                   <div className="space-y-6">
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1">Mobile Number</label>
+                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Mobile Number (+1...)</label>
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold text-sm" placeholder="+1 999 999 9999" />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1">Name or Company</label>
+                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Name or Company</label>
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50" placeholder="e.g. Apple Support" />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1">Pre-written message</label>
-                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter pre-written message text here..." />
+                       <label className="text-[9px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Pre-written message</label>
+                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="2" className="input-premium text-xs font-medium resize-none" placeholder="Enter SMS payload here..." />
                     </div>
                     <button onClick={handleGenerate} className="btn-strategic text-[11px] mt-2 italic font-black uppercase">Generate Smart Link <ChevronRight size={16} /></button>
                   </div>
@@ -309,7 +305,7 @@ export default function App() {
               )}
 
               {!user && (
-                <button onClick={() => setView('auth')} className="btn-strategic text-[11px] max-w-[340px] !bg-white !text-black group mx-auto mt-10 italic font-black uppercase">
+                <button onClick={() => setView('auth')} className="btn-strategic text-[11px] max-w-[340px] !bg-white !text-black group mx-auto mt-10 italic font-black uppercase shadow-xl">
                   <Rocket size={16} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES
                 </button>
               )}
@@ -352,7 +348,7 @@ export default function App() {
                 <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">{user?.uid === ADMIN_MASTER_ID ? "MASTER CONTROL" : "OPERATOR HUB"}</h2>
                 <div className="flex items-center gap-4 mt-4">
                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-[#25F4EE]/20">{userProfile?.tier || 'TRIAL'} IDENTITY</span>
-                  {(userProfile?.isSubscribed || userProfile?.isUnlimited) && <span className="bg-amber-500/10 text-amber-500 text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20">LEAD LOGGING: ACTIVE</span>}
+                  {(userProfile?.isSubscribed || userProfile?.isUnlimited) && <span className="bg-amber-500/10 text-amber-500 text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic">LEAD LOGGING: ACTIVE</span>}
                 </div>
               </div>
               <div className="bg-[#0a0a0a] border border-white/10 px-10 py-7 rounded-[2.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
@@ -410,11 +406,10 @@ export default function App() {
                         <div className="max-h-[60vh] overflow-y-auto">
                            {myLeads.map(l => (
                               <div key={l.id} className="p-10 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1">DEST: {l.destination}</p></div>
+                                 <div className="text-left text-left"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-1">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-2xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-[14px] text-white/40 font-black uppercase italic tracking-widest mt-1 text-neon-cyan uppercase">DEST: {l.destination}</p></div>
                                  <div className="text-right text-[11px] text-white/60 font-mono tracking-widest bg-white/5 px-4 py-2 rounded-xl border border-white/5">{l.ip}</div>
                               </div>
                            ))}
-                           {myLeads.length === 0 && <div className="p-20 text-center text-white/20 font-black uppercase text-xs tracking-widest italic text-center">Awaiting Protocol Signals...</div>}
                         </div>
                      )}
                   </div>
@@ -445,35 +440,35 @@ export default function App() {
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-10 sm:p-14 relative">
-                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white">
-                  {isLoginMode ? "OPERATOR LOGIN" : "PROTOCOL IDENTITY"}
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white uppercase">
+                  {isLoginMode ? "Operator Login" : "Protocol Identity"}
                 </h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                <form onSubmit={handleAuthSubmit} className="space-y-5">
                   {!isLoginMode && (
                     <>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Full Operator Name</label>
-                        <input required placeholder="OPERATOR FULL NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs italic" />
+                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">Full Operator Name</label>
+                        <input required placeholder="Name or Company Identity" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs italic" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Valid Mobile (+1...)</label>
-                        <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs italic" />
+                        <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">Valid Mobile (+1...)</label>
+                        <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs italic" />
                       </div>
                     </>
                   )}
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Email Identity</label>
-                    <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs italic" />
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">Email Identity</label>
+                    <input required type="email" placeholder="email@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs italic" />
                   </div>
                   <div className="space-y-1 relative">
-                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY PASSWORD" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs italic" />
+                    <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
+                    <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs italic" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-9 text-white/30 hover:text-[#25F4EE]">{showPass ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
                   {!isLoginMode && (
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase italic text-white/40 ml-1">Confirm Password</label>
-                      <input required type={showPass ? "text" : "password"} placeholder="REPEAT PASSWORD" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs italic" />
+                      <label className="text-[9px] font-black uppercase italic text-white/40 ml-1 italic">Confirm Password</label>
+                      <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs italic" />
                     </div>
                   )}
                   
@@ -481,8 +476,8 @@ export default function App() {
                     {loading ? "AUTHENTICATING..." : isLoginMode ? "Authorize Station" : "Establish Identity"}
                   </button>
                   
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all">
-                    {isLoginMode ? "ESTABLISH NEW IDENTITY? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase italic mt-12 text-center hover:text-white transition-all uppercase italic">
+                    {isLoginMode ? "Establish New Identity? Register Here" : "Already a member? Login Here"}
                   </button>
                 </form>
               </div>
@@ -495,9 +490,9 @@ export default function App() {
       {showSmartSupport && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
            <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-3xl">
-              <div className="lighthouse-neon-content p-8">
+              <div className="lighthouse-neon-content p-8 text-left">
                  <div className="flex justify-between items-center mb-8">
-                    <div className="flex items-center gap-2 text-neon-cyan"><Bot size={24} /><span className="text-xs font-black uppercase italic tracking-widest text-glow-white">SMART SUPPORT</span></div>
+                    <div className="flex items-center gap-2 text-neon-cyan"><Bot size={24} /><span className="text-xs font-black uppercase italic tracking-widest text-glow-white uppercase">SMART SUPPORT</span></div>
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={20}/></button>
                  </div>
                  <div className="bg-black border border-white/5 p-5 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center text-center">
@@ -515,24 +510,24 @@ export default function App() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30">
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Legal</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors">PRIVACY</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors">TERMS</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">Privacy</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">Terms</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Standards</span>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors">CCPA</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors">GDPR</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">CCPA</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">GDPR</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Global</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors">USA</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors">EUROPE</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">USA</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase">EUROPE</a>
           </div>
           <div className="flex flex-col gap-4 text-left">
              <span className="text-white/40 mb-1 border-b border-white/5 pb-1 italic">Support</span>
              <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic">SMART SUPPORT <Bot size={12}/></button>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors">TERMINAL</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors">ABUSE</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">Terminal</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase">Abuse</a>
           </div>
         </div>
         <p className="text-[11px] text-white/20 font-black tracking-[5px] uppercase italic drop-shadow-2xl text-center">© 2026 ClickMoreDigital | High-End Security Protocol</p>
