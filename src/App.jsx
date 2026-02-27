@@ -49,7 +49,7 @@ const ADMIN_MASTER_ID = "W41IbExRiYb7HJ0Dx3up3JEUAqf2";
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 
-// --- FAQ COMPONENT (AIDA STRATEGY + LEGAL SHIELD) ---
+// --- FAQ COMPONENT ---
 const FAQItem = ({ q, a }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -176,7 +176,7 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), newProfile);
       }
       setView('home');
-    } catch (e) { alert("Identity Protocol Error: " + e.message); }
+    } catch (e) { alert("Access denied: " + e.message); }
     setLoading(false);
   };
 
@@ -190,7 +190,7 @@ export default function App() {
   const handleGenerate = () => {
     if (!user) { setView('auth'); return; }
     if (!genTo) return;
-    if (genMsg.length > MSG_LIMIT) return alert("Security Protocol: Message exceeds carrier safety limit.");
+    if (genMsg.length > MSG_LIMIT) return alert("Security Protocol: Payload exceeds carrier safety limits.");
     const baseUrl = window.location.origin;
     setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
   };
@@ -227,7 +227,7 @@ export default function App() {
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right">
+          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right text-left">
             <div className="flex justify-between items-center mb-12">
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
@@ -235,7 +235,7 @@ export default function App() {
             <div className="flex flex-col gap-8 flex-1">
               {!user ? (
                 <>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors">
+                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors leading-none">
                      <UserPlus size={20} /> JOIN THE NETWORK
                   </button>
                   <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors leading-none">
@@ -271,29 +271,29 @@ export default function App() {
       )}
 
       {/* Main UI */}
-      <div className="pt-28 flex-1 pb-10 relative">
+      <div className="pt-28 flex-1 pb-10 relative text-center">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
         {view === 'home' && (
-          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center">
+          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative">
             <header className="mb-14 flex flex-col items-center">
-              <div className="lighthouse-neon-wrapper mb-6"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
-              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase leading-relaxed max-w-xs">High-End Handshake Optimization Protocol</p>
+              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
+              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase leading-relaxed max-w-xs">High-End Redirection Protocol - 60 Free Handshakes</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
-              {/* SMART SMS GENERATOR BLOCK */}
+              {/* GENERATOR BLOCK */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12">
-                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none">Smart Handshake Generator</h3></div>
+                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none">Elite Handshake Optimization</h3></div>
                   <div className="space-y-8">
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-tight block">
                          Destination Mobile Number
                          <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest">ex: (+1 999 999 9999)</span>
                        </label>
-                       <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold" placeholder="Number to receive optimized traffic" />
+                       <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold" placeholder="The number that will receive the SMS" />
                     </div>
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-none">Traffic Attribution Label</label>
@@ -301,12 +301,12 @@ export default function App() {
                     </div>
                     <div className="space-y-3">
                        <div className="flex justify-between items-center px-1">
-                          <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 italic leading-none">Handshake Message Body</label>
+                          <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 italic leading-none">Pre-written message body</label>
                           <span className={`text-[9px] font-black tracking-widest ${genMsg.length > MSG_LIMIT ? 'text-[#FE2C55]' : 'text-white/20'}`}>{genMsg.length}/{MSG_LIMIT}</span>
                        </div>
                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium font-medium resize-none leading-relaxed text-sm" placeholder="Enter compliant SMS content..." />
                     </div>
-                    <button onClick={handleGenerate} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5">Generate Smart Link <ChevronRight size={18} /></button>
+                    <button onClick={handleGenerate} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5 shadow-2xl">Generate Smart Link <ChevronRight size={18} /></button>
                   </div>
                 </div>
               </div>
@@ -318,41 +318,41 @@ export default function App() {
                     <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
                     <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
                     <div className="grid grid-cols-2 gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest">Live Test</span></button>
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest text-center">Quick Copy</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest text-center">Live Test</span></button>
                     </div>
                   </div>
                   
-                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-10">
-                     <div className="flex items-center gap-2 mb-8 text-neon-cyan"><Info size={20}/><h4 className="text-[12px] font-black uppercase italic tracking-widest">Deployment Compliance Guide</h4></div>
+                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
+                     <div className="flex items-center gap-2 mb-8 text-neon-cyan"><Info size={20}/><h4 className="text-[12px] font-black uppercase italic tracking-widest">Compliance Protocol Guide</h4></div>
                      <div className="space-y-6">
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70 leading-none">1</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Embed this URL in verified ad networks (Facebook/TikTok). Pre-optimized for legitimate mobile handshake conversion.</p></div>
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70 leading-none">2</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Our protocol bridge ensures high-fidelity redirection while maintaining industry-standard safety headers for carrier transparency.</p></div>
+                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70 leading-none">1</div><p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Embed this URL in verified ad networks (Facebook/TikTok). Pre-optimized for legitimate mobile handshake conversion.</p></div>
+                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70 leading-none">2</div><p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Our protocol bridge ensures high-fidelity redirection while maintaining industry-standard safety headers for carrier transparency.</p></div>
                         <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-[#25F4EE]/20 flex items-center justify-center text-[11px] font-black shrink-0 text-[#25F4EE] leading-none">3</div><p className="text-[11px] text-[#25F4EE] font-black leading-relaxed italic">PRO TIP: Join as a Member to enable advanced traffic attribution and metadata mapping in your private vault.</p></div>
                      </div>
                   </div>
                 </div>
               )}
 
-              {/* FAQ AIDA SECTION (LEGAL SHIELD VERSION) */}
+              {/* FAQ AIDA SECTION */}
               <div className="pt-20 pb-12">
                  <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Protocol FAQ</h3></div>
                  <div className="space-y-2">
                     <FAQItem 
-                      q="Why use a protocol link instead of a direct link?" 
-                      a="Attention: Carriers use automated heuristics to filter suspicious redirects. Interest: Our Handshake Optimization Protocol formats the traffic signature to be recognized as legitimate organic referral traffic. Action: Using our bridge significantly increases final conversion rates." 
+                      q="Why use a protocol link instead of a standard redirect?" 
+                      a="Carriers use automated heuristics to filter suspicious redirects. Our Handshake Optimization Protocol formats the traffic signature to be recognized as legitimate organic referral traffic, significantly increasing final delivery rates." 
                     />
                     <FAQItem 
-                      q="How is member-exclusive lead tracking handled?" 
-                      a="Interest: Premium Attribution is a Member-only advantage. Desire: Upgrading to Nexus Access enables our servers to map the visitor's traffic origin (City, Network, Device) before the handshake is completed, securing your data analytics." 
+                      q="How is member-exclusive traffic attribution handled?" 
+                      a="Premium Attribution is a core Member advantage. Joining the Network enables our servers to map the visitor's traffic origin (City, Network, Device) before the handshake is completed, securing your data analytics environment." 
                     />
                     <FAQItem 
                       q="Is the data vault truly isolated?" 
-                      a="Desire: Yes. Our system uses a Zero-Knowledge Architecture. Every Member possesses an encrypted, isolated database vault. Not even the platform administrator has access to your mapped contacts or traffic logs." 
+                      a="Yes. Our system uses a Zero-Knowledge Architecture. Every Member possesses an encrypted, isolated database vault. Not even the platform administrator has access to your mapped contacts or traffic metadata." 
                     />
                     <FAQItem 
                       q="What are the operational advantages of Joining?" 
-                      a="Action: Members dominate the redirection flow. Joining the Network unlocks unlimited handshake volume, automated attribution storage, and access to the AI Message Personalization Engine for elite campaigns." 
+                      a="Members dominate the redirection flow. Joining unlocks unlimited handshake volume, automated attribution mapping, and access to the AI Message Personalization Engine for high-conversion campaigns." 
                     />
                  </div>
               </div>
@@ -376,14 +376,14 @@ export default function App() {
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
               <div className="lighthouse-neon-content p-20 flex flex-col items-center">
                 {quotaExceeded ? (
-                  <div className="animate-in fade-in zoom-in-95 duration-500">
+                  <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
                     <ShieldAlert size={100} className="text-[#FE2C55] animate-pulse mb-10 mx-auto" />
-                    <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white uppercase">Protocol Limit Reached</h2>
-                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 text-left relative overflow-hidden group">
+                    <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center">Protocol Limit Reached</h2>
+                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 relative overflow-hidden group">
                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={50} className="text-amber-500" /></div>
                        <h3 className="text-2xl font-black italic text-white uppercase mb-4 leading-none">Full Access Offer</h3>
-                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12">Upgrade to Member level to bypass limits and enable advanced traffic attribution.</p>
-                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-xs italic font-black uppercase py-5">Unlock Full Access ($9/MO)</button>
+                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12 italic">Upgrade to Member level to bypass limits and enable advanced traffic attribution mapping.</p>
+                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-xs italic font-black uppercase py-5 shadow-2xl leading-none">Unlock Full Access ($9/MO)</button>
                     </div>
                   </div>
                 ) : (
@@ -391,7 +391,7 @@ export default function App() {
                     <Shield size={120} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-14" />
                     <h2 className="text-4xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-6 leading-none">PROTOCOL OPTIMIZATION</h2>
                     <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden my-12 max-w-xs"><div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_3s_linear]"></div></div>
-                    <p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center leading-none">Verified Origin: {captureData?.company}</p>
+                    <p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center leading-none italic">Verified Origin: {captureData?.company}</p>
                   </>
                 )}
               </div>
@@ -417,64 +417,64 @@ export default function App() {
                   )}
                 </div>
               </div>
-              <div className="bg-[#0a0a0a] border border-white/10 px-12 py-8 rounded-[3rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
+              <div className="bg-[#0a0a0a] border border-white/10 px-12 py-8 rounded-[3rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit leading-none">
                   <p className="text-[11px] font-black text-white/30 uppercase italic tracking-widest mb-2 flex items-center gap-1 leading-none"><RefreshCw size={12}/> Network Usage</p>
                   <p className="text-5xl font-black text-white italic leading-none">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-sm text-white/30 tracking-normal uppercase ml-1">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
               </div>
             </div>
 
-            {/* AI SYSTEM INITIALIZATION GUIDE (MEMBERS ONLY) */}
+            {/* AI SYSTEM GUIDE (MEMBERS ONLY) */}
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && (
-               <div className="mb-20 bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group">
+               <div className="mb-20 bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group shadow-2xl">
                   <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform"><BookOpen size={120} /></div>
-                  <div className="flex items-center gap-3 mb-8 text-neon-cyan"><Star size={24} className="animate-pulse"/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">AI Agent Deployment Guide</h3></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  <div className="flex items-center gap-3 mb-10 text-neon-cyan"><Star size={24} className="animate-pulse shadow-xl"/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">AI Agent Deployment Guide</h3></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 text-left">
                      <div className="space-y-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-xs text-[#25F4EE] italic">01</div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Sync Vault</h4>
-                        <p className="text-[10px] text-white/40 font-medium leading-relaxed italic">Activate your Sync Lead Vault below to connect your campaign contacts to the AI Engine.</p>
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none">01</div>
+                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Sync Metadata</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Activate your Sync Lead Vault below to bridge campaign metadata to the local AI Synthesis Engine.</p>
                      </div>
                      <div className="space-y-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-xs text-[#25F4EE] italic">02</div>
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none">02</div>
                         <h4 className="text-sm font-black uppercase italic text-white leading-none">Import Assets</h4>
-                        <p className="text-[10px] text-white/40 font-medium leading-relaxed italic">Upload your .txt contact lists or use captured leads directly. Non-digits are cleaned on arrival.</p>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Upload .txt or .csv lead lists. Our local processor sanitizes non-numeric identities automatically.</p>
                      </div>
                      <div className="space-y-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-xs text-[#25F4EE] italic">03</div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Configure AI</h4>
-                        <p className="text-[10px] text-white/40 font-medium leading-relaxed italic">Define your objective. AI will automatically scramble message headers to bypass carrier filters.</p>
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none">03</div>
+                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Intelligent Prompt</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Define your objective. The AI synthesizes unique header variations to maintain high-fidelity throughput.</p>
                      </div>
                      <div className="space-y-4">
-                        <div className="w-10 h-10 rounded-2xl bg-[#FE2C55]/20 border border-[#FE2C55]/30 flex items-center justify-center font-black text-xs text-[#FE2C55] italic">04</div>
+                        <div className="w-12 h-12 rounded-2xl bg-[#FE2C55]/20 border border-[#FE2C55]/30 flex items-center justify-center font-black text-sm text-[#FE2C55] italic shadow-xl leading-none">04</div>
                         <h4 className="text-sm font-black uppercase italic text-[#FE2C55] leading-none">Native Launch</h4>
-                        <p className="text-[10px] text-white/40 font-medium leading-relaxed italic">Launch authorized SMS through your local device. Standard P2P carrier compliance maintained.</p>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Trigger optimized native handshake requests through your local node for guaranteed P2P compliance.</p>
                      </div>
                   </div>
                </div>
             )}
 
-            {/* MASTER LIST VIEW */}
+            {/* MASTER ADMIN VIEW */}
             {user?.uid === ADMIN_MASTER_ID && (
                <div className="animate-in fade-in duration-700">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20">
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20 text-center">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl">
                         <Users size={48} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
                         <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none">Total Members</p>
                         <p className="text-5xl font-black italic leading-none">{allUsers.length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl">
                         <Star size={48} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
                         <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none">Paid Members</p>
                         <p className="text-5xl font-black italic text-amber-500 leading-none">{allUsers.filter(u => u.isSubscribed).length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl">
                         <Server size={48} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
                         <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none">System Traffic</p>
                         <p className="text-5xl font-black italic text-[#FE2C55] leading-none">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl">
                         <Radio size={48} className="text-green-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none">Relay Status</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none">Protocol Status</p>
                         <p className="text-3xl font-black italic text-green-500 uppercase italic font-black leading-none">Secured</p>
                      </div>
                   </div>
@@ -501,19 +501,15 @@ export default function App() {
                                  <button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-8 py-3 rounded-full border text-[11px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.4)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}>
                                     <Gift size={16} /> {u.isUnlimited ? 'VIP GRANTED' : 'GRANT VIP'}
                                  </button>
-                                 <div className="text-right w-24">
-                                    <p className={`text-[11px] font-black uppercase italic leading-none ${u.isSubscribed ? 'text-amber-500' : 'text-white/30'}`}>{u.isSubscribed ? 'Nexus' : 'Trial'}</p>
-                                    <p className="text-[10px] text-white/20 font-black uppercase mt-2 leading-none">Usage: {u.usageCount}</p>
-                                 </div>
                               </div>
                            </div>
-                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm">Synchronizing network operators...</div>}
+                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm italic leading-relaxed">Syncing member identities...</div>}
                      </div>
                   </div>
                </div>
             )}
 
-            {/* OPERATOR VAULT */}
+            {/* VAULT PRIVADO DO OPERADOR */}
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && user?.uid !== ADMIN_MASTER_ID && (
                 <div className="animate-in fade-in duration-700 text-left">
                   <div className="flex items-center justify-between mb-12 flex-wrap gap-6">
@@ -524,15 +520,15 @@ export default function App() {
                   </div>
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl">
                      {!isVaultActive ? (
-                        <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em] italic">Vault Encrypted & Standby</p></div>
+                        <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em] italic leading-none">Vault Encrypted & Standby</p></div>
                      ) : (
                         <div className="max-h-[60vh] overflow-y-auto">
                            {myLeads.length > 0 ? myLeads.map(l => (
                               <div key={l.id} className="p-12 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic leading-none">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-3 text-neon-cyan leading-none">DEST: {l.destination}</p></div>
+                                 <div className="text-left text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic leading-none italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-4 text-neon-cyan leading-none uppercase">ATTR: {l.destination}</p></div>
                                  <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 leading-none">{l.ip}</div>
                               </div>
-                           )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs leading-relaxed">System Operational. Waiting for incoming traffic handshake metadata...</div>}
+                           )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs leading-relaxed text-center">System Operational. Waiting for incoming traffic handshake metadata...</div>}
                         </div>
                      )}
                   </div>
@@ -541,16 +537,18 @@ export default function App() {
             
             {/* TIERS UPSELL */}
             {(!userProfile?.isSubscribed && !userProfile?.isUnlimited && user?.uid !== ADMIN_MASTER_ID) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left">
                  <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
                     <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs">Automatic Attribution Mapping + Unlimited Redirections.</p>
+                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs uppercase">Premium Attribution Mapping + Unlimited Handshakes.</p>
                     <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
                     <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs italic uppercase font-black py-5 shadow-2xl leading-none">UPGRADE TO NEXUS</button>
                  </div>
                  <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
+                    <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
                     <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs">AI Message Synthesis + Industrial-Scale Redirection.</p>
+                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs uppercase">AI Synthesis Engine + Multi-Device Operations.</p>
                     <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
                     <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-xs italic uppercase font-black py-5 shadow-2xl leading-none">ACTIVATE EXPERT AI</button>
                  </div>
@@ -559,15 +557,15 @@ export default function App() {
           </div>
         )}
 
-        {(view === 'auth' || view === 'login') && (
+        {view === 'auth' && (
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-12 sm:p-16 relative">
                 <h2 className="text-3xl font-black italic mt-8 mb-14 uppercase text-white text-center tracking-tighter text-glow-white leading-none italic uppercase">
-                  {view === 'login' ? "Member Login" : "Join the Network"}
+                  {isLoginMode ? "Member Login" : "Join the Network"}
                 </h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-7">
-                  {view === 'auth' && (
+                <form onSubmit={handleAuthSubmit} className="space-y-7 text-left">
+                  {!isLoginMode && (
                     <>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Full Operator Name</label>
@@ -587,11 +585,11 @@ export default function App() {
                     <input required type="email" placeholder="member@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold" />
                   </div>
                   <div className="space-y-2 relative">
-                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">{view === 'login' ? 'Security Password' : 'Create Password'}</label>
+                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
                     <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-bold" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-11 text-white/30 hover:text-[#25F4EE] transition-colors">{showPass ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-11 text-white/30 hover:text-[#25F4EE] transition-colors leading-none">{showPass ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
                   </div>
-                  {view === 'auth' && (
+                  {!isLoginMode && (
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Confirm Password</label>
                       <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-bold" />
@@ -599,11 +597,11 @@ export default function App() {
                   )}
                   
                   <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-8 py-5 leading-none">
-                    {loading ? "AUTHENTICATING..." : view === 'login' ? "Authorize Access" : "Join Network"}
+                    {loading ? "AUTHENTICATING..." : isLoginMode ? "Authorize Access" : "Join Network"}
                   </button>
                   
-                  <button type="button" onClick={() => setView(view === 'login' ? 'auth' : 'login')} className="w-full text-[11px] font-black text-white/20 uppercase italic mt-16 text-center hover:text-white transition-all uppercase italic tracking-widest leading-none">
-                    {view === 'login' ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[11px] font-black text-white/20 uppercase italic mt-16 text-center hover:text-white transition-all uppercase italic tracking-widest leading-none">
+                    {isLoginMode ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
                   </button>
                 </form>
               </div>
@@ -615,7 +613,7 @@ export default function App() {
       {/* Smart Support Modal */}
       {showSmartSupport && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left">
-           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-3xl">
+           <div className="lighthouse-neon-wrapper w-full max-sm shadow-3xl">
               <div className="lighthouse-neon-content p-10">
                  <div className="flex justify-between items-center mb-10 leading-none">
                     <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic leading-none"><Bot size={32} /><span className="text-sm uppercase tracking-widest text-glow-white">SMART SUPPORT</span></div>
@@ -631,29 +629,29 @@ export default function App() {
         </div>
       )}
 
-      {/* STRATEGIC FOOTER */}
+      {/* RODAPÉ ESTRATÉGICO */}
       <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30">
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Legal</span>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Legal</span>
              <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Privacy</a>
              <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Terms</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Compliance</span>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Compliance</span>
              <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">CCPA</a>
              <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">GDPR</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Network</span>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Network</span>
              <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">U.S. Nodes</a>
              <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">EU Nodes</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Support</span>
-             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px] leading-none">SMART SUPPORT <Bot size={14}/></button>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none">Status</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none">Abuse</a>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Support</span>
+             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px] leading-none uppercase italic">SMART SUPPORT <Bot size={14}/></button>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic">Status</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic tracking-widest">Abuse</a>
           </div>
         </div>
         <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none">© 2026 ClickMoreDigital | High-End Security Protocol</p>
