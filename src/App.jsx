@@ -24,7 +24,7 @@ import {
   LayoutDashboard, LogOut, Target, Rocket, BrainCircuit, ShieldAlert, Activity, 
   Smartphone, Shield, Info, Database, RefreshCw, Users, Crown,
   UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck,
-  Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, PlayCircle
+  Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -91,6 +91,7 @@ export default function App() {
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const MSG_LIMIT = 300;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -193,6 +194,7 @@ export default function App() {
   const handleGenerate = () => {
     if (!user) { setView('auth'); return; }
     if (!genTo) return;
+    if (genMsg.length > MSG_LIMIT) return alert("Security Protocol: Message exceeds safe limit.");
     const baseUrl = window.location.origin;
     setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
   };
@@ -217,7 +219,7 @@ export default function App() {
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[100] px-6 flex justify-between items-center">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-white/10 p-1.5 rounded-lg border border-white/10 shadow-lg shadow-white/5"><Zap size={20} className="text-white fill-white" /></div>
-          <span className="text-lg font-black italic tracking-tighter uppercase text-white">SMART SMS PRO</span>
+          <span className="text-lg font-black italic tracking-tighter uppercase text-white leading-none">SMART SMS PRO</span>
           {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic leading-none">MASTER</span>}
         </div>
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white/50 hover:text-white transition-all z-[110]">
@@ -288,24 +290,27 @@ export default function App() {
               {/* SMART SMS GENERATOR BLOCK */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12">
-                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60">SMART SMS GENERATOR</h3></div>
+                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[12px] font-black uppercase italic tracking-widest text-white/60 leading-none">SMART SMS GENERATOR</h3></div>
                   <div className="space-y-8">
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-tight block">
                          Destination Mobile Number
-                         <span className="block text-[#25F4EE] opacity-80 mt-1">ex: (+1 999 999 9999)</span>
+                         <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest">ex: (+1 999 999 9999)</span>
                        </label>
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold" placeholder="The number that will receive the SMS" />
                     </div>
                     <div className="space-y-3">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Name or Company Label</label>
+                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-none">Name or Company Label</label>
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-white/50" placeholder="e.g. Verified Vendor" />
                     </div>
                     <div className="space-y-3">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic">Pre-written message body</label>
-                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium font-medium resize-none leading-relaxed text-sm" placeholder="Enter SMS payload here..." />
+                       <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 italic leading-none">Pre-written message body</label>
+                          <span className={`text-[9px] font-black tracking-widest ${genMsg.length > MSG_LIMIT ? 'text-[#FE2C55]' : 'text-white/20'}`}>{genMsg.length}/{MSG_LIMIT}</span>
+                       </div>
+                       <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium font-medium resize-none leading-relaxed text-sm ${genMsg.length > MSG_LIMIT ? 'border-[#FE2C55]/50' : ''}`} placeholder="Enter SMS payload here..." />
                     </div>
-                    <button onClick={handleGenerate} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5">Generate Smart Link <ChevronRight size={18} /></button>
+                    <button onClick={handleGenerate} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5 shadow-xl">Generate Smart Link <ChevronRight size={18} /></button>
                   </div>
                 </div>
               </div>
@@ -314,19 +319,19 @@ export default function App() {
               {generatedLink && (
                 <div className="animate-in zoom-in-95 duration-500 space-y-6">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
-                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-6 border-dashed" />
+                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
+                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
                     <div className="grid grid-cols-2 gap-6 w-full">
                       <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span></button>
                       <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] font-black uppercase italic mt-1 text-white/50 tracking-widest">Live Test</span></button>
                     </div>
                   </div>
                   
-                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-10">
+                  <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
                      <div className="flex items-center gap-2 mb-8 text-neon-cyan"><Info size={20}/><h4 className="text-[12px] font-black uppercase italic tracking-widest">Protocol Deployment Guide</h4></div>
                      <div className="space-y-6">
                         <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70">1</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Embed this URL in your Facebook/TikTok Ads or Instagram Bio. It's pre-optimized for mobile handshake conversions.</p></div>
-                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70">2</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Our protocol bridge automatically scrambles technical headers to look like organic traffic, protecting your phone number's health.</p></div>
+                        <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black shrink-0 text-white/70">2</div><p className="text-[11px] text-white/40 font-medium leading-relaxed">Our protocol bridge automatically scrambles technical headers to look like organic traffic, protecting your phone number's reputation.</p></div>
                         <div className="flex gap-4 items-start"><div className="w-6 h-6 rounded-full bg-[#25F4EE]/20 flex items-center justify-center text-[11px] font-black shrink-0 text-[#25F4EE]">3</div><p className="text-[11px] text-[#25F4EE] font-black leading-relaxed italic">PRO TIP: Become a Member to log visitor IPs, Cities, and Device identities before the SMS is even triggered.</p></div>
                      </div>
                   </div>
@@ -339,19 +344,19 @@ export default function App() {
                  <div className="space-y-2">
                     <FAQItem 
                       q="Why can't I just use a standard link?" 
-                      a="Standard links are instantly flagged by mobile carriers as automated spam. Our protocol uses a scrambled handshake redirect that looks like legitimate organic referral traffic, preserving your phone number's health and increasing delivery rates." 
+                      a="Attention: Carriers use advanced AI to block 'naked' SMS links. Interest: Our Scrambled Handshake Protocol disguises the traffic as an organic referral. Desire: By using our links, you ensure 100% delivery of your message to the recipient's phone." 
                     />
                     <FAQItem 
-                      q="How do I unlock Automatic Lead Logging?" 
-                      a="Lead Tracking is a high-value Member-only feature. By upgrading to Nexus Access, you activate a silent unmasking process that identifies the visitor's IP, City, and Device before they even send the SMS, building your private database." 
+                      q="What is the advantage of becoming a Member?" 
+                      a="Attention: Free users are limited to 60 handshakes. Desire: Members get Unlimited Traffic + Automatic Lead Logging. Action: Upgrade to Nexus to track every click, name, and location in your own private data vault." 
                     />
                     <FAQItem 
-                      q="Can I use this for high-volume campaigns?" 
-                      a="Absolutely. While the Free Trial is for testing, our Expert Agent plan unlocks the Multi-Device Session Distribution engine, allowing you to cycle traffic safely and maintain carrier safety limits for industrial-scale marketing." 
+                      q="How secure is my private lead data?" 
+                      a="Our system is built on a zero-access architecture. Not even the platform administrator can see the contacts you capture. Each member has an encrypted, isolated database vault." 
                     />
                     <FAQItem 
-                      q="What is the benefit of joining the Network?" 
-                      a="Members dominate the traffic flow. You get unlimited handshakes, automatic lead vault storage, priority support, and access to the AI Scrambling Engine. It is the gold standard for modern mobile traffic redirection." 
+                      q="Can I use this for global marketing?" 
+                      a="Yes. The Smart SMS Protocol supports all international number formats. Whether you're targeting the USA, Europe, or beyond, the handshake logic adapts to the local network rules." 
                     />
                  </div>
               </div>
@@ -380,7 +385,7 @@ export default function App() {
                     <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white uppercase">Protocol Limit Reached</h2>
                     <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 text-left relative overflow-hidden group">
                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={50} className="text-amber-500" /></div>
-                       <h3 className="text-2xl font-black italic text-white uppercase mb-4">Nexus Access Offer</h3>
+                       <h3 className="text-2xl font-black italic text-white uppercase mb-4 leading-none">Nexus Access Offer</h3>
                        <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12">Upgrade to Member level to bypass limits and enable automatic lead tracking.</p>
                        <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-xs italic font-black uppercase py-5">Unlock Full Access ($9/MO)</button>
                     </div>
@@ -410,41 +415,41 @@ export default function App() {
                     {user?.uid === ADMIN_MASTER_ID ? "MASTER OVERRIDE" : `${userProfile?.tier || 'TRIAL'} ACCESS`}
                   </span>
                   {(userProfile?.isSubscribed || userProfile?.isUnlimited) && (
-                    <span className="bg-amber-500/10 text-amber-500 text-[11px] px-5 py-2 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic">
+                    <span className="bg-amber-500/10 text-amber-500 text-[11px] px-5 py-2 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20 uppercase italic leading-none">
                       LEAD LOGGING: ACTIVE
                     </span>
                   )}
                 </div>
               </div>
               <div className="bg-[#0a0a0a] border border-white/10 px-12 py-8 rounded-[3rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] w-fit">
-                  <p className="text-[11px] font-black text-white/30 uppercase italic tracking-widest mb-2 flex items-center gap-1"><RefreshCw size={12}/> Network Usage</p>
-                  <p className="text-5xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-sm text-white/30 tracking-normal uppercase ml-1">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
+                  <p className="text-[11px] font-black text-white/30 uppercase italic tracking-widest mb-2 flex items-center gap-1 leading-none"><RefreshCw size={12}/> Network Usage</p>
+                  <p className="text-5xl font-black text-white italic leading-none">{userProfile?.isUnlimited ? '∞' : userProfile?.usageCount || 0} <span className="text-sm text-white/30 tracking-normal uppercase ml-1">/ {userProfile?.isUnlimited ? 'UNLIMITED' : '60'}</span></p>
               </div>
             </div>
 
             {/* MASTER CONTROL PANEL */}
             {user?.uid === ADMIN_MASTER_ID && (
-               <div className="mb-20 animate-in fade-in duration-700">
+               <div className="animate-in fade-in duration-700">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20">
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
                         <Users size={48} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Total Members</p>
-                        <p className="text-5xl font-black italic">{allUsers.length}</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Total Members</p>
+                        <p className="text-5xl font-black italic leading-none">{allUsers.length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
                         <Star size={48} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Paid Members</p>
-                        <p className="text-5xl font-black italic text-amber-500">{allUsers.filter(u => u.isSubscribed).length}</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Paid Members</p>
+                        <p className="text-5xl font-black italic text-amber-500 leading-none">{allUsers.filter(u => u.isSubscribed).length}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
                         <Server size={48} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Global Traffic</p>
-                        <p className="text-5xl font-black italic text-[#FE2C55]">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">System Traffic</p>
+                        <p className="text-5xl font-black italic text-[#FE2C55] leading-none">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
                      </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center">
+                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group text-center shadow-2xl">
                         <Radio size={48} className="text-green-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4">Protocol Status</p>
-                        <p className="text-3xl font-black italic text-green-500 uppercase italic font-black leading-none">Online</p>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic">Protocol Status</p>
+                        <p className="text-3xl font-black italic text-green-500 uppercase italic leading-none">Online</p>
                      </div>
                   </div>
 
@@ -476,7 +481,7 @@ export default function App() {
                                  </div>
                               </div>
                            </div>
-                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm">Syncing network operators...</div>}
+                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm italic">Syncing network operators...</div>}
                      </div>
                   </div>
                </div>
@@ -493,13 +498,13 @@ export default function App() {
                   </div>
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl">
                      {!isVaultActive ? (
-                        <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em]">Vault Encrypted & Standby</p></div>
+                        <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em] italic">Vault Encrypted & Standby</p></div>
                      ) : (
                         <div className="max-h-[60vh] overflow-y-auto">
                            {myLeads.length > 0 ? myLeads.map(l => (
                               <div key={l.id} className="p-12 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-2 text-neon-cyan uppercase italic">DEST: {l.destination}</p></div>
-                                 <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5">{l.ip}</div>
+                                 <div className="text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-2 text-neon-cyan leading-none">DEST: {l.destination}</p></div>
+                                 <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 leading-none">{l.ip}</div>
                               </div>
                            )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs tracking-widest">Waiting for incoming traffic signals...</div>}
                         </div>
@@ -511,7 +516,7 @@ export default function App() {
             {/* TIERS UPSELL */}
             {(!userProfile?.isSubscribed && !userProfile?.isUnlimited && user?.uid !== ADMIN_MASTER_ID) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
-                 <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group">
+                 <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
                     <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
                     <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
                     <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs">Unmask visitor names and locations before the SMS is sent.</p>
@@ -534,34 +539,34 @@ export default function App() {
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-12 sm:p-16 relative">
-                <h2 className="text-3xl font-black italic mt-8 mb-14 uppercase text-white text-center tracking-tighter text-glow-white leading-none">
+                <h2 className="text-3xl font-black italic mt-8 mb-14 uppercase text-white text-center tracking-tighter text-glow-white leading-none italic">
                   {view === 'login' ? "Member Login" : "Join the Network"}
                 </h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-7">
                   {view === 'auth' && (
                     <>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1">Full Operator Name</label>
+                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Full Operator Name</label>
                         <input required placeholder="Your Name or Company" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-bold" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1">Valid Mobile (+1...)</label>
+                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Valid Mobile (+1...)</label>
                         <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-bold" />
                       </div>
                     </>
                   )}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1">Email Address</label>
+                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Email Address</label>
                     <input required type="email" placeholder="member@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold" />
                   </div>
                   <div className="space-y-2 relative">
-                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1">{view === 'login' ? 'Security Password' : 'Create Password'}</label>
+                    <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">{view === 'login' ? 'Security Password' : 'Create Password'}</label>
                     <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-bold" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-11 text-white/30 hover:text-[#25F4EE] transition-colors">{showPass ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
                   </div>
                   {view === 'auth' && (
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase italic text-white/40 ml-1">Confirm Password</label>
+                      <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none">Confirm Password</label>
                       <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-bold" />
                     </div>
                   )}
@@ -570,7 +575,7 @@ export default function App() {
                     {loading ? "AUTHENTICATING..." : view === 'login' ? "Authorize Access" : "Join Network"}
                   </button>
                   
-                  <button type="button" onClick={() => setView(view === 'login' ? 'auth' : 'login')} className="w-full text-[11px] font-black text-white/20 uppercase italic mt-16 text-center hover:text-white transition-all uppercase italic tracking-widest">
+                  <button type="button" onClick={() => setView(view === 'login' ? 'auth' : 'login')} className="w-full text-[11px] font-black text-white/20 uppercase italic mt-16 text-center hover:text-white transition-all uppercase italic tracking-widest leading-none">
                     {view === 'login' ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}
                   </button>
                 </form>
@@ -603,28 +608,28 @@ export default function App() {
       <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30">
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic">Legal</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">Privacy</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">Terms</a>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Legal</span>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Privacy</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Terms</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic">Standards</span>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">CCPA</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">GDPR</a>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Standards</span>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">CCPA</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">GDPR</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic">Global</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">USA</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black">EUROPE</a>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Global</span>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">USA</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">EUROPE</a>
           </div>
           <div className="flex flex-col gap-5">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic">Support</span>
-             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px]">SMART SUPPORT <Bot size={14}/></button>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">Terminal</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black">Abuse</a>
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none">Support</span>
+             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px] leading-none">SMART SUPPORT <Bot size={14}/></button>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">Terminal</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">Abuse</a>
           </div>
         </div>
-        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center">© 2026 ClickMoreDigital | High-End Security Protocol</p>
+        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none">© 2026 ClickMoreDigital | High-End Security Protocol</p>
       </footer>
     </div>
   );
