@@ -52,7 +52,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2D"; // <--- ALEX, COLE O SEU UID AQUI PARA ACESSO TOTAL
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, COLE O SEU UID AQUI PARA ACESSO TOTAL
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
@@ -103,7 +103,7 @@ export default function App() {
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [sendDelay, setSendDelay] = useState(30);
 
-  // Device Sync States (AGORA COM COMUNICAÇÃO EM TEMPO REAL)
+  // Device Sync States
   const [syncQR, setSyncQR] = useState('');
   const [isGeneratingSync, setIsGeneratingSync] = useState(false);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
@@ -133,14 +133,13 @@ export default function App() {
 
   const isPro = userProfile?.isSubscribed || userProfile?.isUnlimited || user?.uid === ADMIN_MASTER_ID;
 
-  // SYSTEM INITIALIZATION & AUTH (Com Injeção Anónima Silenciosa para Visitantes)
+  // SYSTEM INITIALIZATION & AUTH
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          // Necessário silenciosamente para visitantes conseguirem escrever o Lead no Firestore.
           if (!auth.currentUser) await signInAnonymously(auth);
         }
       } catch (err) {
@@ -151,20 +150,37 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u && !u.isAnonymous) { // Apenas cria perfil se não for o visitante do link
+      if (u && !u.isAnonymous) { 
         try {
           const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
           const d = await getDoc(docRef);
+          
           if (d.exists()) {
             const data = d.data();
-            if (u.uid === ADMIN_MASTER_ID) {
+            // FORÇA A AUTO-CURA DO ADMIN SE ENTRAR COMO FREE TRIAL
+            if (u.uid === ADMIN_MASTER_ID && (!data.isUnlimited || data.tier !== 'MASTER')) {
               data.isUnlimited = true;
               data.smsCredits = 999999;
+              data.tier = 'MASTER';
+              await updateDoc(docRef, { isUnlimited: true, smsCredits: 999999, tier: 'MASTER' }).catch(()=>{});
+              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), { isUnlimited: true, tier: 'MASTER' }).catch(()=>{});
             }
             setUserProfile(data);
             if(data.connectedChips) setConnectedChips(data.connectedChips);
           } else {
-            const defaultProfile = { fullName: u.email || 'Operator', phone: '', email: u.email || '', tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: u.uid === ADMIN_MASTER_ID, smsCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, connectedChips: 1, created_at: serverTimestamp() };
+            const isMaster = u.uid === ADMIN_MASTER_ID;
+            const defaultProfile = { 
+              fullName: u.email || 'Operator', 
+              phone: '', 
+              email: u.email || '', 
+              tier: isMaster ? 'MASTER' : 'FREE_TRIAL', 
+              usageCount: 0, 
+              isSubscribed: false, 
+              isUnlimited: isMaster, 
+              smsCredits: isMaster ? 999999 : 60, 
+              connectedChips: 1, 
+              created_at: serverTimestamp() 
+            };
             await setDoc(docRef, defaultProfile);
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), defaultProfile);
             setUserProfile(defaultProfile);
@@ -181,7 +197,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // GATILHO DE URL (Comunicação de Links)
+  // GATILHO DE URL 
   useEffect(() => {
     if (!authResolved) return; 
 
@@ -216,6 +232,7 @@ export default function App() {
            if (user.uid === ADMIN_MASTER_ID) {
               data.isUnlimited = true;
               data.smsCredits = 999999;
+              data.tier = 'MASTER';
            }
            setUserProfile(data);
         }
@@ -231,7 +248,6 @@ export default function App() {
         }, (err) => console.warn("List hidden pending permissions."));
       }
 
-      // O Agente de IA precisa dos leads sempre carregados se for PRO ou ADMIN
       if (userProfile?.isSubscribed || userProfile?.isUnlimited || user.uid === ADMIN_MASTER_ID) {
         unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -239,7 +255,6 @@ export default function App() {
         }, (err) => console.warn("Vault locked pending sync."));
       }
 
-      // NOVO: Ouvinte do Espelhamento de Telemóvel
       unsubSync = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'sync', 'device'), (docSnap) => {
          if (docSnap.exists() && docSnap.data().connected) {
              setIsDeviceSynced(true);
@@ -472,7 +487,19 @@ export default function App() {
       } else {
         if(password !== confirmPassword) throw new Error("Passwords do not match.");
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const p = { fullName, phone, email, tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: false, smsCredits: 60, created_at: serverTimestamp() };
+        const isMaster = u.user.uid === ADMIN_MASTER_ID;
+        
+        const p = { 
+          fullName, 
+          phone, 
+          email, 
+          tier: isMaster ? 'MASTER' : 'FREE_TRIAL', 
+          usageCount: 0, 
+          isSubscribed: false, 
+          isUnlimited: isMaster, 
+          smsCredits: isMaster ? 999999 : 60, 
+          created_at: serverTimestamp() 
+        };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), p);
       }
@@ -581,7 +608,6 @@ export default function App() {
             }
          }
          
-         // AVISA AO COMPUTADOR QUE O DISPOSITIVO ESTÁ SINCRONIZADO
          await setDoc(doc(db, 'artifacts', appId, 'users', captureData.uid, 'sync', 'device'), {
             connected: true,
             device: /Android/i.test(navigator.userAgent) ? 'Android Device' : /iPhone/i.test(navigator.userAgent) ? 'iPhone' : 'Mobile Device',
@@ -617,7 +643,6 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
   const PremiumLockedFooter = ({ featureName, benefit }) => (
     <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 relative z-20 w-full font-black italic">
       <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/30 px-5 py-2 rounded-full mb-1">
@@ -735,7 +760,7 @@ export default function App() {
 
             <main className="space-y-8 pb-20 text-left">
               
-              {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) - No Topo */}
+              {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) */}
               {user && !user.isAnonymous && (
                 <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-500">
                   <button 
@@ -800,7 +825,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* FAQ SECTION (Native US English - Protected) */}
+              {/* FAQ SECTION */}
               <div className="pt-20 pb-12 text-left font-black italic leading-none">
                  <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none font-black italic">Protocol FAQ</h3></div>
                  <div className="space-y-2 text-left font-black italic">
@@ -811,7 +836,7 @@ export default function App() {
                  </div>
               </div>
 
-              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME (Apenas Deslogados/Anónimos) */}
+              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME */}
               {(!user || user.isAnonymous) && (
                 <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10">
                   <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic btn-neon-white text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
@@ -855,7 +880,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MOBILE SYNC VIEW (RECEPTOR DO QR CODE PARA O TELEMÓVEL - Corrigido Responsividade) */}
+        {/* MOBILE SYNC VIEW (RECEPTOR DO QR CODE PARA O TELEMÓVEL) */}
         {view === 'mobile_sync' && (
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 sm:p-6 text-center relative px-4 sm:px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
@@ -959,7 +984,6 @@ export default function App() {
                                        <p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p>
                                     </div>
                                     
-                                    {/* MÓDULO AUTOPILOT NOVO COM DELAY */}
                                     <div className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/10 p-4 rounded-2xl mb-6">
                                        <label className="text-[10px] font-black uppercase text-white/50">Auto-Delay:</label>
                                        <div className="flex items-center gap-2">
@@ -971,8 +995,8 @@ export default function App() {
                                     <button 
                                       onClick={() => {
                                         if (!isAutoSending && queueIndex < activeQueue.length) {
-                                          triggerNextInQueue(); // Dispara o primeiro imediatamente
-                                          setIsAutoSending(true); // Liga o timer para os próximos
+                                          triggerNextInQueue(); 
+                                          setIsAutoSending(true); 
                                         } else {
                                           setIsAutoSending(false);
                                         }
@@ -1061,7 +1085,7 @@ export default function App() {
                </div>
             </div>
 
-            {/* UPGRADE / MARKETPLACE (APARECE PARA TODOS NO MODO MASTER, SE NÃO APARECE SÓ PARA FREE TRIAL) */}
+            {/* UPGRADE / MARKETPLACE */}
             {(!isPro || user?.uid === ADMIN_MASTER_ID) && (
               <div id="marketplace-section" className="mb-16 animate-in fade-in zoom-in-95 duration-700 mt-10">
                  <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">{user?.uid === ADMIN_MASTER_ID ? "MASTER PROTOCOLS VIEW" : "MAXIMIZE YOUR ROI: UPGRADE TO PRO"}</h3></div>
@@ -1111,7 +1135,7 @@ export default function App() {
                </div>
             )}
 
-            {/* MÓDULO NOVO: SMART LINKS MANAGEMENT (HISTÓRICO) */}
+            {/* MÓDULO NOVO: SMART LINKS MANAGEMENT */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Globe size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Smart Links Management</h3></div>
@@ -1138,7 +1162,7 @@ export default function App() {
               </div>
             </div>
             
-            {/* VAULT SYNC COM MÁSCARA PRO (AIDA UPSELL) */}
+            {/* VAULT SYNC COM MÁSCARA PRO */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic flex flex-col">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
