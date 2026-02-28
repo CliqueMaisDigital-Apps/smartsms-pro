@@ -166,25 +166,44 @@ export default function App() {
 
   // DATA SYNCHRONIZATION
   useEffect(() => {
-    if (!user || view !== 'dashboard') return;
+    if (!user) return;
     
-    let unsubUsers, unsubLeads;
+    let unsubUsers, unsubLeads, unsubProfile;
     try {
-      if (user.uid === ADMIN_MASTER_ID) {
-        unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
-          setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (err) => console.warn("List hidden pending permissions."));
-      }
+      // 1. Sincronização em Tempo Real do Perfil (Atualiza Créditos Instantaneamente)
+      unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
+        if (docSnap.exists()) {
+           const data = docSnap.data();
+           if (user.uid === ADMIN_MASTER_ID) {
+              data.isUnlimited = true;
+              data.smsCredits = 999999;
+           }
+           setUserProfile(data);
+        }
+      });
 
-      if (isVaultActive) {
-        unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
-          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-        }, (err) => console.warn("Vault locked pending sync."));
+      // 2. Sincronização de Listas (Apenas visível na Dashboard)
+      if (view === 'dashboard') {
+        if (user.uid === ADMIN_MASTER_ID) {
+          unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+            setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          }, (err) => console.warn("List hidden pending permissions."));
+        }
+
+        if (isVaultActive) {
+          unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+          }, (err) => console.warn("Vault locked pending sync."));
+        }
       }
     } catch(e) {}
     
-    return () => { if(unsubUsers) unsubUsers(); if(unsubLeads) unsubLeads(); };
+    return () => { 
+      if(unsubUsers) unsubUsers(); 
+      if(unsubLeads) unsubLeads(); 
+      if(unsubProfile) unsubProfile();
+    };
   }, [user, view, isVaultActive]);
 
   // --- CORE INTELLIGENCE ENGINE ---
@@ -316,13 +335,27 @@ export default function App() {
         const d = await getDoc(ownerRef);
         const ownerProfile = d?.data();
 
-        if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.usageCount || 0) >= 60) {
+        // Bloqueio rigoroso se a cota estiver em zero
+        if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.smsCredits <= 0 || ownerProfile?.usageCount >= 60)) {
           setQuotaExceeded(true);
           return;
         }
 
-        await updateDoc(ownerRef, { usageCount: increment(1) });
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+        // Deduz 1 crédito e aumenta o histórico de uso (Apenas contas não-ilimitadas)
+        if (!ownerProfile?.isUnlimited) {
+          await updateDoc(ownerRef, { 
+            usageCount: increment(1),
+            smsCredits: increment(-1) 
+          });
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { 
+            usageCount: increment(1),
+            smsCredits: increment(-1) 
+          });
+        } else {
+          // Atualiza apenas a métrica de uso para utilizadores Master/Unlimited
+          await updateDoc(ownerRef, { usageCount: increment(1) });
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+        }
 
         if (ownerProfile?.isSubscribed || ownerProfile?.isUnlimited) {
           const geoReq = await fetch('https://ipapi.co/json/');
