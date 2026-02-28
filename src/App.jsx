@@ -64,7 +64,7 @@ function FAQItem({ q, a }) {
 }
 
 export default function App() {
-  // --- 1. ESTADOS DE INTERFACE ---
+  // --- 1. ESTADOS GLOBAIS DE INTERFACE ---
   const [view, setView] = useState('home');
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -77,11 +77,12 @@ export default function App() {
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
   
-  // --- 3. ESTADOS DO GERADOR DE LINKS ---
+  // --- 3. ESTADOS DO GERADOR E ENVIO RÁPIDO ---
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
+  const [editingLink, setEditingLink] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -159,7 +160,7 @@ export default function App() {
     }
   }, [view]);
 
-  // --- SINCRONIZAÇÃO DE DADOS ---
+  // --- SINCRONIZAÇÃO DE DADOS SEGURA (Evita Erros de Length) ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
@@ -204,23 +205,37 @@ export default function App() {
       return; 
     }
     
-    const to = genTo;
-    const msg = genMsg;
-    const company = companyName || 'Verified Host';
+    const to = editingLink ? editingLink.to : genTo;
+    const msg = editingLink ? editingLink.msg : genMsg;
+    const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
 
     if (!to) return alert("Destination number is required.");
     setLoading(true);
     
-    const lid = crypto.randomUUID().split('-')[0];
+    const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
     const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
     
     await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { 
       url: link, to, msg, company, created_at: serverTimestamp(), status: 'active'
     }, { merge: true });
 
-    setGeneratedLink(link);
+    if (!editingLink) setGeneratedLink(link);
+    setEditingLink(null);
     setGenTo(''); setGenMsg(''); setCompanyName('');
     setLoading(false);
+  };
+
+  const handleQuickSend = (e) => {
+    e.preventDefault();
+    if(!genTo || !genMsg) return alert("Destinatário e Mensagem são obrigatórios.");
+    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+    window.location.href = `sms:${genTo}${sep}body=${encodeURIComponent(genMsg)}`;
+  };
+
+  const handleDeleteLink = async (id) => {
+    if(window.confirm("Delete this protocol?")) {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
+    }
   };
 
   const handleProtocolHandshake = async () => {
@@ -482,6 +497,7 @@ export default function App() {
                      </div>
                   </div>
                   
+                  {/* Bloco de Instruções */}
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
                        <h5 className="text-[11px] text-[#25F4EE] mb-3">Performance Instructions:</h5>
@@ -567,10 +583,10 @@ export default function App() {
             {/* MÓDULO DE ESTATÍSTICAS ULTRA PREMIUM */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
-                { label: "Protocolos Distribuídos", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
-                { label: "Taxa de Resolução", value: "99.8%", icon: ShieldCheck, color: "text-[#FE2C55]" },
-                { label: "Identidades Ativas", value: logs.length || 0, icon: Users, color: "text-amber-500" },
-                { label: "Volume de Quota", value: isPro ? "Ilimitado" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
+                { label: "SMS Enviados", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "Taxa de Entrega", value: "99.8%", icon: ShieldCheck, color: "text-[#FE2C55]" },
+                { label: "Contatos Ativos", value: logs.length || 0, icon: Users, color: "text-amber-500" },
+                { label: "Créditos Restantes", value: isPro ? "Ilimitado" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-4 rounded-2xl border border-white/5 ${stat.color}`}>
@@ -587,41 +603,38 @@ export default function App() {
             {/* CONTEÚDO PRINCIPAL DASHBOARD */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
               
-              {/* COLUNA ESQUERDA: Quick Send / AI Agent */}
+              {/* COLUNA ESQUERDA: Quick Send / Bulk Ingestion */}
               <div className="lg:col-span-1 space-y-8 flex flex-col">
-                <div className="bg-[#0a0a0a] p-8 rounded-[2.5rem] border border-white/10 shadow-2xl flex-1 flex flex-col relative overflow-hidden">
-                  <h3 className="text-xl text-white tracking-tight mb-6 flex items-center gap-3">
-                    <BrainCircuit className="text-[#25F4EE]" size={24} /> 
-                    AI AGENT COMMAND
-                    {!isPro && <Lock size={16} className="text-[#FE2C55]" />}
+                
+                {/* QUICK SEND INCORPORADO */}
+                <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
+                  <h3 className="text-xl text-white mb-6 flex items-center gap-3">
+                    <Zap className="text-[#25F4EE]" size={20} />
+                    Envio Rápido
                   </h3>
-                  
-                  <div className={`flex flex-col flex-1 space-y-4 ${!isPro ? 'opacity-30 pointer-events-none' : ''}`}>
-                    <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
-                    {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
-                    <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5 mt-auto">
-                       <span className="text-[10px] tracking-widest text-white/50">DELAY</span>
-                       <div className="flex items-center gap-2">
-                          <input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" />
-                          <span className="text-[9px] text-white/30">SEC</span>
-                       </div>
+                  <form onSubmit={handleQuickSend} className="space-y-5 flex flex-col flex-1">
+                    <div>
+                      <label className="block text-[10px] text-white/40 tracking-widest mb-2">Destinatário</label>
+                      <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
-                    <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">
-                       Synthesize Queue ({logs.length})
+                    <div className="flex-1 flex flex-col">
+                      <label className="block text-[10px] text-white/40 tracking-widest mb-2">Mensagem</label>
+                      <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Escreva o seu SMS..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
+                      <div className="flex justify-between mt-2 text-[9px] text-white/30">
+                        <span>{MSG_LIMIT - genMsg.length} caracteres</span>
+                        <span>1 SMS</span>
+                      </div>
+                    </div>
+                    <button type="submit" className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full mt-4 py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
+                      <Send size={16} className="mr-2" /> Enviar Agora
                     </button>
-                  </div>
-
-                  {!isPro && (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 text-center bg-[#0a0a0a]/60 backdrop-blur-sm">
-                       <p className="text-[#FE2C55] tracking-widest text-[11px] mb-4 shadow-xl animate-pulse"><Lock size={16} className="inline mr-2 mb-1"/> EXPERT IA LOCKED</p>
-                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-8 py-4 rounded-xl w-full">Upgrade to Elite</button>
-                    </div>
-                  )}
+                  </form>
                 </div>
 
+                {/* BULK INGESTION */}
                 <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
-                      <div><h3 className="text-xl tracking-tight text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> BULK INGESTION {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">Import 5k units.</p></div>
+                      <div><h3 className="text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> Bulk Import {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">Import 5k units.</p></div>
                       {isPro && <button onClick={() => fileInputRef.current.click()} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[#25F4EE] transition-all"><Plus size={20} /></button>}
                    </div>
                    {!isPro && (
@@ -634,46 +647,49 @@ export default function App() {
                 </div>
               </div>
 
-              {/* COLUNA DIREITA: Tabela de Logs Recentes (Substituindo listas antigas) */}
+              {/* COLUNA DIREITA: Tabela de Logs Recentes */}
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[500px]">
                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]">
                     <div className="flex items-center gap-3">
                        <History size={20} className="text-[#25F4EE]" />
-                       <h3 className="text-xl text-white tracking-tight">Active Vault Protocol</h3>
+                       <h3 className="text-xl text-white tracking-tight">Logs Recentes</h3>
                     </div>
-                    <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[9px] tracking-widest px-4 py-2 rounded-full border border-[#25F4EE]/30">
-                      {logs.length} NODES
-                    </span>
+                    <button className="text-[#25F4EE] text-[10px] tracking-widest hover:underline">VER TUDO</button>
                  </div>
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
                    {logs.length > 0 ? (
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
-                       <thead className="bg-[#111] sticky top-0 z-10 font-black italic uppercase border-b border-white/5">
+                       <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Target Identity</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Mobile Routing</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">Time Sync</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Destinatário</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Identidade</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Status</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">Hora</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
                          {logs.map(l => (
                            <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
+                             <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
                              <td className="px-8 py-6">
                                <div className="flex items-center gap-3">
                                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
                                    <UserCheck size={14} />
                                  </div>
-                                 <span className="text-white text-sm">
+                                 <span className="text-white text-sm truncate max-w-[150px]">
                                    {maskData(l.nome_cliente, 'name')}
                                  </span>
-                                 {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse uppercase italic font-black">LOCKED</span>}
+                                 {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-2 uppercase italic font-black">LOCKED</span>}
                                </div>
                              </td>
-                             <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
-                             <td className="px-8 py-6 text-right text-xs text-white/30 font-mono flex flex-col items-end gap-1">
-                                <span>{l.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) || 'Syncing...'}</span>
-                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-white/40">{String(l.id).substring(0,6)}</span>
+                             <td className="px-8 py-6">
+                                <span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic">
+                                  <CheckCircle2 size={12} /> INTERCEPTADO
+                                </span>
+                             </td>
+                             <td className="px-8 py-6 text-right text-xs text-white/30 font-mono">
+                                {l.timestamp && typeof l.timestamp.toDate === 'function' ? l.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Syncing...'}
                              </td>
                            </tr>
                          ))}
@@ -682,8 +698,8 @@ export default function App() {
                    ) : (
                      <div className="flex flex-col items-center justify-center h-full p-20 opacity-20">
                         <Lock size={48} className="mb-4 text-white" />
-                        <p className="text-[11px] tracking-widest uppercase italic">Vault Standby</p>
-                        <p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">No active interceptions found.</p>
+                        <p className="text-[11px] tracking-widest">VAULT STANDBY</p>
+                        <p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">Nenhuma intercepção ativa.</p>
                      </div>
                    )}
                  </div>
@@ -696,7 +712,46 @@ export default function App() {
               </div>
             </div>
 
-            {/* 3. UPGRADE STATION */}
+            {/* AI AGENT MODULE */}
+            <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+              <div className={`flex flex-col text-left`}>
+                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
+                    <div className="flex items-center gap-4 text-left"><div className="p-3 bg-white/5 rounded-xl border border-white/10"><BrainCircuit size={24} className="text-[#25F4EE]" /></div><div><h3 className="text-xl text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[9px] text-white/40 tracking-widest mt-2">Automated linguistic scrambling to obliterate carrier filter blocks.</p></div></div>
+                 </div>
+                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
+                    <div className="space-y-4 flex flex-col">
+                       <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
+                       <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] tracking-widest text-white/50">DISPATCH DELAY</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" /><span className="text-[9px] text-white/30">SECS</span></div></div>
+                       <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">Synthesize Queue ({logs.length} Units)</button>
+                    </div>
+                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative"><div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px]">System Standby</p></div></div>
+                 </div>
+              </div>
+              {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">Unlock Expert IA</button></div>}
+            </div>
+
+            {/* PROTOCOL INVENTORY (LINKS) */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
+              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Radio size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Protocol Inventory</h3></div></div>
+              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
+                {linksHistory.length > 0 ? linksHistory.map(l => (
+                  <div key={l.id} className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-6 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-1 truncate">
+                       <p className="text-[10px] text-white/30 mb-1 flex items-center gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString() : 'Syncing Node...'}</p>
+                       <p className="text-sm text-[#25F4EE] truncate font-sans !text-transform-none">{l.url}</p>
+                       <p className="text-[9px] text-white/40 mt-1 leading-tight font-sans !text-transform-none">Host: {String(l.company)} | Payload: {String(l.msg).substring(0,60)}...</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Node Copied!");}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors"><Copy size={16}/></button>
+                       <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home');}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors"><Edit size={16}/></button>
+                       <button onClick={() => handleDeleteLink(l.id)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors"><Trash size={16}/></button>
+                    </div>
+                  </div>
+                )) : <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">No protocols established</p></div>}
+              </div>
+            </div>
+
+            {/* UPGRADE STATION */}
             <div id="marketplace-section" className="mb-16 mt-10 text-left">
                <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
@@ -712,6 +767,20 @@ export default function App() {
                     <p className="text-[9px] text-white/40 mb-10 leading-relaxed">Full IA Native Synthesis & Automated Delay.</p>
                     {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">Activate Node</button>}
                  </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+                 {[
+                   { name: "Starter Node", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
+                   { name: "Nexus Pack", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
+                   { name: "Elite Operator", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
+                 ].map(pack => (
+                   <div key={pack.name} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] text-center shadow-xl flex flex-col items-center">
+                     <p className="text-[10px] text-[#25F4EE] mb-2 tracking-widest">{pack.name}</p>
+                     <p className="text-3xl text-white mb-4">{pack.qty} HANDSHAKES</p>
+                     <p className="text-xl text-[#25F4EE] mb-8">{pack.price}</p>
+                     <button className="w-full py-3 bg-black border border-white/10 rounded-xl text-[8px] tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">Acquire Node</button>
+                   </div>
+                 ))}
               </div>
             </div>
             
