@@ -17,7 +17,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  increment
+  increment,
+  writeBatch // <-- IMPORTADO PARA PROCESSAMENTO EM MASSA (BATCH)
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -47,7 +48,7 @@ const db = getFirestore(firebaseApp);
 // --- MASTER ADMIN ACCESS SOBERANO ---
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX MASTER
 
-// --- COMPONENTE FAQ (Limpo e Autoritário) ---
+// --- COMPONENTE FAQ ---
 function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
@@ -119,7 +120,6 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
-        // VALIDAÇÃO SOBERANA DO MASTER - IGNORA O BANCO E LIBERTA TUDO
         if (u.uid === ADMIN_MASTER_ID) {
           setUserProfile({ 
             fullName: "Alex Master", 
@@ -160,18 +160,16 @@ export default function App() {
     }
   }, [view]);
 
-  // --- SINCRONIZAÇÃO DE DADOS SEGURA (Evita Erros de Length) ---
+  // --- SINCRONIZAÇÃO DE DADOS SEGURA ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
-    // Leitura do Vault de Leads
     const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const myData = isMaster ? all : all.filter(l => l.ownerId === user.uid);
       setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
     });
 
-    // Leitura do Inventário de Links
     const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
       setLinksHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     });
@@ -197,6 +195,80 @@ export default function App() {
   // FUNÇÕES DE COMANDO
   // ============================================================================
   
+  // ---> NOVA REGRA ABSOLUTA: MOTOR DE IMPORTAÇÃO EM MASSA (.TXT) <---
+  const handleBulkImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
+    
+    setLoading(true);
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      // Separa o txt por quebras de linha e remove linhas vazias
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      
+      try {
+        let batch = writeBatch(db);
+        let count = 0;
+        let totalImported = 0;
+
+        for (const line of lines) {
+          let name = "Imported Lead";
+          let phone = line;
+          
+          // Se houver vírgula, assume que o formato é "Nome, Telefone"
+          if (line.includes(',')) {
+            const parts = line.split(',');
+            name = parts[0].trim();
+            phone = parts[1].trim();
+          }
+
+          // Limpa tudo que não for número para gerar um ID de documento seguro
+          const safePhone = phone.replace(/\D/g, '');
+          if (!safePhone) continue;
+
+          // Associa ao Owner Atual
+          const leadDocId = `${user.uid}_${safePhone}`;
+          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+
+          batch.set(leadRef, {
+            ownerId: user.uid,
+            nome_cliente: name,
+            telefone_cliente: phone,
+            timestamp: serverTimestamp(),
+            device: 'Bulk Import TXT'
+          }, { merge: true });
+
+          count++;
+          totalImported++;
+
+          // Firestore tem um limite de 500 operações por Batch. Comita a cada 400.
+          if (count === 400) {
+            await batch.commit();
+            batch = writeBatch(db); // Inicia novo batch
+            count = 0;
+          }
+        }
+        
+        // Comita o resto que sobrou
+        if (count > 0) {
+          await batch.commit();
+        }
+        
+        alert(`Success! ${totalImported} global units ingested into the Vault.`);
+      } catch (error) {
+        console.error(error);
+        alert("Error during bulk ingestion.");
+      }
+      
+      setLoading(false);
+      e.target.value = ''; // Limpa o input file
+    };
+    
+    reader.readAsText(file);
+  };
+
   const handleGenerate = async () => {
     // ISCA DE CAPTAÇÃO: Se o usuário tentar gerar o link deslogado, é forçado a criar conta
     if (!user) { 
@@ -463,7 +535,7 @@ export default function App() {
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
-        {/* ==================== HOME (GERADOR & ISCA) ==================== */}
+        {/* ==================== HOME ==================== */}
         {view === 'home' && (
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-500">
             <header className="mb-14 text-center flex flex-col items-center">
@@ -635,7 +707,7 @@ export default function App() {
                 <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
                       <div><h3 className="text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> Bulk Import {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">Import 5k units.</p></div>
-                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[#25F4EE] transition-all"><Plus size={20} /></button>}
+                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={20} className="animate-spin"/> : <Plus size={20} />}</button>}
                    </div>
                    {!isPro && (
                      <div className="pro-lock-layer">
@@ -643,7 +715,7 @@ export default function App() {
                         <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[8px] px-6 py-2 rounded-lg">Unlock</button>
                      </div>
                    )}
-                   <input type="file" accept=".txt" ref={fileInputRef} className="hidden" />
+                   <input type="file" accept=".txt" onChange={handleBulkImport} ref={fileInputRef} className="hidden" />
                 </div>
               </div>
 
@@ -721,6 +793,7 @@ export default function App() {
                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
                     <div className="space-y-4 flex flex-col">
                        <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
+                       {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
                        <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] tracking-widest text-white/50">DISPATCH DELAY</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" /><span className="text-[9px] text-white/30">SECS</span></div></div>
                        <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">Synthesize Queue ({logs.length} Units)</button>
                     </div>
