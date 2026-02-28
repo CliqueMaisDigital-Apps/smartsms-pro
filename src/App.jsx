@@ -30,7 +30,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2
+  DownloadCloud, Trash2, SlidersHorizontal
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
@@ -51,7 +51,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX MASTER
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
@@ -94,7 +94,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
-  // --- COMPLIANCE GATE (CAPTURE) STATES ---
+  // --- COMPLIANCE GATE STATES ---
   const [captureData, setCaptureData] = useState(null);
   const [captureForm, setCaptureForm] = useState({ name: '', phone: '' });
 
@@ -106,11 +106,13 @@ export default function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
-  // --- AI AUTOMATION & QR SYNC STATES ---
+  // --- AI AUTOMATION, STAGING & QR SYNC STATES ---
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [activeQueue, setActiveQueue] = useState([]); 
+  const [isReviewMode, setIsReviewMode] = useState(false); // Controls the Variation Staging Area
+  const [stagedQueue, setStagedQueue] = useState([]); // Holds variations for review/editing
+  
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
@@ -198,9 +200,21 @@ export default function App() {
   }, [user, view, isMaster]);
 
   // ============================================================================
-  // PRO COMMAND FUNCTIONS (ABSOLUTE NATIVE)
+  // PRO COMMAND FUNCTIONS
   // ============================================================================
   
+  // ZERO TOLERANCE POLICY VALIDATION
+  const validateAIContent = (text) => {
+    setAiObjective(text);
+    const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
+    if (forbidden.test(text)) {
+      setAiWarning("ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. SYSTEM LOCKED.");
+    } else {
+      setAiWarning('');
+    }
+  };
+
+  // GENERATE VARIATIONS & OPEN STAGING AREA
   const handlePrepareBatch = () => {
     if (!aiObjective || logs.length === 0 || aiWarning) return;
     setIsAiProcessing(true);
@@ -213,33 +227,48 @@ export default function App() {
          return;
       }
       
+      // Simulate Contextual AI Scrambling
       const queue = logs.slice(0, limit).map((l, idx) => {
          const variationId = (idx % 60) + 1;
-         const hash = Math.random().toString(36).substr(2,4).toUpperCase();
+         const hash = Math.random().toString(36).substring(2, 6).toUpperCase();
          return { 
+           id: l.id || Math.random().toString(),
            telefone_cliente: l.telefone_cliente, 
-           optimizedMsg: `${aiObjective} [Var:${variationId} | Ref:${hash}]` 
+           nome_cliente: l.nome_cliente || 'Valued Customer',
+           optimizedMsg: `${aiObjective}\n[Ref:${hash}-${variationId}]` 
          };
       });
       
-      setActiveQueue(queue);
+      setStagedQueue(queue);
+      setIsReviewMode(true);
       setIsAiProcessing(false);
       
-      if (!isDeviceSynced) {
-         setShowSyncModal(true);
-      }
-    }, 1200);
+    }, 1500);
   };
 
+  // EDIT INDIVIDUAL VARIATION BLOCK
+  const handleEditStagedMsg = (index, newMsg) => {
+    const updatedQueue = [...stagedQueue];
+    updatedQueue[index].optimizedMsg = newMsg;
+    setStagedQueue(updatedQueue);
+  };
+
+  // DISPATCH STAGED QUEUE TO FIREBASE (NODE APP WILL PICK IT UP)
   const dispatchToNode = async () => {
-    if (activeQueue.length === 0 || !user) return;
+    if (stagedQueue.length === 0 || !user) return;
+    
+    if (!isDeviceSynced) {
+       setShowSyncModal(true);
+       return;
+    }
+
     setLoading(true);
 
     try {
       let batch = writeBatch(db);
       let count = 0;
 
-      for (const task of activeQueue) {
+      for (const task of stagedQueue) {
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         batch.set(docRef, {
           telefone_cliente: task.telefone_cliente,
@@ -258,10 +287,11 @@ export default function App() {
 
       if (!isMaster) {
         const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-        await updateDoc(profileRef, { smsCredits: increment(-activeQueue.length) });
+        await updateDoc(profileRef, { smsCredits: increment(-stagedQueue.length) });
       }
 
-      setActiveQueue([]);
+      setStagedQueue([]);
+      setIsReviewMode(false);
       
     } catch (error) {
       console.error("Dispatch Error:", error);
@@ -271,9 +301,9 @@ export default function App() {
     setLoading(false);
   };
 
-  // NEW: Calibration Function to clear stuck queue
+  // CLEAR STUCK QUEUE
   const handleClearQueue = async () => {
-    if (!window.confirm("Are you sure you want to clear all pending tasks and reset the node?")) return;
+    if (!window.confirm("CONFIRMATION: Are you sure you want to completely clear the stuck queue?")) return;
     setLoading(true);
     try {
       const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
@@ -291,35 +321,27 @@ export default function App() {
   const handleBulkImport = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
-    
     setLoading(true);
     const reader = new FileReader();
-    
     reader.onload = async (event) => {
       const text = event.target.result;
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      
       try {
         let batch = writeBatch(db);
         let count = 0;
         let totalImported = 0;
-
         for (const line of lines) {
           let name = "Imported Lead";
           let phone = line;
-          
           if (line.includes(',')) {
             const parts = line.split(',');
             name = parts[0].trim();
             phone = parts[1].trim();
           }
-
           const safePhone = phone.replace(/\D/g, '');
           if (!safePhone) continue;
-
           const leadDocId = `${user.uid}_${safePhone}`;
           const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-
           batch.set(leadRef, {
             ownerId: user.uid,
             nome_cliente: name,
@@ -327,28 +349,23 @@ export default function App() {
             timestamp: serverTimestamp(),
             device: 'Bulk Import TXT'
           }, { merge: true });
-
           count++;
           totalImported++;
-
           if (count === 400) {
             await batch.commit();
             batch = writeBatch(db);
             count = 0;
           }
         }
-        
         if (count > 0) { await batch.commit(); }
-        alert(`Success! ${totalImported} global units ingested into the Vault.`);
+        alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED INTO THE VAULT.`);
       } catch (error) {
         console.error(error);
-        alert("Error during bulk ingestion.");
+        alert("ERROR DURING BULK INGESTION.");
       }
-      
       setLoading(false);
       e.target.value = '';
     };
-    
     reader.readAsText(file);
   };
 
@@ -358,21 +375,16 @@ export default function App() {
       setView('auth'); 
       return; 
     }
-    
     const to = editingLink ? editingLink.to : genTo;
     const msg = editingLink ? editingLink.msg : genMsg;
     const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
-
-    if (!to) return alert("Destination number is required.");
+    if (!to) return alert("DESTINATION NUMBER IS REQUIRED.");
     setLoading(true);
-    
     const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
     const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
-    
     await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { 
       url: link, to, msg, company, created_at: serverTimestamp(), status: 'active'
     }, { merge: true });
-
     if (!editingLink) setGeneratedLink(link);
     setEditingLink(null);
     setGenTo(''); setGenMsg(''); setCompanyName('');
@@ -381,8 +393,7 @@ export default function App() {
 
   const handleQuickSend = async (e) => {
     e.preventDefault();
-    if(!genTo || !genMsg) return alert("Recipient and Message are required.");
-
+    if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
     if (isDeviceSynced && user) {
       setLoading(true);
       try {
@@ -393,7 +404,7 @@ export default function App() {
           created_at: serverTimestamp()
         });
         setGenTo(''); setGenMsg('');
-        alert("Pushed to Secure Node!");
+        alert("PUSHED TO SECURE NODE!");
       } catch(e) { console.error(e); }
       setLoading(false);
     } else {
@@ -402,25 +413,22 @@ export default function App() {
   };
 
   const handleDeleteLink = async (id) => {
-    if(window.confirm("Delete this protocol?")) {
+    if(window.confirm("DELETE THIS PROTOCOL?")) {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
     }
   };
 
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
-    if(!captureForm.phone.startsWith('+')) return alert("Use valid format with '+' prefix (ex: +1 999 999 9999)");
-    
+    if(!captureForm.phone.startsWith('+')) return alert("USE VALID FORMAT WITH '+' PREFIX (EX: +1 999 999 9999)");
     setLoading(true);
     try {
       const ownerId = captureData.ownerId;
       const safePhone = captureForm.phone.replace(/\D/g, '');
       const leadDocId = `${ownerId}_${safePhone}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-      
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
-
       await setDoc(leadRef, {
         ownerId,
         nome_cliente: String(captureForm.name),
@@ -428,27 +436,24 @@ export default function App() {
         timestamp: serverTimestamp(),
         device: navigator.userAgent
       }, { merge: true });
-
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
         if (opSnap.exists() && opSnap.data().tier !== 'MASTER') {
            if (opSnap.data().smsCredits <= 0) { 
-               alert("Host out of credits.");
+               alert("HOST OUT OF CREDITS.");
                setLoading(false); 
                return; 
            }
            await updateDoc(pubRef, { smsCredits: increment(-1) });
         }
       }
-
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const sep = isIOS ? '&' : '?';
       setView('bridge');
       setTimeout(() => {
         window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
       }, 1000);
-      
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -459,7 +464,6 @@ export default function App() {
     try {
       const emailLower = email.toLowerCase().trim();
       let authUser;
-      
       if (isLoginMode) {
         const cred = await signInWithEmailAndPassword(auth, emailLower, password);
         authUser = cred.user;
@@ -469,21 +473,12 @@ export default function App() {
         const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
       }
-
       if (authUser.uid === ADMIN_MASTER_ID) {
         setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
       }
-
       setView('dashboard');
-    } catch (e) { alert("Identity Denied: " + e.message); }
+    } catch (e) { alert("IDENTITY DENIED: " + e.message); }
     setLoading(false);
-  };
-
-  const validateAIContent = (text) => {
-    setAiObjective(text);
-    const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio)/i;
-    if (forbidden.test(text)) setAiWarning("SECURITY ALERT: Policy Violation.");
-    else setAiWarning('');
   };
 
   const maskData = (s, type) => { 
@@ -564,7 +559,7 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
-      {/* --- TOP NAV PREMIUM --- */}
+      {/* --- TOP NAV --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[100] px-6 flex justify-between items-center">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
@@ -590,34 +585,6 @@ export default function App() {
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </nav>
-
-      {/* MOBILE MENU */}
-      {isMenuOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right">
-            <div className="flex justify-between items-center mb-12">
-              <span className="text-xs text-white/20 tracking-[0.3em]">COMMAND CENTER</span>
-              <button onClick={() => setIsMenuOpen(false)} className="text-white/40 hover:text-white"><X size={24} /></button>
-            </div>
-            <div className="flex flex-col gap-10 flex-1">
-              {!user ? (
-                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm tracking-widest text-[#25F4EE] hover:text-white transition-colors"><UserPlus size={20} /> MEMBER PORTAL</button>
-              ) : (
-                <>
-                  <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10">
-                     <p className="text-[9px] text-white/30 mb-2 tracking-widest">IDENTITY: {String(userProfile?.tier || 'FREE')}</p>
-                     <p className="text-sm text-[#25F4EE] truncate">{String(userProfile?.fullName || 'OPERATOR')}</p>
-                  </div>
-                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm tracking-widest text-white hover:text-[#25F4EE] transition-colors"><LayoutDashboard size={20} /> OPERATOR HUB</button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm tracking-widest text-[#25F4EE] hover:text-white transition-colors"><Bot size={20} /> SMART SUPPORT</button>
-                  <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm tracking-widest text-[#FE2C55] hover:opacity-70 transition-all"><LogOut size={20} /> LOGOUT</button>
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
 
       {/* --- CONTENT HUB --- */}
       <div className="pt-28 flex-1 pb-10 relative">
@@ -708,11 +675,10 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== DASHBOARD (ULTRA PREMIUM FERRARI) ==================== */}
+        {/* ==================== DASHBOARD ==================== */}
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-300">
             
-            {/* Header Operator Hub */}
             <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 mb-12 text-left">
               <div>
                 <h2 className="text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
@@ -761,15 +727,9 @@ export default function App() {
             {/* CONTEÚDO PRINCIPAL DASHBOARD */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
               
-              {/* COLUNA ESQUERDA: Quick Send / Bulk Ingestion */}
               <div className="lg:col-span-1 space-y-8 flex flex-col">
-                
-                {/* QUICK SEND - ADAPTADO PARA NATIVO */}
                 <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
-                  <h3 className="text-xl text-white mb-6 flex items-center gap-3">
-                    <Zap className="text-[#25F4EE]" size={20} />
-                    QUICK DISPATCH
-                  </h3>
+                  <h3 className="text-xl text-white mb-6 flex items-center gap-3"><Zap className="text-[#25F4EE]" size={20} /> QUICK DISPATCH</h3>
                   <form onSubmit={handleQuickSend} className="space-y-5 flex flex-col flex-1">
                     <div>
                       <label className="block text-[10px] text-white/40 tracking-widest mb-2">RECIPIENT</label>
@@ -778,10 +738,6 @@ export default function App() {
                     <div className="flex-1 flex flex-col">
                       <label className="block text-[10px] text-white/40 tracking-widest mb-2">MESSAGE PAYLOAD</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
-                      <div className="flex justify-between mt-2 text-[9px] text-white/30">
-                        <span>{MSG_LIMIT - genMsg.length} CHARS</span>
-                        <span>1 SMS</span>
-                      </div>
                     </div>
                     <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full mt-4 py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
                       <Send size={16} className="mr-2" /> SEND NOW
@@ -789,7 +745,6 @@ export default function App() {
                   </form>
                 </div>
 
-                {/* BULK INGESTION */}
                 <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
                       <div><h3 className="text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> BULK IMPORT {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">IMPORT 5K UNITS.</p></div>
@@ -805,14 +760,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* COLUNA DIREITA: Tabela de Logs Recentes */}
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[500px]">
                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]">
                     <div className="flex items-center gap-3">
                        <History size={20} className="text-[#25F4EE]" />
                        <h3 className="text-xl text-white tracking-tight">RECENT ACTIVITY LOGS</h3>
                     </div>
-                    <button className="text-[#25F4EE] text-[10px] tracking-widest hover:underline">VIEW ALL</button>
                  </div>
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
@@ -835,17 +788,10 @@ export default function App() {
                                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
                                    <UserCheck size={14} />
                                  </div>
-                                 <span className="text-white text-sm truncate max-w-[150px]">
-                                   {maskData(l.nome_cliente, 'name')}
-                                 </span>
-                                 {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-2 uppercase italic font-black">LOCKED</span>}
+                                 <span className="text-white text-sm truncate max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
                                </div>
                              </td>
-                             <td className="px-8 py-6">
-                                <span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic">
-                                  <CheckCircle2 size={12} /> INTERCEPTED
-                                </span>
-                             </td>
+                             <td className="px-8 py-6"><span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={12} /> INTERCEPTED</span></td>
                              <td className="px-8 py-6 text-right text-xs text-white/30 font-mono">
                                 {l.timestamp && typeof l.timestamp.toDate === 'function' ? l.timestamp.toDate().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : 'Syncing...'}
                              </td>
@@ -854,11 +800,7 @@ export default function App() {
                        </tbody>
                      </table>
                    ) : (
-                     <div className="flex flex-col items-center justify-center h-full p-20 opacity-20">
-                        <Lock size={48} className="mb-4 text-white" />
-                        <p className="text-[11px] tracking-widest">VAULT STANDBY</p>
-                        <p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p>
-                     </div>
+                     <div className="flex flex-col items-center justify-center h-full p-20 opacity-20"><Lock size={48} className="mb-4 text-white" /><p className="text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
                    )}
                  </div>
                  {!isPro && logs.length > 0 && (
@@ -870,73 +812,98 @@ export default function App() {
               </div>
             </div>
 
-            {/* ---> AI AGENT MODULE (NATIVO ABSOLUTO) <--- */}
-            <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+            {/* ---> AI AGENT MODULE WITH STAGING AREA <--- */}
+            <div className={`bg-[#0a0a0a] border ${aiWarning ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
               <div className={`flex flex-col text-left`}>
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-8">
                     <div className="flex items-center gap-4 text-left">
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/10"><BrainCircuit size={24} className="text-[#25F4EE]" /></div>
+                      <div className={`p-3 rounded-xl border ${aiWarning ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
+                        {aiWarning ? <AlertOctagon size={24} className="text-[#FE2C55]" /> : <BrainCircuit size={24} className="text-[#25F4EE]" />}
+                      </div>
                       <div>
                         <h3 className="text-xl text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3>
                         <p className="text-[9px] text-white/40 tracking-widest mt-2">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
-                    {/* HELP TAB BUTTON FOR 5 YEAR OLDS */}
+                    {/* HELP SETUP BUTTON */}
                     <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-5 py-3 rounded-xl text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 shrink-0">
-                      <Info size={16}/> SETUP GUIDE (EASY)
+                      <Info size={16}/> SETUP GUIDE & DOWNLOAD
                     </button>
                  </div>
 
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
-                    <div className="space-y-4 flex flex-col">
-                       <textarea disabled={!isPro || activeQueue.length > 0} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
-                       {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
-                       
-                       <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing || activeQueue.length > 0} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4">
-                          {isAiProcessing ? "GENERATING..." : `SYNTHESIZE QUEUE (${Math.min(60, logs.length)} UNITS)`}
-                       </button>
-                    </div>
-                    
-                    {/* PAINEL DE DISPARO REMOTO (Zero Clicks) */}
-                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative overflow-hidden">
-                      {smsQueueCount > 0 ? (
-                        <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
-                           <div className="mb-6">
-                             <p className="text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
-                             <p className="text-[9px] text-white/40 tracking-widest mt-2">PENDING IN NODE QUEUE</p>
+                 {/* VARIATION STAGING AREA (REVIEW MODE) */}
+                 {isReviewMode ? (
+                   <div className="animate-in slide-in-from-bottom-4 fade-in duration-300">
+                     <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                           <SlidersHorizontal size={20} className="text-amber-500" />
+                           <h4 className="text-lg text-white">PAYLOAD REVIEW ENGINE</h4>
+                        </div>
+                        <p className="text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS GENERATED</p>
+                     </div>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 mb-6">
+                        {stagedQueue.map((task, idx) => (
+                           <div key={task.id || idx} className="bg-[#111] border border-white/5 rounded-xl p-5 hover:border-[#25F4EE]/30 transition-colors group">
+                              <div className="flex justify-between items-center mb-3">
+                                <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {idx + 1}</span>
+                                <span className="text-white/30 text-[9px] font-mono truncate max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
+                              </div>
+                              <textarea 
+                                value={task.optimizedMsg} 
+                                onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
+                                className="w-full bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none h-24 font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none" 
+                              />
                            </div>
-                           <div className="text-amber-500 flex flex-col items-center gap-3">
-                             <RefreshCw size={24} className="animate-spin" />
-                             <p className="text-[9px] tracking-widest animate-pulse font-bold">TRANSMITTING VIA SECURE P2P NODE...</p>
-                           </div>
-                           
-                           {/* UN-STUCK QUEUE BUTTON (CALIBRATOR) */}
-                           <button onClick={handleClearQueue} disabled={loading} className="mt-8 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
-                             <Trash2 size={12} /> CLEAR STUCK QUEUE
-                           </button>
+                        ))}
+                     </div>
 
-                        </div>
-                      ) : activeQueue.length > 0 ? (
-                        <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
-                           <div className="mb-6">
-                             <p className="text-5xl font-black text-[#25F4EE] tracking-tighter">{activeQueue.length}</p>
-                             <p className="text-[9px] text-white/40 tracking-widest mt-2">UNITS READY FOR DISPATCH</p>
-                           </div>
-                           {isDeviceSynced ? (
-                             <button onClick={dispatchToNode} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full py-5 shadow-[0_0_20px_rgba(37,244,238,0.3)] animate-pulse">
-                               <Send size={18} className="mr-2" /> DISPATCH TO NODE
+                     <div className="flex gap-4">
+                        <button onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-4 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors">CANCEL</button>
+                        <button onClick={dispatchToNode} className="flex-1 bg-amber-500 text-black font-black text-[11px] py-4 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.01] transition-transform flex items-center justify-center gap-2">
+                           <Send size={18} /> CONFIRM & DISPATCH TO NODE
+                        </button>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
+                      <div className="space-y-4 flex flex-col">
+                         {aiWarning && (
+                            <div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55] rounded-xl flex items-start gap-3 animate-pulse shadow-[0_0_15px_rgba(254,44,85,0.2)]">
+                              <AlertTriangle size={20} className="text-[#FE2C55] shrink-0 mt-0.5"/>
+                              <p className="text-[10px] text-[#FE2C55] tracking-widest font-black leading-tight">{aiWarning}</p>
+                            </div>
+                         )}
+                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[140px] resize-none font-sans font-medium !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
+                         
+                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
+                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, logs.length)} UNITS)`}
+                         </button>
+                      </div>
+                      
+                      {/* PAINEL DE DISPARO REMOTO */}
+                      <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative overflow-hidden">
+                        {smsQueueCount > 0 ? (
+                          <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
+                             <div className="mb-6">
+                               <p className="text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
+                               <p className="text-[9px] text-white/40 tracking-widest mt-2">PENDING IN NODE QUEUE</p>
+                             </div>
+                             <div className="text-amber-500 flex flex-col items-center gap-3">
+                               <RefreshCw size={24} className="animate-spin" />
+                               <p className="text-[9px] tracking-widest animate-pulse font-bold">TRANSMITTING VIA SECURE P2P NODE...</p>
+                             </div>
+                             
+                             <button onClick={handleClearQueue} disabled={loading} className="mt-8 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
+                               <Trash2 size={12} /> CLEAR STUCK QUEUE
                              </button>
-                           ) : (
-                             <button onClick={() => setShowSyncModal(true)} className="btn-strategic !bg-white !text-black text-[11px] w-full py-5">
-                               <Smartphone size={18} className="mr-2" /> SYNC NODE DEVICE
-                             </button>
-                           )}
-                        </div>
-                      ) : (
-                        <div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">SYSTEM STANDBY</p></div>
-                      )}
-                    </div>
-                 </div>
+                          </div>
+                        ) : (
+                          <div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">SYSTEM STANDBY</p></div>
+                        )}
+                      </div>
+                   </div>
+                 )}
               </div>
               {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">UNLOCK EXPERT AI</button></div>}
             </div>
@@ -1052,30 +1019,32 @@ export default function App() {
         </div>
       )}
 
-      {/* 5-YEAR-OLD FRIENDLY SETUP GUIDE MODAL */}
+      {/* SETUP GUIDE MODAL - FIXED OVERFLOW & REMOVED IDIOM */}
       {showHelpModal && (
         <div className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 text-center animate-in fade-in">
-          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-[2rem] p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)]">
-            <button onClick={() => setShowHelpModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white"><X size={24}/></button>
+          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-[2rem] p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[85vh] overflow-y-auto custom-scrollbar">
             
-            <div className="flex justify-center mb-6">
+            <div className="sticky top-0 right-0 flex justify-end z-10 -mt-2 -mr-2">
+               <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"><X size={20}/></button>
+            </div>
+            
+            <div className="flex justify-center mb-6 mt-2">
               <div className="p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
                 <DownloadCloud size={32} className="text-[#25F4EE]" />
               </div>
             </div>
             
-            <h2 className="text-3xl font-black text-white italic tracking-tight mb-2">EASY SETUP GUIDE</h2>
-            <p className="text-[10px] text-white/50 tracking-widest font-bold mb-6">SO SIMPLE, A 5-YEAR-OLD CAN DO IT!</p>
+            <h2 className="text-3xl font-black text-white italic tracking-tight mb-6">SETUP GUIDE</h2>
             
             <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-4 py-3 rounded-xl flex items-center gap-3 mb-6 text-left">
               <Info size={24} className="shrink-0" />
-              <p className="text-[9px] font-bold leading-relaxed">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
+              <p className="text-[9px] font-black leading-relaxed tracking-widest">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
             </div>
 
             <div className="space-y-3 text-left mb-8">
               <div className="bg-black border border-white/5 p-4 rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 1</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Download the app using the premium button below and install it on your Android phone.</p>
+                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Download the QR-Code Mirroring App using the premium button below and install it on your Android phone.</p>
               </div>
               <div className="bg-black border border-white/5 p-4 rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 2</p>
@@ -1087,7 +1056,7 @@ export default function App() {
               </div>
               <div className="bg-black border border-white/5 p-4 rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 4</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Click "SYNTHESIZE QUEUE" then "DISPATCH TO NODE". Your phone will send everything invisibly!</p>
+                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Click "SYNTHESIZE QUEUE" to generate text blocks, then review them, and click "CONFIRM & DISPATCH". Your phone will do the rest!</p>
               </div>
             </div>
 
