@@ -26,7 +26,7 @@ import {
   UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck,
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
-  ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send
+  ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus
 } from 'lucide-react';
 
 // --- CONFIGURAÇÃO SEGURA FIREBASE ---
@@ -45,7 +45,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- MASTER ADMIN ACCESS SOBERANO ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX MASTER
 
 // --- COMPONENTE FAQ (Limpo e Autoritário) ---
 function FAQItem({ q, a }) {
@@ -82,7 +82,6 @@ export default function App() {
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
-  const [editingLink, setEditingLink] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -98,7 +97,7 @@ export default function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
-  // --- 6. ESTADOS DO MOTOR IA & MASTER ---
+  // --- 6. ESTADOS DO MOTOR IA ---
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -106,9 +105,6 @@ export default function App() {
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
-  
-  const [searchUid, setSearchUid] = useState('');
-  const [foundUser, setFoundUser] = useState(null);
 
   const fileInputRef = useRef(null);
   
@@ -117,15 +113,15 @@ export default function App() {
   const isPro = isMaster || (userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed);
   const MSG_LIMIT = 300;
 
-  // --- BOOTSTRAP DE IDENTIDADE (Validação Master Imediata e Absoluta) ---
+  // --- BOOTSTRAP DE IDENTIDADE (Validação Master Imediata) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
-        // VALIDAÇÃO SOBERANA DO MASTER
+        // VALIDAÇÃO SOBERANA DO MASTER - IGNORA O BANCO E LIBERTA TUDO
         if (u.uid === ADMIN_MASTER_ID) {
           setUserProfile({ 
-            fullName: "Alex Master Admin", 
+            fullName: "Alex Master", 
             tier: 'MASTER', 
             isUnlimited: true, 
             smsCredits: 999999, 
@@ -163,7 +159,7 @@ export default function App() {
     }
   }, [view]);
 
-  // --- SINCRONIZAÇÃO DE DADOS (Vault e Histórico) ---
+  // --- SINCRONIZAÇÃO DE DADOS ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
@@ -208,30 +204,23 @@ export default function App() {
       return; 
     }
     
-    const to = editingLink ? editingLink.to : genTo;
-    const msg = editingLink ? editingLink.msg : genMsg;
-    const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
+    const to = genTo;
+    const msg = genMsg;
+    const company = companyName || 'Verified Host';
 
     if (!to) return alert("Destination number is required.");
     setLoading(true);
     
-    const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
+    const lid = crypto.randomUUID().split('-')[0];
     const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
     
     await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { 
       url: link, to, msg, company, created_at: serverTimestamp(), status: 'active'
     }, { merge: true });
 
-    if (!editingLink) setGeneratedLink(link);
-    setEditingLink(null);
+    setGeneratedLink(link);
     setGenTo(''); setGenMsg(''); setCompanyName('');
     setLoading(false);
-  };
-
-  const handleDeleteLink = async (id) => {
-    if(window.confirm("Delete this protocol?")) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
-    }
   };
 
   const handleProtocolHandshake = async () => {
@@ -284,13 +273,23 @@ export default function App() {
     setLoading(true);
     try {
       const emailLower = email.toLowerCase().trim();
+      let authUser;
+      
       if (isLoginMode) {
-        await signInWithEmailAndPassword(auth, emailLower, password);
+        const cred = await signInWithEmailAndPassword(auth, emailLower, password);
+        authUser = cred.user;
       } else {
-        const u = await createUserWithEmailAndPassword(auth, emailLower, password);
+        const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
+        authUser = cred.user;
         const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
-        await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
+        await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
       }
+
+      // SE FOR O MASTER, INJETA PERFIL INSTANTANEAMENTE ANTES DE MUDAR A VIEW
+      if (authUser.uid === ADMIN_MASTER_ID) {
+        setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
+      }
+
       setView('dashboard');
     } catch (e) { alert("Identity Denied: " + e.message); }
     setLoading(false);
@@ -315,26 +314,6 @@ export default function App() {
       setQueueIndex(0);
       setIsAiProcessing(false);
     }, 1000);
-  };
-
-  // Funções do Console Master
-  const handleAdminSearch = async () => {
-    if(!searchUid) return;
-    setLoading(true);
-    const d = await getDoc(doc(db, 'artifacts', appId, 'users', searchUid, 'profile', 'data'));
-    if(d.exists()) setFoundUser({ uid: searchUid, ...d.data() });
-    else alert("Identity node not found.");
-    setLoading(false);
-  };
-
-  const grantGift = async () => {
-    if(!foundUser) return;
-    await updateDoc(doc(db, 'artifacts', appId, 'users', foundUser.uid, 'profile', 'data'), {
-      tier: 'ELITE', smsCredits: 1800, isSubscribed: true
-    });
-    alert("Elite Access Node Granted.");
-    setFoundUser(null);
-    setSearchUid('');
   };
 
   // Mascaramento Inteligente (AIDA)
@@ -503,7 +482,6 @@ export default function App() {
                      </div>
                   </div>
                   
-                  {/* Bloco de Instruções */}
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
                        <h5 className="text-[11px] text-[#25F4EE] mb-3">Performance Instructions:</h5>
@@ -559,6 +537,7 @@ export default function App() {
         {/* ==================== DASHBOARD (ULTRA PREMIUM FERRARI) ==================== */}
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
+            
             {/* Header Operator Hub com Master Identity */}
             <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 mb-12 text-left">
               <div>
@@ -571,11 +550,9 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-4 flex-wrap text-center">
-                 {/* Link Generator Transição */}
                  <button onClick={() => setView('home')} className="flex items-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[10px] text-[#25F4EE]">
                     <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
-                 
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-3 rounded-[1.5rem] shadow-3xl">
                     <p className="text-[8px] text-white/30 mb-2 tracking-widest">Nodes</p>
                     <div className="flex items-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white">-</button><span className="text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white">+</button></div>
@@ -587,180 +564,157 @@ export default function App() {
               </div>
             </div>
 
-            {/* NEW: Módulo de Estatísticas (Integração pedida) */}
+            {/* MÓDULO DE ESTATÍSTICAS ULTRA PREMIUM */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
-                { label: "SMS Enviados", value: "12,840", icon: Send, color: "text-[#25F4EE]" },
-                { label: "Taxa de Entrega", value: "98.2%", icon: ShieldCheck, color: "text-green-500" },
-                { label: "Contatos Ativos", value: "4,502", icon: Users, color: "text-purple-500" },
-                { label: "Créditos Restantes", value: isPro ? "Ilimitado" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-amber-500" },
+                { label: "Protocolos Distribuídos", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "Taxa de Resolução", value: "99.8%", icon: ShieldCheck, color: "text-[#FE2C55]" },
+                { label: "Identidades Ativas", value: logs.length || 0, icon: Users, color: "text-amber-500" },
+                { label: "Volume de Quota", value: isPro ? "Ilimitado" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
-                <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-white/20 transition-all">
+                <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-4 rounded-2xl border border-white/5 ${stat.color}`}>
                     <stat.icon size={24} />
                   </div>
                   <div>
-                    <p className="text-[9px] text-white/40 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <h3 className="text-2xl font-black text-white">{stat.value}</h3>
+                    <p className="text-[9px] text-white/40 tracking-widest mb-1">{stat.label}</p>
+                    <h3 className="text-2xl text-white">{stat.value}</h3>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="space-y-10">
-               {/* 1. BULK INGESTION */}
-               <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 mb-8 ${!isPro ? 'pro-obscure' : ''}`}>
-                  <div className={`flex items-center gap-5 w-full relative z-10`}>
-                     <div className="p-4 bg-white/5 rounded-2xl border border-white/10"><FileText size={32} className="text-[#25F4EE]" /></div>
-                     <div><h3 className="text-2xl tracking-tight text-white">BULK ASSET INGESTION {!isPro && <Lock size={20} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[10px] text-white/40 tracking-widest mt-2">Import up to 5,000 global units simultaneously with zero operation lag.</p></div>
-                  </div>
-                  {!isPro ? (
-                    <div className="pro-lock-layer">
-                       <p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p>
-                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">Unlock Ferrari Module</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => fileInputRef.current.click()} className="bg-[#25F4EE] text-black text-[11px] px-12 py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform whitespace-nowrap relative z-10">Select Source</button>
-                  )}
-                  <input type="file" accept=".txt" ref={fileInputRef} className="hidden" />
-               </div>
-
-               {/* 2. AI AGENT COMMAND */}
-               <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
-                  <div className={`flex flex-col text-left`}>
-                     <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
-                        <div className="flex items-center gap-4 text-left"><div className="p-3 bg-white/5 rounded-xl border border-white/10"><BrainCircuit size={24} className="text-[#25F4EE]" /></div><div><h3 className="text-xl text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[9px] text-white/40 tracking-widest mt-2">Automated linguistic scrambling to obliterate carrier filter blocks.</p></div></div>
-                     </div>
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
-                        <div className="space-y-4 flex flex-col">
-                           <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal..." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
-                           {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
-                           <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] tracking-widest text-white/50">DISPATCH DELAY</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" /><span className="text-[9px] text-white/30">SECS</span></div></div>
-                           <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">Synthesize Queue ({logs.length} Units)</button>
-                        </div>
-                        <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative"><div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px]">System Standby</p></div></div>
-                     </div>
-                  </div>
-                  {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">Unlock Expert IA</button></div>}
-               </div>
-
-               {/* 3. UPGRADE STATION */}
-               <div id="marketplace-section" className="mt-10 text-left">
-                  <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
-                    <div className="bg-[#111] border border-white/10 p-10 rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE] transition-colors">
-                       <h3 className="text-3xl text-white mb-4">Nexus Access</h3>
-                       <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$9.00 / Month"}</p>
-                       <p className="text-[9px] text-white/40 mb-10 leading-relaxed">Unlimited Redirections & Secure Vault.</p>
-                       {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-xs w-full py-4">Upgrade Now</button>}
-                    </div>
-                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[2.5rem] group shadow-2xl hover:scale-[1.01] transition-transform">
-                       <h3 className="text-3xl text-white mb-4 text-[#25F4EE]">Expert Agent</h3>
-                       <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / Month"}</p>
-                       <p className="text-[9px] text-white/40 mb-10 leading-relaxed">Full IA Native Synthesis & Automated Delay.</p>
-                       {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">Activate Node</button>}
-                    </div>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-                    {[
-                      { name: "Starter Node", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
-                      { name: "Nexus Pack", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
-                      { name: "Elite Operator", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
-                    ].map(pack => (
-                      <div key={pack.name} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] text-center shadow-xl flex flex-col items-center">
-                        <p className="text-[10px] text-[#25F4EE] mb-2 tracking-widest">{pack.name}</p>
-                        <p className="text-3xl text-white mb-4">{pack.qty} HANDSHAKES</p>
-                        <p className="text-xl text-[#25F4EE] mb-8">{pack.price}</p>
-                        <button className="w-full py-3 bg-black border border-white/10 rounded-xl text-[8px] tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">Acquire Node</button>
-                      </div>
-                    ))}
-                 </div>
-               </div>
-
-               {/* 4. MASTER ACCESS CONSOLE (EXCLUSIVO MASTER - NO FUNDO DA PÁGINA) */}
-               {isMaster && (
-                 <div className="bg-[#0a0a0a] border border-[#FE2C55]/30 rounded-[2.5rem] p-10 mb-16 shadow-[0_0_30px_rgba(254,44,85,0.1)] relative overflow-hidden">
-                    <div className="flex items-center gap-3 mb-10"><Crown size={24} className="text-[#FE2C55]"/><h3 className="text-2xl text-white tracking-tighter text-glow-white">MASTER ACCESS CONSOLE</h3></div>
-                    <div className="flex flex-col md:flex-row gap-4 mb-8">
-                       <input value={searchUid} onChange={e=>setSearchUid(e.target.value)} placeholder="Search UID Identity..." className="bg-black border border-white/10 text-white w-full md:w-2/3 px-6 py-4 rounded-2xl outline-none focus:border-[#FE2C55] transition-all font-sans font-medium !text-transform-none" />
-                       <button onClick={handleAdminSearch} className="btn-strategic !bg-[#FE2C55] !text-white flex-1 disabled:opacity-50" disabled={loading}>{loading ? 'SCANNING...' : 'SCAN NODES'}</button>
-                    </div>
-                    {foundUser && (
-                      <div className="bg-black/60 border border-[#FE2C55]/50 p-8 rounded-3xl animate-in zoom-in-95 flex flex-col md:flex-row justify-between items-center gap-6">
-                         <div>
-                           <p className="text-[10px] text-white/50 tracking-widest mb-1">Identity: {String(foundUser.fullName)}</p>
-                           <p className="text-lg text-white mt-1 tracking-widest">Tier: <span className="text-[#FE2C55]">{String(foundUser.tier)}</span> | Credits: <span className="text-[#FE2C55]">{String(foundUser.smsCredits)}</span></p>
-                         </div>
-                         <button onClick={grantGift} className="bg-white text-black px-8 py-4 rounded-xl font-black text-[10px] tracking-widest hover:scale-105 transition-transform animate-bounce shadow-[0_0_20px_#fff]">GRANT ELITE ACCESS</button>
-                      </div>
-                    )}
-                 </div>
-               )}
-
-               {/* 5. PROTOCOL INVENTORY (LINKS) */}
-               <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
-                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Radio size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Protocol Inventory</h3></div></div>
-                  <div className="min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
-                    {linksHistory.length > 0 ? linksHistory.map(l => (
-                      <div key={l.id} className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-6 hover:bg-white/[0.02] transition-colors">
-                        <div className="flex-1 truncate">
-                           <p className="text-[10px] text-white/30 mb-1 flex items-center gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString() : 'Syncing Node...'}</p>
-                           <p className="text-sm text-[#25F4EE] truncate font-sans !text-transform-none">{l.url}</p>
-                           <p className="text-[9px] text-white/40 mt-1 leading-tight font-sans !text-transform-none">Host: {String(l.company)} | Payload: {String(l.msg).substring(0,60)}...</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                           <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Node Copied!");}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors"><Copy size={16}/></button>
-                           <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home');}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors"><Edit size={16}/></button>
-                           <button onClick={() => handleDeleteLink(l.id)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors"><Trash size={16}/></button>
-                        </div>
-                      </div>
-                    )) : <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">No protocols established</p></div>}
-                  </div>
-               </div>
-
-               {/* 6. DATA VAULT EXPLORER (LEADS) */}
-               <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
-                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Data Vault Explorer</h3></div></div>
+            {/* CONTEÚDO PRINCIPAL DASHBOARD */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+              
+              {/* COLUNA ESQUERDA: Quick Send / AI Agent */}
+              <div className="lg:col-span-1 space-y-8 flex flex-col">
+                <div className="bg-[#0a0a0a] p-8 rounded-[2.5rem] border border-white/10 shadow-2xl flex-1 flex flex-col relative overflow-hidden">
+                  <h3 className="text-xl text-white tracking-tight mb-6 flex items-center gap-3">
+                    <BrainCircuit className="text-[#25F4EE]" size={24} /> 
+                    AI AGENT COMMAND
+                    {!isPro && <Lock size={16} className="text-[#FE2C55]" />}
+                  </h3>
                   
-                  {/* Tabela de Leads com Layout Limpo */}
-                  <div className="min-h-[250px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
-                    {logs.length > 0 ? (
-                      <table className="w-full text-left font-sans font-medium !text-transform-none">
-                        <thead className="bg-white/5 sticky top-0 z-10 font-black italic uppercase">
-                          <tr>
-                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Identity Name</th>
-                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Mobile ID</th>
-                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest text-right">Node Ref</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {logs.map(l => (
-                            <tr key={l.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-8 py-5">
-                                <span className="text-white text-sm">
-                                  {maskData(l.nome_cliente, 'name')}
-                                </span>
-                                {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-3 uppercase italic font-black">LOCKED</span>}
-                              </td>
-                              <td className="px-8 py-5 text-sm text-[#25F4EE]">{maskData(l.telefone_cliente, 'phone')}</td>
-                              <td className="px-8 py-5 text-right text-xs text-white/30 font-mono">{String(l.id).substring(0,8)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest uppercase italic">Vault Standby</p></div>
-                    )}
+                  <div className={`flex flex-col flex-1 space-y-4 ${!isPro ? 'opacity-30 pointer-events-none' : ''}`}>
+                    <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
+                    {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
+                    <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5 mt-auto">
+                       <span className="text-[10px] tracking-widest text-white/50">DELAY</span>
+                       <div className="flex items-center gap-2">
+                          <input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" />
+                          <span className="text-[9px] text-white/30">SEC</span>
+                       </div>
+                    </div>
+                    <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">
+                       Synthesize Queue ({logs.length})
+                    </button>
                   </div>
 
-                  {!isPro && logs.length > 0 && (
-                    <div className="p-10 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto">
-                       <p className="text-[11px] text-[#FE2C55] tracking-widest flex items-center gap-2">DESIRE: REVEAL FULL IDENTITIES? UPGRADE TO ELITE NOW.</p>
-                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[10px] w-full max-w-[300px] py-4 shadow-xl">UNLOCK VAULT NOW</button>
+                  {!isPro && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 text-center bg-[#0a0a0a]/60 backdrop-blur-sm">
+                       <p className="text-[#FE2C55] tracking-widest text-[11px] mb-4 shadow-xl animate-pulse"><Lock size={16} className="inline mr-2 mb-1"/> EXPERT IA LOCKED</p>
+                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-8 py-4 rounded-xl w-full">Upgrade to Elite</button>
                     </div>
                   )}
                 </div>
+
+                <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+                   <div className={`flex items-center justify-between w-full relative z-10`}>
+                      <div><h3 className="text-xl tracking-tight text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> BULK INGESTION {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">Import 5k units.</p></div>
+                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[#25F4EE] transition-all"><Plus size={20} /></button>}
+                   </div>
+                   {!isPro && (
+                     <div className="pro-lock-layer">
+                        <p className="text-[#FE2C55] tracking-widest text-[9px] mb-2 animate-pulse"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
+                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[8px] px-6 py-2 rounded-lg">Unlock</button>
+                     </div>
+                   )}
+                   <input type="file" accept=".txt" ref={fileInputRef} className="hidden" />
+                </div>
+              </div>
+
+              {/* COLUNA DIREITA: Tabela de Logs Recentes (Substituindo listas antigas) */}
+              <div className="lg:col-span-2 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[500px]">
+                 <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]">
+                    <div className="flex items-center gap-3">
+                       <History size={20} className="text-[#25F4EE]" />
+                       <h3 className="text-xl text-white tracking-tight">Active Vault Protocol</h3>
+                    </div>
+                    <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[9px] tracking-widest px-4 py-2 rounded-full border border-[#25F4EE]/30">
+                      {logs.length} NODES
+                    </span>
+                 </div>
+                 
+                 <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
+                   {logs.length > 0 ? (
+                     <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
+                       <thead className="bg-[#111] sticky top-0 z-10 font-black italic uppercase border-b border-white/5">
+                         <tr>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Target Identity</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">Mobile Routing</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">Time Sync</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-white/5">
+                         {logs.map(l => (
+                           <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
+                             <td className="px-8 py-6">
+                               <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
+                                   <UserCheck size={14} />
+                                 </div>
+                                 <span className="text-white text-sm">
+                                   {maskData(l.nome_cliente, 'name')}
+                                 </span>
+                                 {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse uppercase italic font-black">LOCKED</span>}
+                               </div>
+                             </td>
+                             <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
+                             <td className="px-8 py-6 text-right text-xs text-white/30 font-mono flex flex-col items-end gap-1">
+                                <span>{l.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) || 'Syncing...'}</span>
+                                <span className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-white/40">{String(l.id).substring(0,6)}</span>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   ) : (
+                     <div className="flex flex-col items-center justify-center h-full p-20 opacity-20">
+                        <Lock size={48} className="mb-4 text-white" />
+                        <p className="text-[11px] tracking-widest uppercase italic">Vault Standby</p>
+                        <p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">No active interceptions found.</p>
+                     </div>
+                   )}
+                 </div>
+                 {!isPro && logs.length > 0 && (
+                   <div className="p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <p className="text-[10px] text-[#FE2C55] tracking-widest flex items-center gap-2"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
+                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[9px] px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)]">UPGRADE TO ELITE</button>
+                   </div>
+                 )}
+              </div>
             </div>
+
+            {/* 3. UPGRADE STATION */}
+            <div id="marketplace-section" className="mb-16 mt-10 text-left">
+               <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
+                 <div className="bg-[#111] border border-white/10 p-10 rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE] transition-colors">
+                    <h3 className="text-3xl text-white mb-4">Nexus Access</h3>
+                    <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$9.00 / Month"}</p>
+                    <p className="text-[9px] text-white/40 mb-10 leading-relaxed">Unlimited Redirections & Secure Vault.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-xs w-full py-4">Upgrade Now</button>}
+                 </div>
+                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[2.5rem] group shadow-2xl hover:scale-[1.01] transition-transform">
+                    <h3 className="text-3xl text-white mb-4 text-[#25F4EE]">Expert Agent</h3>
+                    <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / Month"}</p>
+                    <p className="text-[9px] text-white/40 mb-10 leading-relaxed">Full IA Native Synthesis & Automated Delay.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">Activate Node</button>}
+                 </div>
+              </div>
+            </div>
+            
           </div>
         )}
 
@@ -771,7 +725,7 @@ export default function App() {
               <div className="lighthouse-neon-content p-12 sm:p-20 relative">
                 <h2 className="text-3xl mt-8 mb-12 text-white text-center text-glow-white tracking-tighter">SECURE MEMBER PORTAL</h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="Full Legal Name" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /></>)}
+                  {!isLoginMode && (<><input required placeholder="Full Legal Name" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /></>)}
                   <input required type="email" placeholder="Email identity..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
                     <input required type={showPass ? "text" : "password"} placeholder="Security key..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" />
