@@ -21,7 +21,9 @@ import {
   updateDoc,
   increment,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  query,
+  where
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -52,7 +54,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, COLE O SEU UID AQUI PARA ACESSO TOTAL
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, SUBSTITUA PELO SEU UID REAL
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
@@ -96,6 +98,7 @@ export default function App() {
   // AI Safety & Synthesis Engine
   const [safetyViolation, setSafetyViolation] = useState(null);
   const [isSafetyAuditing, setIsSafetyAuditing] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiObjective, setAiObjective] = useState('');
   const [activeQueue, setActiveQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -125,12 +128,6 @@ export default function App() {
   const [showPass, setShowPass] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Generator States
-  const [genTo, setGenTo] = useState('');
-  const [genMsg, setGenMsg] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const MSG_LIMIT = 300;
-
   const isPro = userProfile?.isSubscribed || userProfile?.isUnlimited || user?.uid === ADMIN_MASTER_ID;
 
   // SYSTEM INITIALIZATION & AUTH
@@ -140,6 +137,7 @@ export default function App() {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
+          // Silent Anonymous Auth para permitir que visitantes gravem Leads
           if (!auth.currentUser) await signInAnonymously(auth);
         }
       } catch (err) {
@@ -157,12 +155,13 @@ export default function App() {
           
           if (d.exists()) {
             const data = d.data();
+            // FORÇA A AUTO-CURA DO ADMIN SE ENTRAR COMO FREE TRIAL
             if (u.uid === ADMIN_MASTER_ID && (!data.isUnlimited || data.tier !== 'MASTER')) {
               data.isUnlimited = true;
               data.smsCredits = 999999;
               data.tier = 'MASTER';
               await updateDoc(docRef, { isUnlimited: true, smsCredits: 999999, tier: 'MASTER' }).catch(()=>{});
-              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), { isUnlimited: true, tier: 'MASTER' }).catch(()=>{});
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), { isUnlimited: true, tier: 'MASTER', fullName: data.fullName, email: data.email }, { merge: true });
             }
             setUserProfile(data);
             if(data.connectedChips) setConnectedChips(data.connectedChips);
@@ -219,7 +218,7 @@ export default function App() {
     }
   }, [authResolved]);
 
-  // DATA SYNCHRONIZATION (RESOLVIDO: Leads via Public Tunnel)
+  // DATA SYNCHRONIZATION (RESOLVIDO: Leads e Sincronização via Túnel Público)
   useEffect(() => {
     if (!user || user.isAnonymous || view !== 'dashboard') return;
     
@@ -247,20 +246,18 @@ export default function App() {
         }, (err) => console.warn("List hidden pending permissions."));
       }
 
-      // NOVO: A IA lê do Public Tunnel onde os Leads estão a ser gravados para contornar o bloqueio de segurança anónimo
-      if (userProfile?.isSubscribed || userProfile?.isUnlimited || user.uid === ADMIN_MASTER_ID || isVaultActive) {
-        unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
-          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Filtra os leads pelo ID do utilizador logado
-          const myData = user.uid === ADMIN_MASTER_ID ? data : data.filter(l => l.ownerId === user.uid);
-          setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-        }, (err) => console.warn("Vault locked pending sync."));
-      }
+      // NOVO: A Dashboard lê os leads da coleção pública onde todos os Handshakes gravam para contornar bloqueios anónimos
+      unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
+        const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const myData = user.uid === ADMIN_MASTER_ID ? allData : allData.filter(l => l.ownerId === user.uid);
+        setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
+      }, (err) => console.warn("Vault locked pending sync."));
 
+      // NOVO: Túnel de Sincronização de Dispositivos - Ouve se o telemóvel avisou a nuvem
       unsubSync = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'sync_signals', user.uid), (docSnap) => {
          if (docSnap.exists() && docSnap.data().connected) {
              setIsDeviceSynced(true);
-             setSyncedDeviceName(docSnap.data().device || 'Mobile Device');
+             setSyncedDeviceName(docSnap.data().device || 'Authorized Device');
          }
       });
 
@@ -273,7 +270,7 @@ export default function App() {
       if(unsubProfile) unsubProfile();
       if(unsubSync) unsubSync();
     };
-  }, [user, view, userProfile?.isSubscribed, userProfile?.isUnlimited, isVaultActive]);
+  }, [user, view, isVaultActive]);
 
   // AUTOPILOT ENGINE LOOP 
   useEffect(() => {
@@ -371,8 +368,10 @@ export default function App() {
     
     if (!userProfile.isUnlimited) {
       try {
-        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-        await updateDoc(profileRef, { smsCredits: increment(-1), usageCount: increment(1) });
+        const publicRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', user.uid);
+        const privateRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+        await updateDoc(publicRef, { smsCredits: increment(-1), usageCount: increment(1) });
+        await updateDoc(privateRef, { smsCredits: increment(-1), usageCount: increment(1) }).catch(()=>{});
       } catch (e) { console.warn("Credit decrement bypass") }
     }
 
@@ -417,7 +416,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- PROTOCOL HANDSHAKE (AIDA & DEDUPLICAÇÃO ATIVA) ---
+  // --- PROTOCOL HANDSHAKE (RESOLVIDO: Gravação Pública para contornar Auth Anónimo) ---
   const handleProtocolHandshake = async (to, msg, ownerId, lid) => {
     setView('bridge');
     if(!ownerId) return;
@@ -439,16 +438,14 @@ export default function App() {
         const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', `${ownerId}_${safePhoneId}`);
         const leadSnap = await getDoc(leadRef);
 
-        // Deduplicação: Se o Lead existir no Public Tunnel, não desconta SMS, apenas redireciona
+        // Deduplicação: Se o Lead existir no Public Tunnel, redireciona sem gastar cota
         if (leadSnap.exists()) {
-           console.log("Duplicate prevented. Bypassing quota deduction.");
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
            window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
            return; 
         }
 
         const publicProfileRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
-        const privateProfileRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const d = await getDoc(publicProfileRef);
         const ownerProfile = d?.data();
 
@@ -457,15 +454,14 @@ export default function App() {
           return;
         }
 
-        // Dedução Pública (resolve bloqueio de regras anónimas)
+        // Dedução Pública (contorna bloqueios)
         const decValue = ownerProfile?.isUnlimited ? 0 : -1;
         await updateDoc(publicProfileRef, { usageCount: increment(1), smsCredits: increment(decValue) }).catch(e=>console.warn(e));
-        await updateDoc(privateProfileRef, { usageCount: increment(1), smsCredits: increment(decValue) }).catch(e=>console.warn(e)); // Tentativa privada (pode falhar e está tudo bem)
-
+        
         const geoReq = await fetch('https://ipapi.co/json/');
         const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
         
-        // Grava no Public Tunnel (Garante que Leads chegam à Dashboard mesmo para Free Trial)
+        // Grava no Public Tunnel para que a Dashboard do Alex capte o Lead instantaneamente
         await setDoc(leadRef, {
           ownerId: ownerId,
           timestamp: serverTimestamp(),
@@ -515,11 +511,7 @@ export default function App() {
       setIsMenuOpen(false);
       setView('dashboard');
     } catch (e) {
-      if (e.code === 'auth/admin-restricted-operation' || e.code === 'auth/operation-not-allowed') {
-        alert("Protocol Alert: Registration is restricted by Firebase server rules. Please enable Email/Password Sign-In in your Firebase Console.");
-      } else {
-        alert("Identity Error: " + e.message);
-      }
+      alert("Identity Error: " + e.message);
     }
     setLoading(false);
   };
@@ -584,6 +576,7 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
+  // --- MOBILE DEVICE SYNC (RESOLVIDO: Envia Sinal Público) ---
   const handleSyncContacts = async () => {
     if (!('contacts' in navigator && 'ContactsManager' in window)) {
       alert("Protocol Error: Native Web Contact Sync requires a supported mobile browser (e.g., Google Chrome for Android). Apple iOS restricts this protocol. Please use the Bulk 5k Import feature on your dashboard for iOS lists.");
@@ -619,6 +612,7 @@ export default function App() {
             }
          }
          
+         // Envia o sinal de "CONNECTED" para o PC
          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sync_signals', captureData.uid), {
             connected: true,
             device: /Android/i.test(navigator.userAgent) ? 'Android Device' : /iPhone/i.test(navigator.userAgent) ? 'iPhone' : 'Mobile Device',
@@ -654,9 +648,8 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
   const PremiumLockedFooter = ({ featureName, benefit }) => (
-    <div className="mt-10 pt-10 border-t border-[#FE2C55]/30 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
+    <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
       <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(254,44,85,0.2)]">
         <Lock size={14} className="text-[#FE2C55]" />
         <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PREMIUM PROTOCOL LOCKED</span>
@@ -776,7 +769,7 @@ export default function App() {
 
             <main className="space-y-8 pb-20 text-left">
               
-              {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) */}
+              {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) - No Topo */}
               {user && !user.isAnonymous && (
                 <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-500">
                   <button 
@@ -852,7 +845,7 @@ export default function App() {
                  </div>
               </div>
 
-              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME */}
+              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME (Apenas Deslogados/Anónimos) */}
               {(!user || user.isAnonymous) && (
                 <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10">
                   <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic btn-neon-white text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
@@ -941,6 +934,7 @@ export default function App() {
                     <div className="flex items-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="p-1 text-white/40 hover:text-white">-</button><span className="text-3xl font-black text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="p-1 text-white/40 hover:text-white">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE]">
+                    {/* TERMINOLOGIA ANTI-TELECOM: 60 Free Trial / Quota */}
                     <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center justify-center gap-1"><Wallet size={10}/> Free Trial Quota</p>
                     <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.smsCredits || 0}</p>
                  </div>
@@ -1178,7 +1172,7 @@ export default function App() {
               </div>
             </div>
             
-            {/* VAULT SYNC COM MÁSCARA PRO */}
+            {/* VAULT SYNC COM MÁSCARA PRO (AIDA UPSELL) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic flex flex-col">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
