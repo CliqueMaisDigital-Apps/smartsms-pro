@@ -509,14 +509,12 @@ export default function App() {
                     <div className="space-y-3 text-left">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-tight block">
                          Global Mobile Number
-                         <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: (+CountryCode Number)</span>
+                         <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: +1 999 999 9999</span>
                        </label>
-                       {/* Placeholder ajustado: sem "e.g." */}
                        <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold text-sm w-full" placeholder="+1 999 999 9999" />
                     </div>
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-none font-black italic">Host / Company Name</label>
-                       {/* Placeholder ajustado: sem "e.g." */}
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full" placeholder="Your Name or Company Name" />
                     </div>
                     <div className="space-y-3">
@@ -776,7 +774,7 @@ export default function App() {
                    <form onSubmit={handlePasswordReset} className="space-y-7 text-left font-black italic">
                      <div className="space-y-2 text-left font-black italic">
                        <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black">Account Email</label>
-                       <input required type="email" placeholder="YOUR EMAIL ADDRESS" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold font-black w-full" />
+                       <input required type="email" placeholder="Your Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold font-black w-full" />
                      </div>
                      <button type="submit" disabled={loading} className="btn-strategic btn-neon-cyan text-[11px] mt-4 shadow-xl w-full">{loading ? "PROCESSING..." : "Send Recovery Link"}</button>
                      <button type="button" onClick={() => setIsResetMode(false)} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all">Return to Login</button>
@@ -785,16 +783,14 @@ export default function App() {
                    <form onSubmit={handleAuthSubmit} className="space-y-4 text-left font-black italic">
                      {!isLoginMode && (
                        <>
-                         {/* Placeholder limpo: sem e.g. */}
-                         <input required placeholder="FULL OPERATOR NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                         {/* Placeholder limpo: sem e.g. */}
-                         <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
+                         <input required placeholder="Full Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-black text-xs w-full" />
+                         <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-black text-xs w-full" />
                          <div className="h-px bg-white/5 w-full my-4" />
                        </>
                      )}
-                     <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
+                     <input required type="email" placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs w-full" />
                      <div className="relative font-black italic">
-                       <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-1 font-black italic" />
+                       <input required type={showPass ? "text" : "password"} placeholder="Security Key (Password)" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs w-full mb-1 font-black italic" />
                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-5 text-white/30 hover:text-[#25F4EE] transition-colors leading-none"><Eye size={18}/></button>
                      </div>
                      
@@ -805,7 +801,7 @@ export default function App() {
                      )}
 
                      {!isLoginMode && (
-                       <input required type={showPass ? "text" : "password"} placeholder="REPEAT KEY" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mt-3 font-black italic" />
+                       <input required type={showPass ? "text" : "password"} placeholder="Repeat Key" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-black text-xs w-full mt-3 font-black italic" />
                      )}
 
                      {!isLoginMode && (
@@ -815,9 +811,9 @@ export default function App() {
                        </div>
                      )}
                      
-                     <button type="submit" disabled={loading} className="btn-strategic btn-neon-cyan text-[11px] mt-4 shadow-xl w-full font-black italic">{loading ? "AUTH..." : isLoginMode ? "Authorize Entry" : "Establish Terminal"}</button>
+                     <button type="submit" disabled={loading} className="btn-strategic btn-neon-cyan text-[11px] mt-4 shadow-xl w-full font-black italic">{loading ? "PROCESSING..." : isLoginMode ? "Secure Login" : "Create Account"}</button>
                      
-                     <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all uppercase font-black italic">{isLoginMode ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}</button>
+                     <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all uppercase font-black italic">{isLoginMode ? "CREATE NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}</button>
                    </form>
                 )}
               </div>
