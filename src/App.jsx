@@ -113,9 +113,11 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
   
-  // ---> NEW AI DELAY COMMANDER STATES <---
+  // ---> NEW AI DELAY COMMANDER & REAL-TIME COUNTER STATES <---
   const [isDispatching, setIsDispatching] = useState(false);
   const [sendDelay, setSendDelay] = useState(30);
+  const [sessionSentCount, setSessionSentCount] = useState(0);
+  const [sessionTotal, setSessionTotal] = useState(0);
   
   const [connectedChips, setConnectedChips] = useState(1);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
@@ -133,7 +135,7 @@ export default function App() {
       if (u) {
         setUser(u);
         if (u.uid === ADMIN_MASTER_ID) {
-          setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
+          setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
         } else {
           try {
             const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
@@ -141,13 +143,13 @@ export default function App() {
             if (d.exists()) {
               setUserProfile(d.data());
             } else {
-              const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
+              const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
               await setDoc(docRef, p);
               setUserProfile(p);
             }
           } catch (e) {
             console.error("Profile load error", e);
-            setUserProfile({ fullName: "Operator", tier: 'FREE_TRIAL', smsCredits: 0 });
+            setUserProfile({ fullName: "Operator", tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
           }
         }
       } else {
@@ -319,7 +321,7 @@ export default function App() {
     setStagedQueue(updatedQueue);
   };
 
-  // ---> NEW: DISPATCH STAGED QUEUE TO FIREBASE WITH AI DELAY COMMANDER <---
+  // ---> NEW: DISPATCH STAGED QUEUE WITH REAL-TIME COUNTER & SANITIZATION <---
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
     
@@ -329,31 +331,48 @@ export default function App() {
     }
 
     setIsDispatching(true);
+    
+    // Set HUD Counters
+    const queueCopy = [...stagedQueue];
+    setSessionTotal(queueCopy.length);
+    setSessionSentCount(0);
 
     try {
-      if (!isMaster) {
-        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-        await updateDoc(profileRef, { smsCredits: increment(-stagedQueue.length) });
-      }
-
-      // Copia a fila para memória para envio sequencial
-      const queueCopy = [...stagedQueue];
-
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
         
-        // Push unitário para o Firebase
+        // CRITICAL FIX: Sanitize Phone Number for Android Bridge (Remove spaces, brackets, dashes)
+        const sanitizedPhone = task.telefone_cliente.replace(/[^\d+]/g, ''); 
+        
+        // Push single unit to Firebase
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
-          telefone_cliente: task.telefone_cliente,
+          telefone_cliente: sanitizedPhone,
           optimizedMsg: task.optimizedMsg,
           created_at: serverTimestamp()
         });
 
-        // Feedback Visual: Remove a mensagem atual do ecrã para indicar sucesso
+        // LIVE FEEDBACK: Remove message from screen & Update Session Counter
         setStagedQueue(prev => prev.slice(1));
+        setSessionSentCount(i + 1);
 
-        // NATIVE AI DELAY LOGIC: Aguarda o tempo selecionado antes da próxima injeção
+        // LIVE FEEDBACK: Update Global Stats locally (avoids unnecessary DB reads)
+        if (!isMaster) {
+          const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+          await updateDoc(profileRef, { 
+            smsCredits: increment(-1),
+            dailySent: increment(1)
+          });
+          setUserProfile(prev => ({ 
+             ...prev, 
+             smsCredits: (prev?.smsCredits || 0) - 1, 
+             dailySent: (prev?.dailySent || 0) + 1 
+          }));
+        } else {
+          setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
+        }
+
+        // NATIVE AI DELAY LOGIC: Wait before injecting next
         if (i < queueCopy.length - 1) {
           await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
         }
@@ -463,13 +482,18 @@ export default function App() {
     if (isDeviceSynced && user) {
       setLoading(true);
       try {
+        const sanitizedPhone = genTo.replace(/[^\d+]/g, '');
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
-          telefone_cliente: genTo,
+          telefone_cliente: sanitizedPhone,
           optimizedMsg: genMsg,
           created_at: serverTimestamp()
         });
         setGenTo(''); setGenMsg('');
+        
+        // Atualiza estatística rápida
+        setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
+        
         alert("PUSHED TO SECURE NODE!");
       } catch(e) { console.error(e); }
       setLoading(false);
@@ -536,11 +560,11 @@ export default function App() {
       } else {
         const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
         authUser = cred.user;
-        const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
+        const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
       }
       if (authUser.uid === ADMIN_MASTER_ID) {
-        setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
+        setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
       }
       setView('dashboard');
     } catch (e) { alert("IDENTITY DENIED: " + e.message); }
@@ -770,10 +794,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* MÓDULO DE ESTATÍSTICAS */}
+            {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
-                { label: "DISPATCHED SMS", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "DISPATCHED SMS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
                 { label: "ACTIVE CONTACTS", value: logs.length || 0, icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
@@ -904,14 +928,14 @@ export default function App() {
                            <SlidersHorizontal size={20} className="text-amber-500" />
                            <h4 className="text-lg text-white">PAYLOAD REVIEW ENGINE</h4>
                         </div>
-                        <p className="text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS GENERATED</p>
+                        <p className="text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS PENDING</p>
                      </div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 mb-6">
                         {stagedQueue.map((task, idx) => (
                            <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-5 transition-colors flex flex-col h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
                               <div className="flex justify-between items-center mb-3">
-                                <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {idx + 1}</span>
+                                <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
                                 <span className="text-white/30 text-[9px] font-mono truncate max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
                               </div>
                               <textarea 
@@ -924,7 +948,7 @@ export default function App() {
                         ))}
                      </div>
 
-                     {/* RODAPÉ DO STAGING: DISPATCH COM AVISO */}
+                     {/* RODAPÉ DO STAGING: DISPATCH COM AVISO LIVE */}
                      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-2 bg-[#111] p-5 rounded-2xl border border-white/5 shadow-inner">
                         <div className="flex items-center gap-3 px-2">
                            <Clock size={20} className="text-[#25F4EE] animate-pulse" />
@@ -932,9 +956,9 @@ export default function App() {
                            <span className="text-[#25F4EE] text-[12px] font-black">{sendDelay} SECONDS</span>
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
+                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
                            <button disabled={isDispatching} onClick={dispatchToNode} className={`px-10 py-3.5 text-black font-black text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full md:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
-                              {isDispatching ? <><RefreshCw size={16} className="animate-spin" /> TRANSMITTING... KEEP TAB OPEN</> : <><Send size={16} /> CONFIRM & DISPATCH</>}
+                              {isDispatching ? <><RefreshCw size={16} className="animate-spin" /> TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</> : <><Send size={16} /> CONFIRM & DISPATCH TO NODE</>}
                            </button>
                         </div>
                      </div>
@@ -949,7 +973,6 @@ export default function App() {
                             </div>
                          )}
 
-                         {/* NEW: DELAY SETUP PLACED MAIN PANEL */}
                          <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-2xl mb-2">
                            <Clock size={20} className="text-[#25F4EE]" />
                            <div className="flex-1">
