@@ -100,6 +100,10 @@ export default function App() {
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
 
+  // Device Sync States (NEW)
+  const [syncQR, setSyncQR] = useState('');
+  const [isGeneratingSync, setIsGeneratingSync] = useState(false);
+
   // Bulk Ingestion
   const fileInputRef = useRef(null);
   const [importPreview, setImportPreview] = useState([]);
@@ -502,6 +506,17 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
+  const handleGenerateDeviceQR = () => {
+    if (!isPro) return;
+    setIsGeneratingSync(true);
+    setTimeout(() => {
+      const token = crypto.randomUUID().split('-')[0];
+      const syncUrl = `${window.location.origin}?sync_protocol=active&token=${token}&uid=${user.uid}`;
+      setSyncQR(syncUrl);
+      setIsGeneratingSync(false);
+    }, 1500);
+  };
+
   const toggleUnlimited = async (targetUserId, currentStatus) => {
     if (user.uid !== ADMIN_MASTER_ID) return;
     const newStatus = !currentStatus;
@@ -872,10 +887,21 @@ export default function App() {
                                <span className="text-[9px] text-[#FE2C55] uppercase font-black tracking-widest whitespace-nowrap">Min 15s (Safe)</span>
                             </div>
 
-                            <button disabled={!isPro} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 w-full disabled:opacity-50"><Radio size={18}/> Generate Pairing QR Code</button>
+                            <button onClick={handleGenerateDeviceQR} disabled={!isPro || isGeneratingSync} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 w-full disabled:opacity-50">
+                               <Radio size={18}/> {isGeneratingSync ? "GENERATING SECURE TOKEN..." : "Generate Pairing QR Code"}
+                            </button>
                          </div>
-                         <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
-                            <div className="opacity-20 text-center"><Smartphone size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">Awaiting Device Sync</p></div>
+                         <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl min-h-[250px]">
+                            {syncQR ? (
+                               <div className="animate-in zoom-in duration-500 flex flex-col items-center">
+                                 <div className="bg-white p-5 rounded-3xl mb-6 shadow-[0_0_30px_rgba(37,244,238,0.4)]">
+                                   <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(syncQR)}&color=000000`} alt="Device Sync QR" className="w-40 h-40"/>
+                                 </div>
+                                 <p className="text-[11px] text-[#25F4EE] font-black uppercase tracking-[0.3em] animate-pulse">Scan with Native Camera</p>
+                               </div>
+                            ) : (
+                               <div className="opacity-20 text-center"><Smartphone size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">Awaiting Device Sync</p></div>
+                            )}
                          </div>
                       </div>
                    </div>
