@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import {
+import { 
   getAuth, 
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -32,16 +32,26 @@ import {
   ShoppingCart, Wallet, AlertTriangle
 } from 'lucide-react';
 
-// --- CONFIGURATION ---
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+// --- CONFIGURAÇÃO BLINDADA DO FIREBASE ---
+let envConfig = {};
+try { envConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {}; } catch (e) {}
+const fallbackConfig = {
+  apiKey: "AIzaSyBI-JSC-FtVOz_r6p-XjN6fUrapMn_ad24",
+  authDomain: "smartsmspro-4ee81.firebaseapp.com",
+  projectId: "smartsmspro-4ee81",
+  storageBucket: "smartsmspro-4ee81.firebasestorage.app",
+  messagingSenderId: "269226709034",
+  appId: "1:269226709034:web:00af3a340b1e1ba928f353"
+};
+const firebaseConfig = Object.keys(envConfig).length > 0 ? envConfig : fallbackConfig;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'smartsms-pro-expert-vfinal';
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-// COLE O SEU UID AQUI PARA ACESSO TOTAL
-const ADMIN_MASTER_ID = "MASTER_USER_ID"; 
+const ADMIN_MASTER_ID = "MASTER_USER_ID"; // <--- COLE O SEU UID AQUI PARA ACESSO TOTAL
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
@@ -76,15 +86,15 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   
-  // AI Agent & Credits States
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  // AI Safety & Synthesis Engine
+  const [safetyViolation, setSafetyViolation] = useState(null);
+  const [isSafetyAuditing, setIsSafetyAuditing] = useState(false);
+  const [aiObjective, setAiObjective] = useState('');
   const [activeQueue, setActiveQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
-  const [safetyViolation, setSafetyViolation] = useState(null);
 
-  // Import States
+  // Bulk Ingestion
   const fileInputRef = useRef(null);
   const [importPreview, setImportPreview] = useState([]);
   const [isValidating, setIsValidating] = useState(false);
@@ -106,6 +116,7 @@ export default function App() {
   const [companyName, setCompanyName] = useState('');
   const MSG_LIMIT = 300;
 
+  // SYSTEM INITIALIZATION (100% TRY/CATCH BLINDADO)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -115,7 +126,7 @@ export default function App() {
           if (!auth.currentUser) await signInAnonymously(auth);
         }
       } catch (err) {
-        console.warn("Auth mode restricted. Manual login required.");
+        console.warn("Silent Auth Initialized. UI will manage manual entry.");
       }
     };
     initAuth();
@@ -123,24 +134,25 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u && !u.isAnonymous) {
-        const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
-        const d = await getDoc(docRef);
-        if (d.exists()) {
-          const data = d.data();
-          if (u.uid === ADMIN_MASTER_ID) {
-            data.isUnlimited = true;
-            data.smsCredits = 999999;
+        try {
+          const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
+          const d = await getDoc(docRef);
+          if (d.exists()) {
+            const data = d.data();
+            if (u.uid === ADMIN_MASTER_ID) {
+              data.isUnlimited = true;
+              data.smsCredits = 999999;
+            }
+            setUserProfile(data);
+            if(data.connectedChips) setConnectedChips(data.connectedChips);
+          } else {
+            const defaultProfile = { fullName: u.email, phone: '', email: u.email, tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: u.uid === ADMIN_MASTER_ID, smsCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, connectedChips: 1, created_at: serverTimestamp() };
+            await setDoc(docRef, defaultProfile);
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), defaultProfile);
+            setUserProfile(defaultProfile);
           }
-          setUserProfile(data);
-          if(data.connectedChips) setConnectedChips(data.connectedChips);
-        } else {
-          const defaultProfile = { fullName: u.email, isSubscribed: false, smsCredits: 10, dailySent: 0, connectedChips: 1, tier: 'TRIAL' };
-          if (u.uid === ADMIN_MASTER_ID) {
-            defaultProfile.isUnlimited = true;
-            defaultProfile.smsCredits = 999999;
-          }
-          await setDoc(docRef, defaultProfile);
-          setUserProfile(defaultProfile);
+        } catch (e) {
+          console.error("Profile load secured bypass:", e);
         }
       }
     });
@@ -153,52 +165,56 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // DATA SYNCHRONIZATION
   useEffect(() => {
     if (!user || user.isAnonymous || view !== 'dashboard') return;
     
     let unsubUsers, unsubLeads;
-    if (user.uid === ADMIN_MASTER_ID) {
-      unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
-        setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-    }
+    try {
+      if (user.uid === ADMIN_MASTER_ID) {
+        unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+          setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => console.warn("List hidden pending permissions."));
+      }
 
-    if (isVaultActive) {
-      unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-      });
-    }
+      if (isVaultActive) {
+        unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+        }, (err) => console.warn("Vault locked pending sync."));
+      }
+    } catch(e) {}
+    
     return () => { if(unsubUsers) unsubUsers(); if(unsubLeads) unsubLeads(); };
   }, [user, view, isVaultActive]);
 
-  // --- AI SAFETY & SYNTHESIS ---
+  // --- CORE INTELLIGENCE ENGINE ---
   const runSafetyAudit = async (text) => {
     if (!text) return true;
-    const restricted = [
-      /\b(bit\.ly|t\.co|tinyurl|is\.gd|cutt\.ly)\b/i,
-      /\b(scam|fraud|money|bank|irs|verify|lottery|winner|inherited|password|pin|ssn|urgent|police)\b/i,
-      /\b(hate|offensive|racist|kill|die|explicit|porn|abuse|discriminat|slur)\b/i,
+    const restrictedPatterns = [
+      /\b(bit\.ly|t\.co|tinyurl|is\.gd|cutt\.ly)\b/i, 
+      /\b(scam|fraud|money|bank|irs|verify|lottery|winner|inherited|password|pin|ssn|urgent|police)\b/i, 
+      /\b(hate|offensive|racist|kill|die|explicit|porn|abuse|discriminat|slur)\b/i, 
       /\b(fake|hoax|misinfo|conspiracy|rumor|defamation)\b/i
     ];
-    setIsAiProcessing(true);
+    
+    setIsSafetyAuditing(true);
     return new Promise((resolve) => {
       setTimeout(() => {
-        const hasViolation = restricted.some(p => p.test(text));
+        const hasViolation = restrictedPatterns.some(p => p.test(text));
         setSafetyViolation(hasViolation ? "TERMINAL BLOCK: Our Advanced AI detected prohibited content (Malicious intent, discriminatory language, or unverified URLs). Action restricted for global protocol safety." : null);
-        setIsAiProcessing(false);
+        setIsSafetyAuditing(false);
         resolve(!hasViolation);
       }, 1000);
     });
   };
 
-  const synthesizeVariations = (baseMsg) => {
+  const synthesize40Variations = (baseMsg) => {
     const greetings = ["Hi", "Hello", "Greetings", "Hey there", "Notice:", "Attention:", "Update:"];
     const contextFillers = ["as requested,", "following our protocol,", "regarding your interest,", "as a member,"];
     const endings = ["Ref", "ID", "Code", "Track", "Signal", "Hash"];
     const variations = [];
     
-    // Generates multiple intelligent structures to safeguard the process
     for (let i = 0; i < 40; i++) {
       const g = greetings[i % greetings.length];
       const c = contextFillers[Math.floor(Math.random() * contextFillers.length)];
@@ -215,15 +231,15 @@ export default function App() {
   };
 
   const handlePrepareBatch = async () => {
-    if (!aiPrompt || logs.length === 0) return;
+    if (!aiObjective || logs.length === 0) return;
     if (userProfile?.smsCredits <= 0 && user.uid !== ADMIN_MASTER_ID) return alert("Insufficient credits.");
     
-    const isSafe = await runSafetyAudit(aiPrompt);
+    const isSafe = await runSafetyAudit(aiObjective);
     if (!isSafe) return;
 
     setIsAiProcessing(true);
     setTimeout(() => {
-      const pool = synthesizeVariations(aiPrompt);
+      const pool = synthesize40Variations(aiObjective);
       const limit = Math.min(connectedChips * 60, userProfile?.isUnlimited ? 999999 : userProfile.smsCredits, logs.length);
       const targetLeads = logs.slice(0, limit);
       
@@ -246,9 +262,11 @@ export default function App() {
     const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
     
     if (!userProfile.isUnlimited) {
-      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await updateDoc(profileRef, { smsCredits: increment(-1), usageCount: increment(1) });
-      setUserProfile(prev => ({...prev, smsCredits: prev.smsCredits - 1, usageCount: (prev.usageCount||0) + 1}));
+      try {
+        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+        await updateDoc(profileRef, { smsCredits: increment(-1), usageCount: increment(1) });
+        setUserProfile(prev => ({...prev, smsCredits: prev.smsCredits - 1, usageCount: (prev.usageCount||0) + 1}));
+      } catch (e) { console.warn("Credit decrement bypass") }
     }
 
     setQueueIndex(prev => prev + 1);
@@ -273,52 +291,53 @@ export default function App() {
   };
 
   const saveImportToVault = async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
       for (const lead of importPreview) {
-        await addDoc(leadsCol, { ...lead, created_at: serverTimestamp(), timestamp: serverTimestamp() });
+        await addDoc(leadsCol, { ...lead, created_at: serverTimestamp() });
       }
       setImportPreview([]);
       alert("Vault Updated: 5,000 global units processed successfully.");
-    } catch (e) { alert("Vault write failed."); }
+    } catch (e) { alert("Vault write failed. Please check permissions."); }
     setLoading(false);
   };
 
   // --- PROTOCOL HANDSHAKE ---
   const handleProtocolHandshake = async (to, msg, ownerId) => {
     setView('bridge');
+    if(!ownerId) return;
     setTimeout(async () => {
-      if (ownerId) {
-        try {
-          const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-          const d = await getDoc(ownerRef);
-          const ownerProfile = d?.data();
+      try {
+        const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+        const d = await getDoc(ownerRef);
+        const ownerProfile = d?.data();
 
-          if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.usageCount || 0) >= 60) {
-            setQuotaExceeded(true);
-            return;
-          }
+        if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.usageCount || 0) >= 60) {
+          setQuotaExceeded(true);
+          return;
+        }
 
-          await updateDoc(ownerRef, { usageCount: increment(1) });
-          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+        await updateDoc(ownerRef, { usageCount: increment(1) });
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
 
-          if (ownerProfile?.isSubscribed || ownerProfile?.isUnlimited) {
-            const geoReq = await fetch('https://ipapi.co/json/');
-            const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
-            await addDoc(collection(db, 'artifacts', appId, 'users', ownerId, 'leads'), {
-              timestamp: serverTimestamp(),
-              created_at: serverTimestamp(),
-              destination: to,
-              telefone_cliente: to,
-              nome_cliente: "PROTOCOL_LEAD",
-              location: `${geo.city}, ${geo.country_name || 'Global'}`,
-              ip: geo.ip,
-              device: navigator.userAgent
-            });
-          }
-        } catch (e) { console.error(e); }
-      }
+        if (ownerProfile?.isSubscribed || ownerProfile?.isUnlimited) {
+          const geoReq = await fetch('https://ipapi.co/json/');
+          const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
+          await addDoc(collection(db, 'artifacts', appId, 'users', ownerId, 'leads'), {
+            created_at: serverTimestamp(),
+            timestamp: serverTimestamp(),
+            destination: to,
+            telefone_cliente: to,
+            nome_cliente: "PROTOCOL_LEAD",
+            location: `${geo.city}, ${geo.country_name || 'Global'}`,
+            ip: geo.ip,
+            device: navigator.userAgent
+          });
+        }
+      } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
+      
       const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
       window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
     }, 3000);
@@ -333,7 +352,7 @@ export default function App() {
       if (isLoginMode) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        if (password !== confirmPassword) throw new Error("Passwords do not match.");
+        if(password !== confirmPassword) throw new Error("Passwords do not match.");
         const u = await createUserWithEmailAndPassword(auth, email, password);
         const p = { fullName, phone, email, tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: false, smsCredits: 60, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
@@ -343,7 +362,7 @@ export default function App() {
       setView('dashboard');
     } catch (e) {
       if (e.code === 'auth/admin-restricted-operation' || e.code === 'auth/operation-not-allowed') {
-        alert("Protocol Alert: Email/Password registration is currently restricted by server rules.");
+        alert("Protocol Alert: Registration is restricted by Firebase server rules. Please enable Email/Password Sign-In in your Firebase Console.");
       } else {
         alert("Identity Error: " + e.message);
       }
@@ -359,9 +378,7 @@ export default function App() {
       await sendPasswordResetEmail(auth, email);
       alert("Protocol Secure: Password reset email sent. Check your inbox.");
       setIsResetMode(false);
-    } catch (e) {
-      alert("Error: " + e.message);
-    }
+    } catch (e) { alert("Recovery Error: " + e.message); }
     setLoading(false);
   };
 
@@ -378,25 +395,29 @@ export default function App() {
   const toggleUnlimited = async (targetUserId, currentStatus) => {
     if (user.uid !== ADMIN_MASTER_ID) return;
     const newStatus = !currentStatus;
-    await updateDoc(doc(db, 'artifacts', appId, 'users', targetUserId, 'profile', 'data'), { isUnlimited: newStatus, smsCredits: newStatus ? 999999 : 60 });
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', targetUserId), { isUnlimited: newStatus });
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'users', targetUserId, 'profile', 'data'), { isUnlimited: newStatus, smsCredits: newStatus ? 999999 : 60 });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', targetUserId), { isUnlimited: newStatus });
+    } catch (e) { console.warn("Toggle bypass"); }
   };
 
   return (
-    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden text-left font-black italic">
       <style>{`
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 0%, transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%, transparent 100%); animation: rotate-beam 5s linear infinite; z-index: 0; }
         .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
         .btn-strategic { background: #FFFFFF; color: #000000; box-shadow: 0 0 25px rgba(255,255,255,0.3); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; }
-        .btn-strategic:hover:not(:disabled) { background: #25F4EE; transform: translateY(-2px) scale(1.02); }
-        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 900; font-style: italic; }
+        .btn-strategic:hover:not(:disabled) { background: #25F4EE; transform: translateY(-2px) scale(1.02); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
+        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 900; font-style: italic; font-size: 14px; }
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0a0a; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
+        * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
       {/* Nav */}
@@ -420,11 +441,11 @@ export default function App() {
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Center</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40 hover:text-white"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-10 flex-1">
+            <div className="flex flex-col gap-10 flex-1 text-left">
               {(!user || user.isAnonymous) ? (
                 <>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors"><UserPlus size={20} /> JOIN THE NETWORK</button>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors"><Lock size={20} /> MEMBER LOGIN</button>
+                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left"><UserPlus size={20} /> JOIN THE NETWORK</button>
+                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left"><Lock size={20} /> MEMBER LOGIN</button>
                 </>
               ) : (
                 <>
@@ -432,16 +453,16 @@ export default function App() {
                      <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic leading-none">Active Access</p>
                      <p className="text-sm font-black text-[#25F4EE] truncate uppercase italic">{userProfile?.fullName || 'Operator'}</p>
                   </div>
-                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors"><LayoutDashboard size={20} /> {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "OPERATOR HUB"}</button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors"><Bot size={20} /> SMART SUPPORT</button>
-                  <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto"><LogOut size={20} /> TERMINATE SESSION</button>
+                  <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left"><LayoutDashboard size={20} /> {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "OPERATOR HUB"}</button>
+                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left"><Bot size={20} /> SMART SUPPORT</button>
+                  <button onClick={() => {signOut(auth).then(()=>setView('home')).catch(console.error); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto text-left"><LogOut size={20} /> TERMINATE SESSION</button>
                 </>
               )}
               <div className="h-px bg-white/5 w-full my-4" />
               <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em] text-left">
                 <a href="#" className="hover:text-white transition-colors">Privacy Protocol</a>
                 <a href="#" className="hover:text-white transition-colors">Security Terms</a>
-                <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2">SMART SUPPORT <Bot size={12}/></button>
+                <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic text-[10px]">SMART SUPPORT <Bot size={12}/></button>
               </div>
             </div>
           </div>
@@ -449,7 +470,7 @@ export default function App() {
       )}
 
       {/* Main Container */}
-      <div className="pt-24 flex-1 pb-10 relative">
+      <div className="pt-28 flex-1 pb-10 relative text-center">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
@@ -490,7 +511,7 @@ export default function App() {
                          </div>
                        )}
                     </div>
-                    <button onClick={handleGenerate} disabled={isSafetyAuditing || !!safetyViolation} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5 shadow-2xl disabled:opacity-30">
+                    <button onClick={handleGenerate} disabled={isSafetyAuditing || !!safetyViolation} className="btn-strategic text-xs mt-4 italic font-black uppercase py-5 shadow-2xl disabled:opacity-30 w-full">
                        {isSafetyAuditing ? "SHA Safety Audit Active..." : "Generate Smart Link"} <ChevronRight size={18} />
                     </button>
                   </div>
@@ -503,7 +524,7 @@ export default function App() {
                     <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl text-center"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
                     <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-black italic" />
                     <div className="grid grid-cols-2 gap-6 w-full text-center">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center">
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center font-black italic">
                         {copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}
                         <span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest text-center font-black">Quick Copy</span>
                       </button>
@@ -527,12 +548,14 @@ export default function App() {
                  </div>
               </div>
 
-              {(!user || user.isAnonymous) && (
-                <div className="flex flex-col items-center gap-4 text-center font-black italic">
-                  <button onClick={() => setView('auth')} className="btn-strategic text-xs w-full max-w-[380px] !bg-white !text-black group italic font-black uppercase shadow-2xl py-6 leading-none"><Rocket size={20} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES</button>
-                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6 leading-none font-black italic"><Star size={20} className="animate-pulse" /> BECOME A FULL MEMBER NOW</button>
-                </div>
-              )}
+              <div className="flex flex-col items-center gap-6 mt-4 w-full animate-in zoom-in-95 duration-500 pb-10">
+                <button onClick={() => {(!user || user.isAnonymous) ? setView('auth') : setView('dashboard')}} className="btn-strategic text-xs w-full max-w-[420px] !bg-white !text-black group italic font-black uppercase shadow-[0_0_30px_rgba(255,255,255,0.2)] py-6 leading-none">
+                   <Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES
+                </button>
+                <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[420px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-[0_0_30px_rgba(37,244,238,0.3)] py-6 leading-none">
+                   <Star size={24} className="animate-pulse" /> UPGRADE TO PRO MEMBER
+                </button>
+              </div>
             </main>
           </div>
         )}
@@ -572,7 +595,7 @@ export default function App() {
             <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16 text-left">
               <div>
                 <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">{user?.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "OPERATOR HUB"}</h2>
-                <div className="flex items-center gap-4 mt-4">
+                <div className="flex items-center gap-4 mt-4 text-left">
                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-[#25F4EE]/20">{user?.uid === ADMIN_MASTER_ID ? "MASTER OVERRIDE" : `${userProfile?.tier || 'TRIAL'} IDENTITY`}</span>
                   {(userProfile?.isSubscribed || userProfile?.isUnlimited) && <span className="bg-amber-500/10 text-amber-500 text-[10px] px-4 py-1.5 rounded-full font-black uppercase italic tracking-[0.2em] border border-amber-500/20">LEAD LOGGING: ACTIVE</span>}
                 </div>
@@ -590,18 +613,18 @@ export default function App() {
             </div>
 
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && (
-               <div className="animate-in fade-in duration-700 space-y-10">
+               <div className="animate-in fade-in duration-700 space-y-10 font-black italic">
                   {/* BATCH INGESTION (5K LIMIT) */}
                   <div className="bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group shadow-2xl">
-                     <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
+                     <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10 font-black italic">
                         <div className="flex items-center gap-5 text-left">
                            <div className="p-5 bg-[#25F4EE]/10 rounded-[2rem] border border-[#25F4EE]/20"><FileText size={40} className="text-[#25F4EE]" /></div>
-                           <div><h3 className="text-3xl font-black uppercase italic leading-none mb-3">Bulk Asset Ingestion</h3><p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw global contacts. Automatic validation scan cleans and prepares disparos.</p></div>
+                           <div><h3 className="text-3xl font-black uppercase italic leading-none mb-3 font-black italic">Bulk Asset Ingestion</h3><p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw global contacts. Automatic validation scan cleans and prepares disparos.</p></div>
                         </div>
                         <input type="file" accept=".txt" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 font-black italic">
                            <button onClick={() => fileInputRef.current.click()} className="btn-strategic !w-fit !px-12 text-xs font-black italic py-5 leading-none">{isValidating ? "Validating..." : "Select TXT File"}</button>
-                           {importPreview.length > 0 && <button onClick={saveImportToVault} className="btn-strategic !bg-[#FE2C55] !text-white !w-fit !px-12 text-xs font-black italic py-5 shadow-2xl">Process {importPreview.length} Units</button>}
+                           {importPreview.length > 0 && <button onClick={saveImportToVault} className="btn-strategic !bg-[#FE2C55] !text-white !w-fit !px-12 text-xs font-black italic py-5 shadow-2xl font-black">Process {importPreview.length} Units</button>}
                         </div>
                      </div>
                   </div>
@@ -646,26 +669,31 @@ export default function App() {
                         </p>
                      </div>
                   </div>
-
-                  {/* MARKETPLACE (DESIGN APROVADO) */}
-                  <div className="mb-16">
-                     <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-xl font-black uppercase italic tracking-widest text-white">Internal Marketplace</h3></div>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                          { name: "Starter Pack", qty: 200, price: "12.90", color: "#25F4EE" },
-                          { name: "Expansion Pack", qty: 800, price: "34.90", color: "#FFFFFF" },
-                          { name: "Elite Protocol", qty: 2000, price: "69.90", color: "#FE2C55" }
-                        ].map(pack => (
-                          <div key={pack.name} className="bg-[#0a0a0a] border border-white/5 p-8 rounded-[3rem] hover:border-white/20 transition-all flex flex-col items-center">
-                             <p className="text-[10px] font-black uppercase text-white/30 mb-2">{pack.name}</p>
-                             <p className="text-4xl font-black italic mb-6" style={{color: pack.color}}>{pack.qty} Credits</p>
-                             <p className="text-lg font-black text-white mb-8">${pack.price}</p>
-                             <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase hover:bg-white/10 transition-all">Acquire Pack</button>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
                </div>
+            )}
+
+            {/* UPGRADE / MARKETPLACE (VISÍVEL PARA QUEM NÃO É PRO) */}
+            {(!userProfile?.isSubscribed && !userProfile?.isUnlimited && user?.uid !== ADMIN_MASTER_ID) && (
+              <div className="mb-16 animate-in fade-in zoom-in-95 duration-700">
+                 <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">Upgrade Identity / Marketplace</h3></div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left">
+                   <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
+                      <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
+                      <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
+                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">Premium Attribution Mapping + Unlimited Handshakes.</p>
+                      <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                      <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none">UPGRADE TO NEXUS</button>
+                   </div>
+                   <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
+                      <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
+                      <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
+                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine + Multi-Device Operations + 5K Import.</p>
+                      <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                      <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none text-black">ACTIVATE EXPERT AI</button>
+                   </div>
+                </div>
+              </div>
             )}
 
             {/* MASTER ADMIN LIST */}
@@ -688,7 +716,7 @@ export default function App() {
                </div>
             )}
             
-            {/* VAULT SYNC */}
+            {/* VAULT SYNC (DESIGN APROVADO) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
