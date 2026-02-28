@@ -78,7 +78,7 @@ export default function App() {
   const [logs, setLogs] = useState([]); 
   const [allUsers, setAllUsers] = useState([]); 
   const [myLeads, setMyLeads] = useState([]); 
-  const [myLinks, setMyLinks] = useState([]); // Histórico de Links
+  const [myLinks, setMyLinks] = useState([]); 
   const [isVaultActive, setIsVaultActive] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
   const [captureData, setCaptureData] = useState(null);
@@ -150,7 +150,7 @@ export default function App() {
             setUserProfile(data);
             if(data.connectedChips) setConnectedChips(data.connectedChips);
           } else {
-            const defaultProfile = { fullName: u.email, phone: '', email: u.email, tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: u.uid === ADMIN_MASTER_ID, smsCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, connectedChips: 1, created_at: serverTimestamp() };
+            const defaultProfile = { fullName: u.email || 'Operator', phone: '', email: u.email || '', tier: 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: u.uid === ADMIN_MASTER_ID, smsCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, connectedChips: 1, created_at: serverTimestamp() };
             await setDoc(docRef, defaultProfile);
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), defaultProfile);
             setUserProfile(defaultProfile);
@@ -178,7 +178,6 @@ export default function App() {
     
     let unsubUsers, unsubLeads, unsubLinks, unsubProfile;
     try {
-      // 1. Sync do Perfil para Atualização de Créditos em Tempo Real
       unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
         if (docSnap.exists()) {
            const data = docSnap.data();
@@ -190,7 +189,6 @@ export default function App() {
         }
       });
 
-      // 2. Sync do Histórico de Links (NOVO)
       unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
         setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
       }, (err) => console.warn("Link sync bypassed."));
@@ -204,7 +202,7 @@ export default function App() {
       if (isVaultActive) {
         unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+          setLogs(data.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
         }, (err) => console.warn("Vault locked pending sync."));
       }
     } catch(e) {}
@@ -325,7 +323,7 @@ export default function App() {
     try {
       const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
       for (const lead of importPreview) {
-        await addDoc(leadsCol, { ...lead, created_at: serverTimestamp() });
+        await addDoc(leadsCol, { ...lead, timestamp: serverTimestamp() });
       }
       setImportPreview([]);
       alert("Vault Updated: 5,000 global units processed successfully.");
@@ -333,12 +331,11 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- PROTOCOL HANDSHAKE ---
+  // --- PROTOCOL HANDSHAKE (COM DEDUPLICAÇÃO) ---
   const handleProtocolHandshake = async (to, msg, ownerId, lid) => {
     setView('bridge');
     if(!ownerId) return;
 
-    // Validate if Link is Canceled
     if (lid) {
       try {
         const linkSnap = await getDoc(doc(db, 'artifacts', appId, 'users', ownerId, 'links', lid));
@@ -369,20 +366,21 @@ export default function App() {
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
         }
 
-        if (ownerProfile?.isSubscribed || ownerProfile?.isUnlimited) {
-          const geoReq = await fetch('https://ipapi.co/json/');
-          const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
-          await addDoc(collection(db, 'artifacts', appId, 'users', ownerId, 'leads'), {
-            created_at: serverTimestamp(),
-            timestamp: serverTimestamp(),
-            destination: to,
-            telefone_cliente: to,
-            nome_cliente: "PROTOCOL_LEAD",
-            location: `${geo.city}, ${geo.country_name || 'Global'}`,
-            ip: geo.ip,
-            device: navigator.userAgent
-          });
-        }
+        // Deduplicação: Usando o telefone como ID do documento para evitar registros duplicados
+        const safePhoneId = to.replace(/[^0-9]/g, '');
+        const geoReq = await fetch('https://ipapi.co/json/');
+        const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
+        
+        await setDoc(doc(db, 'artifacts', appId, 'users', ownerId, 'leads', safePhoneId || crypto.randomUUID()), {
+          timestamp: serverTimestamp(),
+          destination: to,
+          telefone_cliente: to,
+          nome_cliente: "PROTOCOL_LEAD",
+          location: `${geo.city}, ${geo.country_name || 'Global'}`,
+          ip: geo.ip,
+          device: navigator.userAgent
+        }, { merge: true });
+
       } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
       
       const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
@@ -510,7 +508,7 @@ export default function App() {
         .btn-neon-cyan { animation: neon-cyan 2s infinite alternate; background: #25F4EE !important; color: #000 !important; }
         .btn-neon-white { animation: neon-white 2s infinite alternate; background: #FFFFFF !important; color: #000 !important; }
         
-        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 900; font-style: italic; font-size: 14px; }
+        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; transition: all 0.3s; font-weight: 900; font-size: 14px; font-style: italic; }
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
         .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
@@ -575,7 +573,7 @@ export default function App() {
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
         {view === 'home' && (
-          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative">
+          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center">
             <header className="mb-14 text-center flex flex-col items-center">
               <div className="lighthouse-neon-wrapper mb-4">
                 <div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div>
@@ -584,6 +582,19 @@ export default function App() {
             </header>
 
             <main className="space-y-8 pb-20 text-left">
+              
+              {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) - No Topo */}
+              {user && (
+                <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-500">
+                  <button 
+                    onClick={() => setView('dashboard')} 
+                    className="btn-strategic btn-neon-cyan text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none"
+                  >
+                    <LayoutDashboard size={24} /> ACCESS {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "OPERATOR HUB"}
+                  </button>
+                </div>
+              )}
+
               {/* GERADOR */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left">
@@ -648,23 +659,17 @@ export default function App() {
                  </div>
               </div>
 
-              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NA HOME */}
-              <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10">
-                {!user ? (
-                  <>
-                    <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic btn-neon-white text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
-                       <Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES
-                    </button>
-                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
-                       <Star size={24} className="animate-pulse" /> UPGRADE TO PRO MEMBER
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => setView('dashboard')} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
-                     <LayoutDashboard size={24} /> ACCESS COMMAND CENTER
+              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME (Apenas Deslogados) */}
+              {!user && (
+                <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10">
+                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic btn-neon-white text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
+                     <Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES
                   </button>
-                )}
-              </div>
+                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
+                     <Star size={24} className="animate-pulse" /> UPGRADE TO PRO MEMBER
+                  </button>
+                </div>
+              )}
             </main>
           </div>
         )}
@@ -715,8 +720,8 @@ export default function App() {
                     <div className="flex items-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="p-1 text-white/40 hover:text-white">-</button><span className="text-3xl font-black text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="p-1 text-white/40 hover:text-white">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE]">
-                    {/* TERMINOLOGIA ANTI-TELECOM: 60 Free Trial / Handshakes */}
-                    <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center justify-center gap-1"><Activity size={10}/> 60 Free Trial</p>
+                    {/* TERMINOLOGIA ANTI-TELECOM: 60 Free Trial / Quota */}
+                    <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center justify-center gap-1"><Wallet size={10}/> Free Trial Quota</p>
                     <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.smsCredits || 0}</p>
                  </div>
               </div>
@@ -853,19 +858,40 @@ export default function App() {
               </div>
             </div>
             
-            {/* VAULT SYNC (DESIGN APROVADO) */}
+            {/* VAULT SYNC COM MÁSCARA PRO */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
                 <button onClick={() => setIsVaultActive(!isVaultActive)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] font-black transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>{isVaultActive ? "DISCONNECT VAULT" : "SYNC LEAD VAULT"}</button>
               </div>
               <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left font-black italic">
-                {isVaultActive ? logs.map(l => (
-                  <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02]">
-                    <div className="text-left font-black italic"><p className="font-black text-xl text-white uppercase italic">{l.nome_cliente || l.location}</p><p className="text-[12px] text-[#25F4EE] font-black">{l.telefone_cliente || l.destination}</p></div>
-                    <div className="text-right text-[10px] text-white/30 font-black uppercase font-black italic"><p>{l.location}</p><p className="mt-1">{l.ip || 'Global Asset'}</p></div>
-                  </div>
-                )) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
+                {isVaultActive ? logs.map(l => {
+                  const isPro = userProfile?.isSubscribed || userProfile?.isUnlimited;
+                  const maskStr = (str) => {
+                     if (!str) return '';
+                     if (isPro) return str;
+                     const s = String(str);
+                     if (s.length <= 6) return s.slice(0, 2) + '***';
+                     return s.slice(0, 5) + '*****' + s.slice(-2);
+                  };
+
+                  return (
+                    <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02]">
+                      <div className="text-left font-black italic">
+                        <p className="font-black text-xl text-white uppercase italic">
+                           {isPro ? (l.nome_cliente || l.location) : 'PROT*****EAD'}
+                        </p>
+                        <p className="text-[12px] text-[#25F4EE] font-black">
+                           {maskStr(l.telefone_cliente || l.destination)}
+                        </p>
+                      </div>
+                      <div className="text-right text-[10px] text-white/30 font-black uppercase font-black italic">
+                        <p>{isPro ? l.location : 'LOCKED GEO'}</p>
+                        <p className="mt-1">{isPro ? (l.ip || 'Global Asset') : 'LOCKED IP'}</p>
+                      </div>
+                    </div>
+                  );
+                }) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
               </div>
             </div>
           </div>
@@ -893,7 +919,7 @@ export default function App() {
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left font-black italic">
               <div className="lighthouse-neon-content p-12 sm:p-16 relative font-black italic">
                 <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white leading-none text-center font-black italic">
-                   {isResetMode ? "Identity Recovery" : isLoginMode ? "Member Login" : "Join the Network"}
+                   {isResetMode ? "Identity Recovery" : isLoginMode ? "Member Login" : "Create Account"}
                 </h2>
                 
                 {isResetMode ? (
@@ -909,14 +935,14 @@ export default function App() {
                    <form onSubmit={handleAuthSubmit} className="space-y-4 text-left font-black italic">
                      {!isLoginMode && (
                        <>
-                         <input required placeholder="Full Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-black text-xs w-full" />
-                         <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-black text-xs w-full" />
+                         <input required placeholder="Full Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs w-full" />
+                         <input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs w-full" />
                          <div className="h-px bg-white/5 w-full my-4" />
                        </>
                      )}
-                     <input required type="email" placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs w-full" />
+                     <input required type="email" placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full" />
                      <div className="relative font-black italic">
-                       <input required type={showPass ? "text" : "password"} placeholder="Security Key (Password)" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs w-full mb-1 font-black italic" />
+                       <input required type={showPass ? "text" : "password"} placeholder="Security Key (Password)" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full mb-1 font-black italic" />
                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-5 text-white/30 hover:text-[#25F4EE] transition-colors leading-none"><Eye size={18}/></button>
                      </div>
                      
@@ -927,7 +953,7 @@ export default function App() {
                      )}
 
                      {!isLoginMode && (
-                       <input required type={showPass ? "text" : "password"} placeholder="Repeat Key" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-black text-xs w-full mt-3 font-black italic" />
+                       <input required type={showPass ? "text" : "password"} placeholder="Repeat Key" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium text-xs w-full mt-3 font-black italic" />
                      )}
 
                      {!isLoginMode && (
