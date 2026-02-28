@@ -325,7 +325,7 @@ export default function App() {
     try {
       const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
       for (const lead of importPreview) {
-        await addDoc(leadsCol, { ...lead, created_at: serverTimestamp() });
+        await addDoc(leadsCol, { ...lead, created_at: serverTimestamp(), timestamp: serverTimestamp() });
       }
       setImportPreview([]);
       alert("Vault Updated: 5,000 global units processed successfully.");
@@ -333,7 +333,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- PROTOCOL HANDSHAKE (COM DEDUPLICAÇÃO) ---
+  // --- PROTOCOL HANDSHAKE (AIDA & DEDUPLICAÇÃO ATIVA) ---
   const handleProtocolHandshake = async (to, msg, ownerId, lid) => {
     setView('bridge');
     if(!ownerId) return;
@@ -351,6 +351,18 @@ export default function App() {
 
     setTimeout(async () => {
       try {
+        // Bloqueio de Duplicidade: O telefone limpo atua como ID único
+        const safePhoneId = to.replace(/[^0-9]/g, '');
+        const leadRef = doc(db, 'artifacts', appId, 'users', ownerId, 'leads', safePhoneId || crypto.randomUUID());
+        const leadSnap = await getDoc(leadRef);
+
+        // Se o lead já existir (mesmo número), não desconta créditos, apenas redireciona.
+        if (leadSnap.exists()) {
+           const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+           window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
+           return;
+        }
+
         const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const d = await getDoc(ownerRef);
         const ownerProfile = d?.data();
@@ -360,6 +372,7 @@ export default function App() {
           return;
         }
 
+        // Desconta do Free Trial (ou ignora se for Unlimited)
         if (!ownerProfile?.isUnlimited) {
           await updateDoc(ownerRef, { usageCount: increment(1), smsCredits: increment(-1) });
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1), smsCredits: increment(-1) });
@@ -368,20 +381,20 @@ export default function App() {
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
         }
 
-        // Deduplicação: Usando o telefone como ID do documento para evitar registros duplicados
-        const safePhoneId = to.replace(/[^0-9]/g, '');
+        // Grava o Lead na Base de Dados (Mesmo para Free Trial, para fazer o Upsell)
         const geoReq = await fetch('https://ipapi.co/json/');
         const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
         
-        await setDoc(doc(db, 'artifacts', appId, 'users', ownerId, 'leads', safePhoneId || crypto.randomUUID()), {
+        await setDoc(leadRef, {
           timestamp: serverTimestamp(),
+          created_at: serverTimestamp(),
           destination: to,
           telefone_cliente: to,
-          nome_cliente: "PROTOCOL_LEAD",
+          nome_cliente: "CAPTURED_LEAD",
           location: `${geo.city}, ${geo.country_name || 'Global'}`,
           ip: geo.ip,
           device: navigator.userAgent
-        }, { merge: true });
+        });
 
       } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
       
@@ -486,12 +499,19 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  const LockOverlay = () => (
-    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-[inherit] border border-[#25F4EE]/20 transition-all">
-      <Lock size={48} className="text-[#25F4EE] mb-4 drop-shadow-[0_0_15px_#25F4EE]" />
-      <h4 className="text-xl font-black uppercase italic tracking-widest text-white mb-2">Premium Protocol Locked</h4>
-      <p className="text-[10px] text-white/60 font-black uppercase tracking-widest text-center max-w-xs mb-6">Upgrade to Nexus or Expert to unlock this feature.</p>
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="px-8 py-3 bg-[#25F4EE] text-black font-black italic uppercase text-[10px] rounded-full shadow-[0_0_20px_rgba(37,244,238,0.4)] hover:scale-105 transition-transform">View Plans</button>
+  // TÁTICA AIDA - OVERLAY DE CADEADO AGRESSIVO
+  const LockOverlay = ({ featureName }) => (
+    <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center rounded-[inherit] border border-[#FE2C55]/30 transition-all p-6 text-center group">
+      <div className="absolute inset-0 bg-gradient-to-t from-[#FE2C55]/10 to-transparent opacity-50 rounded-[inherit]"></div>
+      <Lock size={48} className="text-[#FE2C55] mb-4 drop-shadow-[0_0_15px_#FE2C55] group-hover:scale-110 transition-transform duration-500" />
+      <h4 className="text-2xl font-black uppercase italic tracking-widest text-white mb-2 text-glow-white">PRO PROTOCOL LOCKED</h4>
+      <p className="text-[12px] text-[#25F4EE] font-black uppercase tracking-widest mb-2">Attention: You're losing massive scaling potential.</p>
+      <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest text-center max-w-md mb-6 leading-relaxed">
+        Upgrade your Free Trial to unlock {featureName}, bypass carrier limits, and unmask your highly qualified captured leads. Turn this dashboard into a sales machine.
+      </p>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="px-10 py-4 bg-[#FE2C55] text-white font-black italic uppercase text-[11px] rounded-full shadow-[0_0_30px_rgba(254,44,85,0.4)] hover:scale-105 transition-transform z-10 animate-pulse">
+        UPGRADE & UNLOCK NOW
+      </button>
     </div>
   );
 
@@ -748,7 +768,7 @@ export default function App() {
             <div className="animate-in fade-in duration-700 space-y-10 font-black italic">
                {/* BATCH INGESTION (5K LIMIT) */}
                <div className="bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group shadow-2xl font-black italic">
-                  {!isPro && <LockOverlay />}
+                  {!isPro && <LockOverlay featureName="Bulk 5k Import" />}
                   <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10 font-black italic">
                      <div className="flex items-center gap-5 text-left">
                         <div className="p-5 bg-[#25F4EE]/10 rounded-[2rem] border border-[#25F4EE]/20"><FileText size={40} className="text-[#25F4EE]" /></div>
@@ -764,7 +784,7 @@ export default function App() {
                
                {/* AI AGENT ARCHITECT - DYNAMIC SYNTHESIS & RED WARNING */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
-                  {!isPro && <LockOverlay />}
+                  {!isPro && <LockOverlay featureName="AI Synthesis Engine" />}
                   <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem]">
                      <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
                         <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">Global AI Agent Command</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Intelligent Message Synthesis Engine</p></div></div>
@@ -792,9 +812,9 @@ export default function App() {
                   </div>
                </div>
 
-               {/* DEVICE SYNC & CONTACTS MODULE (NEW) */}
+               {/* DEVICE SYNC & CONTACTS MODULE */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
-                 {!isPro && <LockOverlay />}
+                 {!isPro && <LockOverlay featureName="Device Mirror Protocol" />}
                  <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem]">
                    <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
                       <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><Radio size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">Device Sync Protocol</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Mirror Native App & Deploy to Contacts</p></div></div>
@@ -833,23 +853,23 @@ export default function App() {
                </div>
             </div>
 
-            {/* UPGRADE / MARKETPLACE (VISÍVEL PARA QUEM NÃO É PRO) */}
+            {/* UPGRADE / MARKETPLACE (VISÍVEL PARA QUEM NÃO É PRO - TÁTICA AIDA) */}
             {(!isPro) && (
               <div id="marketplace-section" className="mb-16 animate-in fade-in zoom-in-95 duration-700 mt-10">
-                 <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">Upgrade Identity / Marketplace</h3></div>
+                 <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">MAXIMIZE YOUR ROI: UPGRADE TO PRO</h3></div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left">
                    <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
                       <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
                       <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
-                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">Premium Attribution Mapping + Unlimited Handshakes.</p>
+                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">Premium Attribution Mapping, Unlimited Handshakes & Full Lead Unmasking.</p>
                       <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-white text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none">UPGRADE TO NEXUS</button>
                    </div>
                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
                       <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
                       <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
-                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine + Multi-Device Operations + 5K Import.</p>
+                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine, Multi-Device Operations, 5K Bulk Import & Absolute Automation.</p>
                       <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
                       <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none text-black">ACTIVATE EXPERT AI</button>
                    </div>
@@ -904,7 +924,7 @@ export default function App() {
               </div>
             </div>
             
-            {/* VAULT SYNC COM MÁSCARA PRO */}
+            {/* VAULT SYNC COM MÁSCARA PRO (AIDA UPSELL) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
@@ -923,8 +943,9 @@ export default function App() {
                   return (
                     <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02]">
                       <div className="text-left font-black italic">
-                        <p className="font-black text-xl text-white uppercase italic">
+                        <p className="font-black text-xl text-white uppercase italic flex items-center gap-2">
                            {isPro ? (l.nome_cliente || l.location) : 'PROT*****EAD'}
+                           {!isPro && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase animate-pulse">Locked</span>}
                         </p>
                         <p className="text-[12px] text-[#25F4EE] font-black">
                            {maskStr(l.telefone_cliente || l.destination)}
