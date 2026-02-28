@@ -50,7 +50,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "MASTER_USER_ID"; // <--- COLE O SEU UID AQUI PARA ACESSO TOTAL
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- COLE O SEU UID AQUI PARA ACESSO TOTAL
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
