@@ -75,7 +75,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [authResolved, setAuthResolved] = useState(false); // NOVO: Garante que o Firebase carregou a identidade
+  const [authResolved, setAuthResolved] = useState(false); 
   const [logs, setLogs] = useState([]); 
   const [allUsers, setAllUsers] = useState([]); 
   const [myLinks, setMyLinks] = useState([]); 
@@ -99,8 +99,10 @@ export default function App() {
   const [activeQueue, setActiveQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
+  const [isAutoSending, setIsAutoSending] = useState(false);
+  const [sendDelay, setSendDelay] = useState(30);
 
-  // Device Sync States (NEW)
+  // Device Sync States
   const [syncQR, setSyncQR] = useState('');
   const [isGeneratingSync, setIsGeneratingSync] = useState(false);
 
@@ -167,15 +169,15 @@ export default function App() {
       } else {
         setUserProfile(null);
       }
-      setAuthResolved(true); // Confirma que a verificação de Auth concluiu
+      setAuthResolved(true);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // GATILHO DE URL (AGORA AGUARDA O AUTH RESOLVER PARA NÃO PERDER O LEAD)
+  // GATILHO DE URL 
   useEffect(() => {
-    if (!authResolved) return; // Só dispara quando tivermos certeza da identidade
+    if (!authResolved) return; 
 
     const params = new URLSearchParams(window.location.search);
     const lid = params.get('lid');
@@ -184,7 +186,6 @@ export default function App() {
     const o = params.get('o');
     const syncProto = params.get('sync_protocol');
 
-    // MÓDULO NOVO: RECEPTOR DO ESPELHAMENTO MOBILE (QR CODE)
     if (syncProto === 'active') {
       setCaptureData({ uid: params.get('uid'), token: params.get('token') });
       setView('mobile_sync');
@@ -239,6 +240,19 @@ export default function App() {
       if(unsubProfile) unsubProfile();
     };
   }, [user, view, isVaultActive]);
+
+  // AUTOPILOT ENGINE LOOP (NOVO)
+  useEffect(() => {
+    let timer;
+    if (isAutoSending && queueIndex < activeQueue.length) {
+      timer = setTimeout(() => {
+        triggerNextInQueue();
+      }, Math.max(sendDelay, 15) * 1000); // Força um mínimo de 15s no Autopilot
+    } else if (queueIndex >= activeQueue.length) {
+      setIsAutoSending(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isAutoSending, queueIndex, activeQueue.length, sendDelay]);
 
   // --- CORE INTELLIGENCE ENGINE ---
   const runSafetyAudit = async (text) => {
@@ -304,12 +318,19 @@ export default function App() {
       setActiveQueue(newQueue);
       setQueueIndex(0);
       setIsAiProcessing(false);
+      setIsAutoSending(false); // Reseta o piloto automático
     }, 1500);
   };
 
   const triggerNextInQueue = async () => {
-    if (queueIndex >= activeQueue.length) return;
-    if (userProfile.smsCredits <= 0 && !userProfile.isUnlimited) return alert("Handshake limit reached.");
+    if (queueIndex >= activeQueue.length) {
+      setIsAutoSending(false);
+      return;
+    }
+    if (userProfile.smsCredits <= 0 && !userProfile.isUnlimited) {
+      setIsAutoSending(false);
+      return alert("Handshake limit reached.");
+    }
 
     const current = activeQueue[queueIndex];
     const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
@@ -374,17 +395,15 @@ export default function App() {
 
     setTimeout(async () => {
       try {
-        // Bloqueio de Duplicidade: O telefone limpo atua como ID único
         const safePhoneId = to.replace(/[^0-9]/g, '');
         const leadRef = doc(db, 'artifacts', appId, 'users', ownerId, 'leads', safePhoneId || crypto.randomUUID());
         const leadSnap = await getDoc(leadRef);
 
-        // Se o lead já existir (mesmo número), NÃO desconta créditos nem gera duplicidade.
         if (leadSnap.exists()) {
            console.log("Duplicate prevented. Bypassing quota deduction.");
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
            window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
-           return; // Interrompe o processo de cobrança aqui
+           return; 
         }
 
         const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
@@ -396,7 +415,6 @@ export default function App() {
           return;
         }
 
-        // Desconta do Free Trial (ou ignora se for Unlimited)
         if (!ownerProfile?.isUnlimited) {
           await updateDoc(ownerRef, { usageCount: increment(1), smsCredits: increment(-1) });
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1), smsCredits: increment(-1) });
@@ -405,7 +423,6 @@ export default function App() {
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
         }
 
-        // Grava o Novo Lead na Base de Dados (Mesmo para Free Trial, para fazer o Upsell)
         const geoReq = await fetch('https://ipapi.co/json/');
         const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
         
@@ -418,7 +435,7 @@ export default function App() {
           location: `${geo.city}, ${geo.country_name || 'Global'}`,
           ip: geo.ip,
           device: navigator.userAgent
-        });
+        }, { merge: true });
 
       } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
       
@@ -514,7 +531,6 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  // MÓDULO NOVO: PEDIDO DE PERMISSÃO E PUXADA DA AGENDA NATIVA
   const handleSyncContacts = async () => {
     if (!('contacts' in navigator && 'ContactsManager' in window)) {
       alert("Protocol Error: Native Web Contact Sync requires a supported mobile browser (e.g., Google Chrome for Android). Apple iOS restricts this protocol. Please use the Bulk 5k Import feature on your dashboard for iOS lists.");
@@ -576,25 +592,20 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
   const PremiumLockedFooter = ({ featureName, benefit }) => (
-    <div className="mt-10 pt-10 border-t border-[#FE2C55]/30 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
-      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(254,44,85,0.2)]">
-        <Lock size={14} className="text-[#FE2C55]" />
-        <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PREMIUM PROTOCOL LOCKED</span>
+    <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 relative z-20 w-full font-black italic">
+      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/30 px-5 py-2 rounded-full mb-1">
+        <Lock size={12} className="text-[#FE2C55]" />
+        <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PRO PROTOCOL LOCKED</span>
       </div>
-      
-      <p className="text-xl sm:text-3xl text-[#FE2C55] font-black italic uppercase leading-tight drop-shadow-[0_0_15px_rgba(254,44,85,0.6)]">
-        ATTENTION: YOU ARE LEAVING MONEY ON THE TABLE.
+      <p className="text-xl sm:text-2xl text-white font-black italic uppercase leading-tight text-glow-white">
+        ATTENTION: YOU ARE LOSING MASSIVE SCALING POTENTIAL.
       </p>
-      
-      <div className="max-w-4xl mx-auto space-y-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest leading-relaxed font-black italic text-white/70 bg-black/40 p-6 rounded-3xl border border-white/5">
-        <p><span className="text-[#25F4EE]">INTEREST:</span> Your competitors are already using <span className="text-white">{featureName}</span> to automate their funnels and {benefit}.</p>
-        <p><span className="text-amber-500">DESIRE:</span> Imagine bypassing carrier filters automatically, scaling your reach to thousands, and unmasking every single highly-qualified lead in your vault. Stop guessing and start converting.</p>
-      </div>
-
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs sm:text-sm w-full max-w-[500px] py-6 shadow-[0_0_40px_rgba(37,244,238,0.5)] animate-pulse mt-2">
-        <Rocket size={20} className="mr-2"/> UPGRADE NOW & UNLOCK YOUR MACHINE
+      <p className="text-[10px] sm:text-[11px] text-white/50 font-bold uppercase tracking-widest leading-relaxed max-w-3xl mx-auto font-black italic mb-2">
+        Upgrade your Free Trial to unlock <span className="text-[#25F4EE]">{featureName}</span> and {benefit}. Bypass carrier limits, unmask your highly qualified leads, and turn this dashboard into a definitive sales machine.
+      </p>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[400px] py-5 shadow-[0_0_30px_rgba(254,44,85,0.4)] animate-pulse">
+        UPGRADE & UNLOCK NOW
       </button>
     </div>
   );
@@ -818,22 +829,22 @@ export default function App() {
           </div>
         )}
 
-        {/* MOBILE SYNC VIEW (RECEPTOR DO QR CODE PARA O TELEMÓVEL) */}
+        {/* MOBILE SYNC VIEW (RECEPTOR DO QR CODE PARA O TELEMÓVEL - Corrigido Responsividade) */}
         {view === 'mobile_sync' && (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
+          <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 sm:p-6 text-center relative px-4 sm:px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
-                <Smartphone size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-10 mx-auto" />
-                <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center">DEVICE SYNC INITIATED</h2>
-                <div className="p-8 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-10 relative overflow-hidden shadow-2xl text-center">
-                   <p className="text-xs text-white/50 uppercase italic font-black leading-relaxed tracking-widest mb-8">
+              <div className="lighthouse-neon-content p-8 sm:p-16 flex flex-col items-center">
+                <Smartphone size={80} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-8 mx-auto" />
+                <h2 className="text-2xl sm:text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center">DEVICE SYNC INITIATED</h2>
+                <div className="p-6 sm:p-8 bg-white/[0.03] border border-white/5 rounded-[2rem] mb-8 relative overflow-hidden shadow-2xl text-center w-full">
+                   <p className="text-[10px] sm:text-xs text-white/50 uppercase italic font-black leading-relaxed tracking-widest mb-8">
                      Your mobile device is securely connecting to the Command Center. Authorize access to synchronize your native contacts directly to your encrypted vault.
                    </p>
                    <button onClick={handleSyncContacts} disabled={loading} className="btn-strategic btn-neon-cyan text-xs italic font-black uppercase py-5 shadow-2xl w-full">
                      {loading ? "SYNCING VAULT..." : "AUTHORIZE CONTACTS ACCESS"}
                    </button>
                 </div>
-                <p className="text-[9px] text-[#FE2C55] font-black uppercase tracking-widest text-center mt-4">Zero-Knowledge Encrypted Transfer</p>
+                <p className="text-[8px] sm:text-[9px] text-[#FE2C55] font-black uppercase tracking-widest text-center mt-2">Zero-Knowledge Encrypted Transfer</p>
               </div>
             </div>
           </div>
@@ -863,7 +874,6 @@ export default function App() {
                     <div className="flex items-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="p-1 text-white/40 hover:text-white">-</button><span className="text-3xl font-black text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="p-1 text-white/40 hover:text-white">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE]">
-                    {/* TERMINOLOGIA ANTI-TELECOM: 60 Free Trial / Quota */}
                     <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center justify-center gap-1"><Wallet size={10}/> Free Trial Quota</p>
                     <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.smsCredits || 0}</p>
                  </div>
@@ -918,8 +928,34 @@ export default function App() {
                            <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
                               {activeQueue.length > 0 ? (
                                  <div className="w-full leading-none">
-                                    <div className="mb-10"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p></div>
-                                    <button onClick={triggerNextInQueue} disabled={!isPro} className="w-full py-8 bg-[#25F4EE] text-black rounded-[2rem] font-black uppercase text-xs shadow-2xl animate-pulse leading-none disabled:opacity-50"><PlayCircle size={24} className="inline mr-2" /> Launch Native Disparo</button>
+                                    <div className="mb-8">
+                                       <p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p>
+                                       <p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p>
+                                    </div>
+                                    
+                                    {/* MÓDULO AUTOPILOT NOVO COM DELAY (Apenas para utilizadores Premium) */}
+                                    <div className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/10 p-4 rounded-2xl mb-6">
+                                       <label className="text-[10px] font-black uppercase text-white/50">Auto-Delay:</label>
+                                       <div className="flex items-center gap-2">
+                                         <input disabled={!isPro || isAutoSending} type="number" min="15" max="120" value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent border-b border-[#25F4EE]/50 text-[#25F4EE] font-black text-center w-12 outline-none" />
+                                         <span className="text-[9px] text-[#FE2C55] uppercase font-black tracking-widest">Sec</span>
+                                       </div>
+                                    </div>
+
+                                    <button 
+                                      onClick={() => {
+                                        if (!isAutoSending && queueIndex < activeQueue.length) {
+                                          triggerNextInQueue(); // Dispara o primeiro imediatamente
+                                          setIsAutoSending(true); // Liga o timer para os próximos
+                                        } else {
+                                          setIsAutoSending(false);
+                                        }
+                                      }} 
+                                      disabled={!isPro} 
+                                      className={`w-full py-6 text-black rounded-[2rem] font-black uppercase text-[11px] shadow-2xl leading-none transition-all ${isAutoSending ? 'bg-[#FE2C55] animate-none' : 'bg-[#25F4EE] animate-pulse'} disabled:opacity-50`}
+                                    >
+                                       {isAutoSending ? <><Lock size={20} className="inline mr-2" /> STOP AUTOPILOT</> : <><PlayCircle size={20} className="inline mr-2" /> LAUNCH AUTOPILOT</>}
+                                    </button>
                                  </div>
                               ) : (
                                  <div className="opacity-20 text-center"><ShieldAlert size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">System Standby</p></div>
@@ -954,7 +990,7 @@ export default function App() {
                             
                             <div className="flex items-center gap-4 bg-black border border-white/5 p-4 rounded-2xl">
                                <label className="text-[10px] font-black uppercase text-white/50 w-full">Queue Delay (Seconds):</label>
-                               <input disabled={!isPro} type="number" min="15" max="120" defaultValue="30" className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black text-center w-16 outline-none" />
+                               <input disabled={!isPro || isAutoSending} type="number" min="15" max="120" value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black text-center w-16 outline-none" />
                                <span className="text-[9px] text-[#FE2C55] uppercase font-black tracking-widest whitespace-nowrap">Min 15s (Safe)</span>
                             </div>
 
