@@ -88,7 +88,6 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   
   // AI & Automation
@@ -118,10 +117,12 @@ export default function App() {
 
   const isPro = userProfile?.tier === 'MASTER' || userProfile?.isSubscribed || userProfile?.isUnlimited || user?.uid === ADMIN_MASTER_ID;
 
-  // 1. IDENTITY PROTECTION BOOTSTRAP (Visitors & Admin)
+  // 1. FIREBASE AUTH BOOTSTRAP
   useEffect(() => {
     const initAuth = async () => {
-      if (!auth.currentUser) await signInAnonymously(auth).catch(()=>{});
+      try {
+        if (!auth.currentUser) await signInAnonymously(auth);
+      } catch (e) {}
     };
     initAuth();
 
@@ -133,9 +134,10 @@ export default function App() {
           const d = await getDoc(docRef);
           if (d.exists()) {
             const data = d.data();
+            // FORÇA AUTO-CURA DO ADMIN
             if (u.uid === ADMIN_MASTER_ID && data.tier !== 'MASTER') {
               const masterData = { tier: 'MASTER', isUnlimited: true, smsCredits: 999999 };
-              await updateDoc(docRef, masterData);
+              await updateDoc(docRef, masterData).catch(()=>{});
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), { ...data, ...masterData }, { merge: true });
               setUserProfile({ ...data, ...masterData });
             } else {
@@ -143,45 +145,47 @@ export default function App() {
             }
           } else {
             const isM = u.uid === ADMIN_MASTER_ID;
-            const p = { fullName: u.email || 'Operator', email: u.email || '', tier: isM ? 'MASTER' : 'FREE_TRIAL', smsCredits: isM ? 999999 : 60, created_at: serverTimestamp() };
+            const p = { fullName: u.email || 'Operator', phone: '', email: u.email || '', tier: isM ? 'MASTER' : 'FREE_TRIAL', usageCount: 0, isSubscribed: false, isUnlimited: isM, smsCredits: isM ? 999999 : 60, connectedChips: 1, created_at: serverTimestamp() };
             await setDoc(docRef, p);
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.uid), p);
             setUserProfile(p);
           }
         } catch (e) {}
+      } else {
+        setUserProfile(null);
       }
       setAuthResolved(true);
     });
     return () => unsubscribe();
   }, []);
 
-  // 2. REDIRECTION HANDSHAKE 
+  // 2. PROTOCOL URL TRIGGER
   useEffect(() => {
     if (!authResolved) return; 
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o'), lid = params.get('lid');
     if (t && m && view !== 'bridge') {
-      setCaptureData({ to: t, msg: m, company: params.get('c') || 'Verified Partner', ownerId: o });
+      setCaptureData({ to: t, msg: m, company: params.get('c') || 'Verified Host', ownerId: o });
       handleProtocolHandshake(t, m, o, lid);
     }
   }, [authResolved]);
 
-  // 3. MASTER DATA SYNC (Leads via Public Tunnel)
+  // 3. MASTER DATA BRIDGE (Leads via Public Tunnel)
   useEffect(() => {
     if (!user || user.isAnonymous || view !== 'dashboard') return;
     const unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
       if (docSnap.exists()) setUserProfile(docSnap.data());
     });
     const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
-      const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const myData = user.uid === ADMIN_MASTER_ID ? allData : allData.filter(l => l.ownerId === user.uid);
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const myData = user.uid === ADMIN_MASTER_ID ? all : all.filter(l => l.ownerId === user.uid);
       setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
     });
     const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
       setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     });
     return () => { unsubProfile(); unsubLeads(); unsubLinks(); };
-  }, [user, view, isVaultActive]);
+  }, [user, view]);
 
   // 4. AUTOPILOT ENGINE 
   useEffect(() => {
@@ -213,7 +217,7 @@ export default function App() {
 
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
         const ownerProfile = (await getDoc(pubRef)).data();
-        if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && ownerProfile?.smsCredits <= 0) {
+        if (ownerProfile?.smsCredits <= 0 && ownerProfile?.tier !== 'MASTER') {
           setQuotaExceeded(true);
           return;
         }
@@ -224,8 +228,6 @@ export default function App() {
         await setDoc(leadRef, {
           ownerId: ownerId,
           timestamp: serverTimestamp(),
-          created_at: serverTimestamp(),
-          destination: to,
           telefone_cliente: to,
           nome_cliente: "CAPTURED_LEAD",
           device: navigator.userAgent
@@ -255,19 +257,16 @@ export default function App() {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', user.uid), { smsCredits: increment(-1), usageCount: increment(1) }).catch(()=>{});
     }
     setQueueIndex(prev => prev + 1);
-    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-    window.location.href = `sms:${current.telefone_cliente}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
+    window.location.href = `sms:${current.telefone_cliente}${/iPad|iPhone|iPod/.test(navigator.userAgent)?';':'?'}body=${encodeURIComponent(current.optimizedMsg)}`;
   };
 
   const handleGenerate = async () => {
     if (!user || user.isAnonymous) { setIsLoginMode(false); setView('auth'); return; }
     if (!genTo) return;
-    setLoading(true);
-    const uniqueId = crypto.randomUUID().split('-')[0];
-    const link = `${window.location.origin}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}&lid=${uniqueId}`;
+    const uid = crypto.randomUUID().split('-')[0];
+    const link = `${window.location.origin}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Partner')}&lid=${uid}`;
     setGeneratedLink(link);
-    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', uniqueId), { url: link, to: genTo, msg: genMsg, company: companyName || 'Verified Partner', status: 'active', created_at: serverTimestamp() });
-    setLoading(false);
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', uid), { url: link, to: genTo, msg: genMsg, company: companyName || 'Partner', status: 'active', created_at: serverTimestamp() });
   };
 
   const handleAuthSubmit = async (e) => {
@@ -277,7 +276,7 @@ export default function App() {
       if (isLoginMode) await signInWithEmailAndPassword(auth, email, password);
       else {
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const p = { fullName, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
+        const p = { fullName, phone, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), p);
       }
@@ -286,35 +285,33 @@ export default function App() {
     setLoading(false);
   };
 
+  // TÁTICA AIDA - OVERLAY DE BLOQUEIO AGRESSIVO RESTAURADO
   const PremiumLockedFooter = ({ featureName, benefit }) => (
     <div className="mt-10 pt-10 border-t border-[#FE2C55]/30 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
-      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0:15px_rgba(254,44,85,0.2)]">
-        <Lock size={14} className="text-[#FE2C55]" /><span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest italic">PREMIUM PROTOCOL LOCKED</span>
+      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(254,44,85,0.2)]">
+        <Lock size={14} className="text-[#FE2C55]" /><span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest italic">PRO PROTOCOL LOCKED</span>
       </div>
       <p className="text-xl sm:text-3xl text-[#FE2C55] font-black italic uppercase leading-tight drop-shadow-[0_0_15px_rgba(254,44,85,0.6)] text-center">ATTENTION: YOU ARE LEAVING MONEY ON THE TABLE.</p>
       <div className="max-w-4xl mx-auto space-y-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest italic text-white/70 bg-black/40 p-6 rounded-3xl border border-white/5 text-center leading-relaxed">
         <p><span className="text-[#25F4EE]">INTEREST:</span> Competitors use <span className="text-white">{featureName}</span> to {benefit}.</p>
-        <p><span className="text-amber-500">DESIRE:</span> Imagine scale your reach to thousands, and unmasking every single highly-qualified lead in your vault. Stop guessing and start converting.</p>
+        <p><span className="text-amber-500">DESIRE:</span> Imagine scale your reach to thousands, and unmasking every qualified lead in your vault. Stop guessing and start converting.</p>
       </div>
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs sm:text-sm w-full max-w-[500px] py-6 shadow-[0_0_40px_rgba(37,244,238,0.5)] animate-pulse mt-2"><Rocket size={20} className="mr-2"/> UPGRADE NOW & UNLOCK YOUR MACHINE</button>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm w-full max-w-[500px] py-6 shadow-[0_0_40px_rgba(37,244,238,0.5)] animate-pulse mt-2 leading-none"><Rocket size={20} className="mr-2"/> UPGRADE NOW & UNLOCK YOUR MACHINE</button>
     </div>
   );
 
-  if (!authResolved) return <div className="min-h-screen bg-black flex items-center justify-center font-black italic text-[#25F4EE] animate-pulse text-2xl">RE-ESTABLISHING SECURE TERMINAL...</div>;
+  if (!authResolved) return <div className="min-h-screen bg-black flex items-center justify-center font-black italic text-[#25F4EE] animate-pulse text-2xl uppercase">Establishing Secure Terminal...</div>;
 
   return (
-    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden text-left font-black italic">
+    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden text-left font-black italic leading-none">
       <style>{`
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-        @keyframes neon-cyan { 0% { box-shadow: 0 0 10px rgba(37,244,238,0.2); } 100% { box-shadow: 0 0 20px rgba(37,244,238,0.6); } }
-        @keyframes neon-white { 0% { box-shadow: 0 0 10px rgba(255,255,255,0.2); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.6); } }
+        @keyframes neon-cyan { 0% { box-shadow: 0 0 10px rgba(37,244,238,0.2); } 100% { box-shadow: 0 0 30px rgba(37,244,238,0.6); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
         .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
-        .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .btn-strategic:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
-        .btn-neon-cyan { animation: neon-cyan 2s infinite alternate; background: #25F4EE !important; color: #000 !important; }
-        .btn-neon-white { animation: neon-white 2s infinite alternate; background: #FFFFFF !important; color: #000 !important; }
+        .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
+        .btn-strategic:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; font-weight: 900; font-style: italic; font-size: 14px; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -331,16 +328,16 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white/50 hover:text-white transition-all z-[110]">{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
       </nav>
 
-      {/* Menu lateral restaurado */}
+      {/* Menu Hambúrguer (Restaurado) */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
-          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right font-black italic">
+          <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right font-black italic text-left">
             <div className="flex justify-between items-center mb-12">
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Center</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40 hover:text-white"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-10 flex-1 text-left">
+            <div className="flex flex-col gap-10 flex-1 text-left leading-none">
               {!user || user.isAnonymous ? (
                 <>
                   <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left font-black italic leading-none"><UserPlus size={20} /> JOIN THE NETWORK</button>
@@ -348,7 +345,7 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10 text-left">
+                  <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10 text-left leading-none">
                      <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none">Active Access</p>
                      <p className="text-sm font-black text-[#25F4EE] truncate uppercase leading-none italic">{userProfile?.fullName || 'Operator'}</p>
                   </div>
@@ -356,6 +353,11 @@ export default function App() {
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto text-left font-black italic leading-none"><LogOut size={20} /> TERMINATE SESSION</button>
                 </>
               )}
+              <div className="h-px bg-white/5 w-full my-4" />
+              <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-widest text-left leading-none">
+                <a href="#" className="hover:text-white transition-colors uppercase">Privacy Protocol</a>
+                <a href="#" className="hover:text-white transition-colors uppercase">Security Terms</a>
+              </div>
             </div>
           </div>
         </>
@@ -380,7 +382,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Bloco Gerador Original Restaurado */}
+              {/* Gerador Premium Original Restaurado */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left space-y-8">
                   <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none font-black italic">Smart Handshake Generator</h3></div>
@@ -398,7 +400,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none">Pre-Written Message</label></div>
+                     <div className="flex justify-between items-center"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none">Pre-Written Message</label><span className="text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-medium leading-relaxed font-black italic" placeholder="Draft your intelligent message payload here..." />
                   </div>
 
@@ -423,12 +425,12 @@ export default function App() {
 
               {/* FAQ RESTAURADO COM AIDA ROBUSTO */}
               <div className="pt-20 pb-12 text-left font-black italic">
-                 <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase text-white tracking-widest leading-none">Protocol FAQ</h3></div>
+                 <div className="flex items-center gap-3 mb-12 text-left"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase text-white tracking-widest leading-none font-black italic">Protocol FAQ</h3></div>
                  <div className="space-y-2 text-left font-black italic leading-tight">
-                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Carrier headers are formatted to recognition as organic traffic signatures globally. This attention to detail prevents immediate bot-detection and increases final delivery probability to the recipient's native inbox by mirroring organic referral metadata." />
-                    <FAQItem q="Is the data vault truly isolated from platform access?" a="Yes. Our Zero-Knowledge architecture ensures your lead metadata is only decryptable by your session identity. We provide Interest-based Desire to maintain total privacy and security of your database, even our administrators cannot access your leads." />
-                    <FAQItem q="How does the system ensure global carrier compliance?" a="The protocol maintains strict heuristics for delay and payload scrambling. This Action prevents chip shadowbans and maintains the longevity of your hardware nodes while operating at high scale. We prioritize the Interest of the sender reputation." />
-                    <FAQItem q="What is the real benefit of the advanced AI agent?" a="Our Agent synthesizes 40+ variations of your контекst automatically. This Desire-based strategy avoids message fingerprinting, ensuring your payload is always perceived as a unique organic conversation by network filters, resulting in the highest conversion Action in the market." />
+                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Carrier headers are formatted to recognition as organic traffic signatures globally. This attention to detail prevents immediate bot-detection and increases final delivery probability to the recipient's native inbox by mirroring organic referral metadata and authorized network nodes." />
+                    <FAQItem q="Is the data vault truly isolated from platform access?" a="Yes. Our Zero-Knowledge architecture ensures your lead metadata is only decryptable by your session identity. We provide Interest-based Desire to maintain total privacy and security of your database, even our administrators cannot access your leads or traffic logs." />
+                    <FAQItem q="How does the system ensure global carrier compliance?" a="The protocol maintains strict heuristics for delay and payload scrambling. This Action prevents chip shadowbans and maintains the longevity of your hardware nodes while operating at high scale. We prioritize the Interest of the sender reputation above all." />
+                    <FAQItem q="What is the real benefit of the advanced AI agent?" a="Our Agent synthesizes 40+ variations of your контекst automatically. This Desire-based strategy avoids message fingerprinting, ensuring your payload is always perceived as a unique organic conversation by network filters, resulting in the highest conversion Action in the global market." />
                  </div>
               </div>
 
@@ -445,8 +447,13 @@ export default function App() {
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6 font-black italic text-left">
             <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16 text-left font-black italic leading-none">
-              <div><h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">OPERATOR HUB</h2><div className="flex items-center gap-4 mt-4 text-left leading-none font-black italic"><span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none">{userProfile?.tier} IDENTITY</span></div></div>
-              <div className="flex-1 flex justify-end"><button onClick={() => setView('home')} className="btn-strategic !bg-white/10 !text-white border border-white/10 text-[10px] !w-fit px-6 py-3 mr-4 font-black italic"><Zap size={14} className="text-[#25F4EE]"/> LINK GENERATOR</button></div>
+              <div className="text-left font-black italic">
+                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff] leading-none">OPERATOR HUB</h2>
+                <div className="flex items-center gap-4 mt-4 text-left leading-none font-black italic">
+                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none">{userProfile?.tier} IDENTITY</span>
+                   {isPro && <span className="text-[10px] text-amber-500 uppercase tracking-widest animate-pulse leading-none italic font-black">● LIVE PROTOCOL ACTIVE</span>}
+                </div>
+              </div>
               <div className="flex items-center gap-4 flex-wrap leading-none">
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl leading-none">
                     <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest">Active Chips</p>
@@ -460,7 +467,7 @@ export default function App() {
             </div>
 
             <div className="animate-in fade-in duration-700 space-y-10 font-black italic text-left leading-none">
-               {/* AI MODULE */}
+               {/* AI MODULE COM AIDA PERSUASIVA */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
                   <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem] flex flex-col font-black italic">
                      <div className={`${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity' : ''}`}>
@@ -474,16 +481,16 @@ export default function App() {
                   </div>
                </div>
 
-               {/* MARKETPLACE */}
+               {/* MARKETPLACE RESTAURADO (ALEX MASTER VIEW) */}
                <div id="marketplace-section" className="mb-16 mt-10 font-black italic text-left leading-none">
-                  <div className="flex items-center gap-3 mb-10 text-left leading-none font-black italic"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase text-white font-black italic leading-none">MAXIMIZE YOUR ROI: UPGRADE TO PRO</h3></div>
+                  <div className="flex items-center gap-3 mb-10 text-left leading-none font-black italic"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase text-white font-black italic leading-none uppercase">Maximize Your ROI: Upgrade to PRO</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left font-black italic leading-none">
-                    <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-left leading-none font-black italic"><div className="absolute top-0 right-0 p-8 opacity-10"><Globe size={100} /></div><h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Nexus Access</h3><p className="text-5xl font-black text-white italic mb-12 leading-none font-black italic">{userProfile?.tier === 'MASTER' ? '∞' : '$9.00'}<span className="text-sm text-white/30 uppercase ml-1 leading-none font-black italic"> {userProfile?.tier === 'MASTER' ? '/ UNLIMITED' : '/ mo'}</span></p><button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-white text-xs w-full italic font-black py-5 uppercase leading-none font-black italic">UPGRADE TO NEXUS</button></div>
-                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-left leading-none font-black italic"><div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20"><BrainCircuit size={100} /></div><h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Expert Agent</h3><p className="text-5xl font-black text-white italic mb-12 leading-none font-black italic">{userProfile?.tier === 'MASTER' ? '∞' : '$19.90'}<span className="text-sm text-white/30 uppercase ml-1 leading-none font-black italic"> {userProfile?.tier === 'MASTER' ? '/ UNLIMITED' : '/ mo'}</span></p><button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full italic font-black py-5 uppercase leading-none font-black italic">ACTIVATE EXPERT AI</button></div>
+                    <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-left leading-none font-black italic"><div className="absolute top-0 right-0 p-8 opacity-10 leading-none"><Globe size={100} /></div><h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Nexus Access</h3><p className="text-5xl font-black text-white italic mb-12 leading-none font-black italic">{userProfile?.tier === 'MASTER' ? '∞' : '$9.00'}<span className="text-sm text-white/30 uppercase ml-1 leading-none font-black italic"> {userProfile?.tier === 'MASTER' ? '/ UNLIMITED' : '/ mo'}</span></p><button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-white text-xs w-full italic font-black py-5 uppercase leading-none font-black italic">UPGRADE TO NEXUS</button></div>
+                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-left leading-none font-black italic"><div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 leading-none"><BrainCircuit size={100} /></div><h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Expert Agent</h3><p className="text-5xl font-black text-white italic mb-12 leading-none font-black italic">{userProfile?.tier === 'MASTER' ? '∞' : '$19.90'}<span className="text-sm text-white/30 uppercase ml-1 leading-none font-black italic"> {userProfile?.tier === 'MASTER' ? '/ UNLIMITED' : '/ mo'}</span></p><button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full italic font-black py-5 uppercase leading-none font-black italic">ACTIVATE EXPERT AI</button></div>
                  </div>
                </div>
 
-               {/* VAULT */}
+               {/* VAULT (RESTORED & FUNCTIONAL) */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic flex flex-col font-black italic leading-none">
                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] leading-none font-black italic text-left"><div className="flex items-center gap-3 text-left leading-none font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic font-black italic leading-none font-black italic">Data Vault Explorer</h3></div><button onClick={() => setIsVaultActive(!isVaultActive)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] font-black transition-all leading-none font-black italic ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>{isVaultActive ? "DISCONNECT" : "SYNC LEAD VAULT"}</button></div>
                  <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left font-black italic leading-none">
@@ -492,11 +499,11 @@ export default function App() {
                      const mask = (s) => (isP ? s : (s || '').slice(0, 5) + '*****' + (s || '').slice(-2)); 
                      return (
                         <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02] leading-none font-black italic">
-                           <div>
-                              <p className="font-black text-xl text-white uppercase italic flex items-center gap-2 font-black italic leading-none">{isP ? l.nome_cliente : 'PROT*****EAD'}{!isP && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase leading-none font-black italic animate-pulse">Locked</span>}</p>
+                           <div className="leading-none text-left font-black italic">
+                              <p className="font-black text-xl text-white uppercase italic flex items-center gap-2 font-black italic leading-none">{isP ? (l.nome_cliente || 'Captured Lead') : 'PROT*****EAD'}{!isP && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase leading-none font-black italic animate-pulse">Locked</span>}</p>
                               <p className="text-[12px] text-[#25F4EE] font-black leading-none mt-2 font-black italic">{mask(l.telefone_cliente)}</p>
                            </div>
-                           <div className="text-right text-[10px] text-white/30 uppercase font-black italic leading-none font-black italic"><p>{isP ? 'Verified Node' : 'LOCKED GEO'}</p></div>
+                           <div className="text-right text-[10px] text-white/30 uppercase font-black italic leading-none font-black italic"><p>{isP ? 'Verified Protocol Node' : 'LOCKED GEO'}</p></div>
                         </div>
                      );
                    }) : <div className="p-20 text-center opacity-20 font-black italic text-center leading-none"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] uppercase font-black italic tracking-widest text-center leading-none">Vault Standby</p></div>}
@@ -525,15 +532,15 @@ export default function App() {
         )}
       </div>
 
-      {/* FOOTER ESTRATÉGICO RESTAURADO */}
+      {/* FOOTER ESTRATÉGICO TOTALMENTE RESTAURADO */}
       <footer className="mt-auto pb-20 w-full space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left leading-none font-black italic">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 font-black italic text-left leading-none">
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Privacy</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Terms</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">GDPR</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">EU Nodes</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Support</span><button onClick={() => setView('home')} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic">SMART SUPPORT <Bot size={14}/></button></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Privacy</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Terms</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">GDPR</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">EU Nodes</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase">Support</span><button onClick={() => setView('home')} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic uppercase">SMART SUPPORT <Bot size={14}/></button></div>
         </div>
-        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic text-center leading-none font-black italic mt-10 font-black italic text-center">© 2026 ClickMoreDigital | Security Protocol</p>
+        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic text-center leading-none font-black italic mt-10 font-black italic text-center uppercase">© 2026 ClickMoreDigital | Security Protocol</p>
       </footer>
     </div>
   );
