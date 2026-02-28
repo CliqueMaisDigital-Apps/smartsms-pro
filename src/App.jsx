@@ -75,9 +75,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false); // NOVO: Garante que o Firebase carregou a identidade
   const [logs, setLogs] = useState([]); 
   const [allUsers, setAllUsers] = useState([]); 
-  const [myLeads, setMyLeads] = useState([]); 
   const [myLinks, setMyLinks] = useState([]); 
   const [isVaultActive, setIsVaultActive] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
@@ -163,16 +163,27 @@ export default function App() {
       } else {
         setUserProfile(null);
       }
+      setAuthResolved(true); // Confirma que a verificação de Auth concluiu
     });
+
+    return () => unsubscribe();
+  }, []);
+
+  // GATILHO DE URL (AGORA AGUARDA O AUTH RESOLVER PARA NÃO PERDER O LEAD)
+  useEffect(() => {
+    if (!authResolved) return; // Só dispara quando tivermos certeza da identidade
 
     const params = new URLSearchParams(window.location.search);
     const lid = params.get('lid');
-    if (params.get('t') && params.get('m')) {
-      setCaptureData({ to: params.get('t'), msg: params.get('m'), company: params.get('c') || 'Verified Host', ownerId: params.get('o') });
-      handleProtocolHandshake(params.get('t'), params.get('m'), params.get('o'), lid);
+    const t = params.get('t');
+    const m = params.get('m');
+    const o = params.get('o');
+
+    if (t && m && view !== 'bridge') {
+      setCaptureData({ to: t, msg: m, company: params.get('c') || 'Verified Host', ownerId: o });
+      handleProtocolHandshake(t, m, o, lid);
     }
-    return () => unsubscribe();
-  }, []);
+  }, [authResolved]);
 
   // DATA SYNCHRONIZATION
   useEffect(() => {
@@ -356,11 +367,12 @@ export default function App() {
         const leadRef = doc(db, 'artifacts', appId, 'users', ownerId, 'leads', safePhoneId || crypto.randomUUID());
         const leadSnap = await getDoc(leadRef);
 
-        // Se o lead já existir (mesmo número), não desconta créditos, apenas redireciona.
+        // Se o lead já existir (mesmo número), NÃO desconta créditos nem gera duplicidade.
         if (leadSnap.exists()) {
+           console.log("Duplicate prevented. Bypassing quota deduction.");
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
            window.location.href = `sms:${to}${sep}body=${encodeURIComponent(msg)}`;
-           return;
+           return; // Interrompe o processo de cobrança aqui
         }
 
         const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
@@ -381,7 +393,7 @@ export default function App() {
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
         }
 
-        // Grava o Lead na Base de Dados (Mesmo para Free Trial, para fazer o Upsell)
+        // Grava o Novo Lead na Base de Dados (Mesmo para Free Trial, para fazer o Upsell)
         const geoReq = await fetch('https://ipapi.co/json/');
         const geo = geoReq.ok ? await geoReq.json() : { city: 'Unknown', ip: '0.0.0.0' };
         
@@ -394,7 +406,7 @@ export default function App() {
           location: `${geo.city}, ${geo.country_name || 'Global'}`,
           ip: geo.ip,
           device: navigator.userAgent
-        }, { merge: true });
+        });
 
       } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
       
@@ -499,21 +511,25 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES (CORRIGIDO PARA DESIGN PREMIUM)
+  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
   const PremiumLockedFooter = ({ featureName, benefit }) => (
-    <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 relative z-20 w-full font-black italic">
-      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/30 px-5 py-2 rounded-full mb-1">
-        <Lock size={12} className="text-[#FE2C55]" />
-        <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PRO PROTOCOL LOCKED</span>
+    <div className="mt-10 pt-10 border-t border-[#FE2C55]/30 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
+      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(254,44,85,0.2)]">
+        <Lock size={14} className="text-[#FE2C55]" />
+        <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PREMIUM PROTOCOL LOCKED</span>
       </div>
-      <p className="text-xl sm:text-2xl text-white font-black italic uppercase leading-tight text-glow-white">
-        ATTENTION: YOU ARE LOSING MASSIVE SCALING POTENTIAL.
+      
+      <p className="text-xl sm:text-3xl text-[#FE2C55] font-black italic uppercase leading-tight drop-shadow-[0_0_15px_rgba(254,44,85,0.6)]">
+        ATTENTION: YOU ARE LEAVING MONEY ON THE TABLE.
       </p>
-      <p className="text-[10px] sm:text-[11px] text-white/50 font-bold uppercase tracking-widest leading-relaxed max-w-3xl mx-auto font-black italic mb-2">
-        Upgrade your Free Trial to unlock <span className="text-[#25F4EE]">{featureName}</span> and {benefit}. Bypass carrier limits, unmask your highly qualified leads, and turn this dashboard into a definitive sales machine.
-      </p>
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[400px] py-5 shadow-[0_0_30px_rgba(254,44,85,0.4)] animate-pulse">
-        UPGRADE & UNLOCK NOW
+      
+      <div className="max-w-4xl mx-auto space-y-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest leading-relaxed font-black italic text-white/70 bg-black/40 p-6 rounded-3xl border border-white/5">
+        <p><span className="text-[#25F4EE]">INTEREST:</span> Your competitors are already using <span className="text-white">{featureName}</span> to automate their funnels and {benefit}.</p>
+        <p><span className="text-amber-500">DESIRE:</span> Imagine bypassing carrier filters automatically, scaling your reach to thousands, and unmasking every single highly-qualified lead in your vault. Stop guessing and start converting.</p>
+      </div>
+
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs sm:text-sm w-full max-w-[500px] py-6 shadow-[0_0_40px_rgba(37,244,238,0.5)] animate-pulse mt-2">
+        <Rocket size={20} className="mr-2"/> UPGRADE NOW & UNLOCK YOUR MACHINE
       </button>
     </div>
   );
