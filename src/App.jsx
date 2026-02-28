@@ -98,7 +98,7 @@ export default function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
-  // --- 6. ESTADOS DO MOTOR IA ---
+  // --- 6. ESTADOS DO MOTOR IA & MASTER ---
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -106,20 +106,26 @@ export default function App() {
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
+  
+  const [searchUid, setSearchUid] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
 
   const fileInputRef = useRef(null);
+  
+  // Variáveis Derivadas de Autoridade
   const isMaster = user?.uid === ADMIN_MASTER_ID;
   const isPro = isMaster || (userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed);
   const MSG_LIMIT = 300;
 
-  // --- BOOTSTRAP DE IDENTIDADE (Validação Master Imediata) ---
+  // --- BOOTSTRAP DE IDENTIDADE (Validação Master Imediata e Absoluta) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
+        // VALIDAÇÃO SOBERANA DO MASTER
         if (u.uid === ADMIN_MASTER_ID) {
           setUserProfile({ 
-            fullName: "Alex Master", 
+            fullName: "Alex Master Admin", 
             tier: 'MASTER', 
             isUnlimited: true, 
             smsCredits: 999999, 
@@ -176,7 +182,7 @@ export default function App() {
     return () => { unsubLeads(); unsubLinks(); };
   }, [user, view, isMaster]);
 
-  // --- MOTOR DE DISPARO EM MASSA ---
+  // --- MOTOR DE DISPARO EM MASSA (BACKGROUND) ---
   useEffect(() => {
     let timer;
     if (activeQueue.length > 0 && queueIndex < activeQueue.length) {
@@ -251,7 +257,7 @@ export default function App() {
         device: navigator.userAgent
       }, { merge: true });
 
-      // Lógica de Crédito: Consome apenas se for novo lead
+      // Lógica de Crédito: Consome apenas se for novo lead (ignora desconto para MASTER)
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
@@ -309,6 +315,26 @@ export default function App() {
       setQueueIndex(0);
       setIsAiProcessing(false);
     }, 1000);
+  };
+
+  // Funções do Console Master
+  const handleAdminSearch = async () => {
+    if(!searchUid) return;
+    setLoading(true);
+    const d = await getDoc(doc(db, 'artifacts', appId, 'users', searchUid, 'profile', 'data'));
+    if(d.exists()) setFoundUser({ uid: searchUid, ...d.data() });
+    else alert("Identity node not found.");
+    setLoading(false);
+  };
+
+  const grantGift = async () => {
+    if(!foundUser) return;
+    await updateDoc(doc(db, 'artifacts', appId, 'users', foundUser.uid, 'profile', 'data'), {
+      tier: 'ELITE', smsCredits: 1800, isSubscribed: true
+    });
+    alert("Elite Access Node Granted.");
+    setFoundUser(null);
+    setSearchUid('');
   };
 
   // Mascaramento Inteligente (AIDA)
@@ -383,7 +409,7 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
-      {/* --- MENU HEADER PREMIUM --- */}
+      {/* --- TOP NAV PREMIUM --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[100] px-6 flex justify-between items-center">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
@@ -443,7 +469,7 @@ export default function App() {
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
-        {/* ==================== HOME ==================== */}
+        {/* ==================== HOME (GERADOR & ISCA) ==================== */}
         {view === 'home' && (
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-500">
             <header className="mb-14 text-center flex flex-col items-center">
@@ -561,6 +587,26 @@ export default function App() {
               </div>
             </div>
 
+            {/* NEW: Módulo de Estatísticas (Integração pedida) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+              {[
+                { label: "SMS Enviados", value: "12,840", icon: Send, color: "text-[#25F4EE]" },
+                { label: "Taxa de Entrega", value: "98.2%", icon: ShieldCheck, color: "text-green-500" },
+                { label: "Contatos Ativos", value: "4,502", icon: Users, color: "text-purple-500" },
+                { label: "Créditos Restantes", value: isPro ? "Ilimitado" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-amber-500" },
+              ].map((stat, idx) => (
+                <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-white/20 transition-all">
+                  <div className={`bg-white/5 p-4 rounded-2xl border border-white/5 ${stat.color}`}>
+                    <stat.icon size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest mb-1">{stat.label}</p>
+                    <h3 className="text-2xl font-black text-white">{stat.value}</h3>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="space-y-10">
                {/* 1. BULK INGESTION */}
                <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 mb-8 ${!isPro ? 'pro-obscure' : ''}`}>
@@ -599,7 +645,7 @@ export default function App() {
                </div>
 
                {/* 3. UPGRADE STATION */}
-               <div id="marketplace-section" className="mb-16 mt-10 text-left">
+               <div id="marketplace-section" className="mt-10 text-left">
                   <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
                     <div className="bg-[#111] border border-white/10 p-10 rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE] transition-colors">
@@ -615,7 +661,7 @@ export default function App() {
                        {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">Activate Node</button>}
                     </div>
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
                     {[
                       { name: "Starter Node", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
                       { name: "Nexus Pack", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
@@ -631,7 +677,27 @@ export default function App() {
                  </div>
                </div>
 
-               {/* 4. PROTOCOL INVENTORY (LINKS) */}
+               {/* 4. MASTER ACCESS CONSOLE (EXCLUSIVO MASTER - NO FUNDO DA PÁGINA) */}
+               {isMaster && (
+                 <div className="bg-[#0a0a0a] border border-[#FE2C55]/30 rounded-[2.5rem] p-10 mb-16 shadow-[0_0_30px_rgba(254,44,85,0.1)] relative overflow-hidden">
+                    <div className="flex items-center gap-3 mb-10"><Crown size={24} className="text-[#FE2C55]"/><h3 className="text-2xl text-white tracking-tighter text-glow-white">MASTER ACCESS CONSOLE</h3></div>
+                    <div className="flex flex-col md:flex-row gap-4 mb-8">
+                       <input value={searchUid} onChange={e=>setSearchUid(e.target.value)} placeholder="Search UID Identity..." className="bg-black border border-white/10 text-white w-full md:w-2/3 px-6 py-4 rounded-2xl outline-none focus:border-[#FE2C55] transition-all font-sans font-medium !text-transform-none" />
+                       <button onClick={handleAdminSearch} className="btn-strategic !bg-[#FE2C55] !text-white flex-1 disabled:opacity-50" disabled={loading}>{loading ? 'SCANNING...' : 'SCAN NODES'}</button>
+                    </div>
+                    {foundUser && (
+                      <div className="bg-black/60 border border-[#FE2C55]/50 p-8 rounded-3xl animate-in zoom-in-95 flex flex-col md:flex-row justify-between items-center gap-6">
+                         <div>
+                           <p className="text-[10px] text-white/50 tracking-widest mb-1">Identity: {String(foundUser.fullName)}</p>
+                           <p className="text-lg text-white mt-1 tracking-widest">Tier: <span className="text-[#FE2C55]">{String(foundUser.tier)}</span> | Credits: <span className="text-[#FE2C55]">{String(foundUser.smsCredits)}</span></p>
+                         </div>
+                         <button onClick={grantGift} className="bg-white text-black px-8 py-4 rounded-xl font-black text-[10px] tracking-widest hover:scale-105 transition-transform animate-bounce shadow-[0_0_20px_#fff]">GRANT ELITE ACCESS</button>
+                      </div>
+                    )}
+                 </div>
+               )}
+
+               {/* 5. PROTOCOL INVENTORY (LINKS) */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
                   <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Radio size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Protocol Inventory</h3></div></div>
                   <div className="min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
@@ -652,23 +718,41 @@ export default function App() {
                   </div>
                </div>
 
-               {/* 5. DATA VAULT EXPLORER (LEADS) */}
+               {/* 6. DATA VAULT EXPLORER (LEADS) */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
                   <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Data Vault Explorer</h3></div></div>
+                  
+                  {/* Tabela de Leads com Layout Limpo */}
                   <div className="min-h-[250px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
-                    {logs.length > 0 ? logs.map(l => (
-                        <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
-                          <div>
-                            <p className="text-lg md:text-xl text-white flex items-center gap-2 font-sans font-bold !text-transform-none">
-                              {maskData(l.nome_cliente, 'name')}
-                              {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-2 uppercase italic font-black">LOCKED</span>}
-                            </p>
-                            <p className="text-[11px] md:text-[12px] text-[#25F4EE] mt-1 font-sans font-medium !text-transform-none tracking-widest">{maskData(l.telefone_cliente, 'phone')}</p>
-                          </div>
-                          <div className="text-right text-[9px] md:text-[10px] text-white/30 tracking-widest font-sans !text-transform-none">ID: {String(l.id).substring(0,8)}</div>
-                        </div>
-                    )) : <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">Vault Standby</p></div>}
+                    {logs.length > 0 ? (
+                      <table className="w-full text-left font-sans font-medium !text-transform-none">
+                        <thead className="bg-white/5 sticky top-0 z-10 font-black italic uppercase">
+                          <tr>
+                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Identity Name</th>
+                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Mobile ID</th>
+                            <th className="px-8 py-4 text-xs text-white/50 tracking-widest text-right">Node Ref</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {logs.map(l => (
+                            <tr key={l.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-8 py-5">
+                                <span className="text-white text-sm">
+                                  {maskData(l.nome_cliente, 'name')}
+                                </span>
+                                {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-3 uppercase italic font-black">LOCKED</span>}
+                              </td>
+                              <td className="px-8 py-5 text-sm text-[#25F4EE]">{maskData(l.telefone_cliente, 'phone')}</td>
+                              <td className="px-8 py-5 text-right text-xs text-white/30 font-mono">{String(l.id).substring(0,8)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest uppercase italic">Vault Standby</p></div>
+                    )}
                   </div>
+
                   {!isPro && logs.length > 0 && (
                     <div className="p-10 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto">
                        <p className="text-[11px] text-[#FE2C55] tracking-widest flex items-center gap-2">DESIRE: REVEAL FULL IDENTITIES? UPGRADE TO ELITE NOW.</p>
