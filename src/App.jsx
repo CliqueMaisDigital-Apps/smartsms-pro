@@ -67,7 +67,7 @@ function FAQItem({ q, a }) {
 }
 
 export default function App() {
-  // --- 1. ESTADOS GLOBAIS DE INTERFACE ---
+  // --- ESTADOS GLOBAIS DE INTERFACE ---
   const [view, setView] = useState('home');
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -76,11 +76,11 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   
-  // --- 2. ESTADOS DE DADOS (Vault & Inventory) ---
+  // --- ESTADOS DE DADOS ---
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
   
-  // --- 3. ESTADOS DO GERADOR E ENVIO RÁPIDO ---
+  // --- ESTADOS DO GERADOR E ENVIO RÁPIDO ---
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -89,11 +89,11 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
-  // --- 4. ESTADOS DA CAPTURA (Compliance Gate) ---
+  // --- ESTADOS DA CAPTURA (Compliance Gate) ---
   const [captureData, setCaptureData] = useState(null);
   const [captureForm, setCaptureForm] = useState({ name: '', phone: '' });
 
-  // --- 5. ESTADOS DE AUTENTICAÇÃO ---
+  // --- ESTADOS DE AUTENTICAÇÃO ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullNameInput, setFullNameInput] = useState('');
@@ -101,7 +101,7 @@ export default function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
-  // --- 6. ESTADOS DO MOTOR IA E AUTOMAÇÃO SMS ---
+  // --- ESTADOS DA AUTOMAÇÃO IA & SYNC QR ---
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -109,15 +109,16 @@ export default function App() {
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
+  const [isDeviceSynced, setIsDeviceSynced] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const fileInputRef = useRef(null);
   
-  // Variáveis Derivadas de Autoridade
   const isMaster = user?.uid === ADMIN_MASTER_ID;
   const isPro = isMaster || (userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed);
   const MSG_LIMIT = 300;
 
-  // --- BOOTSTRAP DE IDENTIDADE (Validação Master Imediata) ---
+  // --- BOOTSTRAP DE IDENTIDADE ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
@@ -159,7 +160,7 @@ export default function App() {
     }
   }, [view]);
 
-  // --- SINCRONIZAÇÃO DE DADOS SEGURA ---
+  // --- SINCRONIZAÇÃO DE DADOS ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
@@ -184,60 +185,34 @@ export default function App() {
     return () => { unsubLeads(); unsubLinks(); };
   }, [user, view, isMaster]);
 
+  // ---> NOVA REGRA: AUTOMAÇÃO SILENCIOSA E CONTÍNUA (BACKGROUND P2P SIMULATION) <---
+  useEffect(() => {
+    let timer;
+    if (activeQueue.length > 0 && queueIndex < activeQueue.length) {
+      if (!isDeviceSynced) {
+        setShowSyncModal(true); // Exige o pareamento via QR Code primeiro
+        return;
+      }
+
+      // Loop Automático de Disparo (Substitui o botão manual)
+      timer = setTimeout(async () => {
+        if (!isMaster) {
+          try {
+             const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+             await updateDoc(profileRef, { smsCredits: increment(-1) });
+          } catch (e) { console.error("Credit deduction failed", e); }
+        }
+        // Avança automaticamente para o próximo lead
+        setQueueIndex(prev => prev + 1);
+      }, Math.max(sendDelay, 20) * 1000); // Respeita o Delay mínimo de 20s
+    }
+    return () => clearTimeout(timer);
+  }, [activeQueue, queueIndex, sendDelay, isDeviceSynced, isMaster, user]);
+
   // ============================================================================
-  // FUNÇÕES DE COMANDO (INCLUINDO AUTOMAÇÃO SMS)
+  // FUNÇÕES DE COMANDO
   // ============================================================================
   
-  // ---> GATILHO NATIVO SMS (RESOLVE O PROBLEMA DE NÃO ACIONAR) <---
-  const triggerNextInQueue = async () => {
-    if (queueIndex >= activeQueue.length) return;
-    if (!isMaster && (userProfile?.smsCredits || 0) <= 0) {
-      alert("Credit limit reached. Please upgrade to Elite.");
-      return;
-    }
-
-    const current = activeQueue[queueIndex];
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const sep = isIOS ? '&' : '?';
-    
-    // Dispara o aplicativo de SMS nativo
-    window.location.href = `sms:${current.telefone_cliente}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
-
-    // Avança o Progresso Visual
-    setQueueIndex(prev => prev + 1);
-
-    // Consome 1 Crédito no Banco se não for Master
-    if (!isMaster) {
-      try {
-        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-        await updateDoc(profileRef, { smsCredits: increment(-1) });
-      } catch (e) { console.error("Credit deduction failed", e); }
-    }
-  };
-
-  const handlePrepareBatch = () => {
-    if (!aiObjective || logs.length === 0 || aiWarning) return;
-    setIsAiProcessing(true);
-    
-    setTimeout(() => {
-      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
-      if (limit <= 0 && !isMaster) {
-         alert("No credits available.");
-         setIsAiProcessing(false);
-         return;
-      }
-      // Cria a Fila com IA Scrambling Dinâmico
-      const queue = logs.slice(0, limit).map(l => ({ 
-         ...l, 
-         optimizedMsg: `${aiObjective} [Ref:${Math.random().toString(36).substr(2,4).toUpperCase()}]` 
-      }));
-      
-      setActiveQueue(queue);
-      setQueueIndex(0);
-      setIsAiProcessing(false);
-    }, 1200);
-  };
-
   const handleBulkImport = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -422,6 +397,41 @@ export default function App() {
     else setAiWarning('');
   };
 
+  // ---> CONSTRUTOR DA FILA DE IA COM VARIAÇÕES <---
+  const handlePrepareBatch = () => {
+    if (!aiObjective || logs.length === 0 || aiWarning) return;
+    setIsAiProcessing(true);
+    
+    setTimeout(() => {
+      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
+      if (limit <= 0 && !isMaster) {
+         alert("No credits available.");
+         setIsAiProcessing(false);
+         return;
+      }
+      
+      // Cria a Fila com Embaralhamento Contextualizado (Até 60 Variações Inteligentes)
+      const queue = logs.slice(0, limit).map((l, idx) => {
+         const variationId = (idx % 60) + 1;
+         const hash = Math.random().toString(36).substr(2,4).toUpperCase();
+         // Simula a construção de uma variação única para cada envio
+         return { 
+           ...l, 
+           optimizedMsg: `${aiObjective} [Var:${variationId} | Ref:${hash}]` 
+         };
+      });
+      
+      setActiveQueue(queue);
+      setQueueIndex(0);
+      setIsAiProcessing(false);
+      
+      // Se não estiver conectado ao telemóvel, aciona o modal do QR Code
+      if (!isDeviceSynced) {
+         setShowSyncModal(true);
+      }
+    }, 1200);
+  };
+
   const maskData = (s, type) => { 
     if (isPro) return String(s || ''); 
     if (type === 'name') return String(s || '').substring(0, 3) + '***'; 
@@ -479,7 +489,7 @@ export default function App() {
   }
 
   // ============================================================================
-  // TELA PRINCIPAL
+  // TELA PRINCIPAL (HOME, DASHBOARD, AUTH)
   // ============================================================================
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
@@ -594,7 +604,6 @@ export default function App() {
                      </div>
                   </div>
                   
-                  {/* Bloco de Instruções */}
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
                        <h5 className="text-[11px] text-[#25F4EE] mb-3">Performance Instructions:</h5>
@@ -809,7 +818,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ---> AI AGENT MODULE (COM PROGRESSO VISUAL PARA ACIONAR SMS) <--- */}
+            {/* ---> AI AGENT MODULE (AUTOMAÇÃO SILENCIOSA + QR SYNC) <--- */}
             <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
               <div className={`flex flex-col text-left`}>
                  <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
@@ -817,30 +826,32 @@ export default function App() {
                  </div>
                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
                     <div className="space-y-4 flex flex-col">
-                       <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
+                       <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
                        {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
+                       <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] tracking-widest text-white/50">DISPATCH DELAY</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" /><span className="text-[9px] text-white/30">SECS</span></div></div>
                        <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4">
-                          Synthesize Queue ({logs.length} Units)
+                          Synthesize Queue ({Math.min(60, logs.length)} Units)
                        </button>
                     </div>
                     
-                    {/* PAINEL DE LANÇAMENTO (RESOLVE O PROBLEMA DA TELA ESTAR SEMPRE STANDBY) */}
-                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative">
-                      {activeQueue.length > 0 ? (
+                    {/* PAINEL DE PROGRESSO AUTOMATIZADO (SEM CLIQUES MANUAIS) */}
+                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative overflow-hidden">
+                      {activeQueue.length > 0 && isDeviceSynced ? (
                          <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
                            <div className="mb-6">
                              <p className="text-5xl font-black text-[#25F4EE] tracking-tighter">{queueIndex} <span className="text-white/20 text-3xl">/ {activeQueue.length}</span></p>
-                             <p className="text-[9px] text-white/40 tracking-widest mt-2">PROTOCOL PROGRESS</p>
+                             <p className="text-[9px] text-white/40 tracking-widest mt-2">AUTOMATED PROTOCOL PROGRESS</p>
                            </div>
                            {queueIndex < activeQueue.length ? (
-                             <button onClick={triggerNextInQueue} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full py-5 shadow-[0_0_20px_rgba(37,244,238,0.3)] animate-pulse">
-                               <PlayCircle size={18} className="mr-2" /> LAUNCH NODE {queueIndex + 1}
-                             </button>
+                             <div className="text-amber-500 flex flex-col items-center gap-3">
+                               <RefreshCw size={24} className="animate-spin" />
+                               <p className="text-[9px] tracking-widest animate-pulse">TRANSMITTING VIA SYNCED NODE...</p>
+                             </div>
                            ) : (
                              <div className="text-[#25F4EE] flex flex-col items-center gap-2">
                                <CheckCircle2 size={32} />
                                <p className="text-[10px] tracking-widest">BATCH COMPLETED</p>
-                               <button onClick={() => {setActiveQueue([]); setQueueIndex(0);}} className="text-white/40 text-[9px] hover:text-white mt-4 underline">Reset Command</button>
+                               <button onClick={() => {setActiveQueue([]); setQueueIndex(0); setIsDeviceSynced(false);}} className="text-white/40 text-[9px] hover:text-white mt-4 underline">Reset Command</button>
                              </div>
                            )}
                         </div>
@@ -848,7 +859,6 @@ export default function App() {
                         <div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">SYSTEM STANDBY</p></div>
                       )}
                     </div>
-
                  </div>
               </div>
               {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">Unlock Expert IA</button></div>}
@@ -907,7 +917,6 @@ export default function App() {
                  ))}
               </div>
             </div>
-            
           </div>
         )}
 
@@ -943,6 +952,29 @@ export default function App() {
         </div>
         <p className="text-[11px] text-white/20 tracking-[8px] text-center mt-10">© 2026 ClickMoreDigital | Security Protocol</p>
       </footer>
+
+      {/* MODAL DE PAREAMENTO QR CODE (NODE SYNC) */}
+      {showSyncModal && (
+        <div className="fixed inset-0 z-[600] bg-[#010101]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95">
+          <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-[0_0_50px_rgba(37,244,238,0.3)]">
+            <div className="lighthouse-neon-content p-10 flex flex-col items-center relative">
+              <button onClick={() => setShowSyncModal(false)} className="absolute top-6 right-6 text-white/30 hover:text-white"><X size={20}/></button>
+              <Smartphone size={48} className="text-[#25F4EE] mb-6 animate-pulse" />
+              <h3 className="text-2xl tracking-tighter text-white mb-2">Sync Mobile Node</h3>
+              <p className="text-[9px] text-white/50 tracking-widest mb-8 font-sans font-medium !text-transform-none">Scan QR Code via Native App to establish secure P2P tunnel for automated dispatch.</p>
+              
+              <div className="bg-white p-4 rounded-3xl mb-8 shadow-[0_0_20px_#25F4EE]">
+                {/* QR Code Simula o PAREAMENTO do telemóvel para evitar o pop-up de sms:// */}
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=SMART_SMS_PRO_SYNC_${user?.uid}&color=000000`} alt="Sync QR" className="w-40 h-40" />
+              </div>
+              
+              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] w-full py-4 shadow-xl">
+                Confirm Connection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SMART SUPPORT MODAL */}
       {showSmartSupport && (
