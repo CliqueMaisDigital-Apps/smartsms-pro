@@ -30,7 +30,7 @@ import {
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2
 } from 'lucide-react';
 
-// --- CONFIGURAÇÃO FIREBASE (Dinâmica para evitar tela preta) ---
+// --- CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
   ? JSON.parse(__firebase_config) 
   : {
@@ -101,7 +101,7 @@ export default function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
-  // --- 6. ESTADOS DO MOTOR IA ---
+  // --- 6. ESTADOS DO MOTOR IA E AUTOMAÇÃO SMS ---
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -122,7 +122,6 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
-        // VALIDAÇÃO SOBERANA DO MASTER - IGNORA O BANCO E LIBERTA TUDO INSTANTANEAMENTE
         if (u.uid === ADMIN_MASTER_ID) {
           setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
         } else {
@@ -160,11 +159,10 @@ export default function App() {
     }
   }, [view]);
 
-  // --- SINCRONIZAÇÃO DE DADOS SEGURA (Com tratamento de Erros) ---
+  // --- SINCRONIZAÇÃO DE DADOS SEGURA ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
-    // Leitura do Vault de Leads
     const unsubLeads = onSnapshot(
       collection(db, 'artifacts', appId, 'public', 'data', 'leads'), 
       (snap) => {
@@ -175,7 +173,6 @@ export default function App() {
       (error) => console.error("Leads Sync Error:", error)
     );
 
-    // Leitura do Inventário de Links
     const unsubLinks = onSnapshot(
       collection(db, 'artifacts', appId, 'users', user.uid, 'links'), 
       (snap) => {
@@ -187,24 +184,60 @@ export default function App() {
     return () => { unsubLeads(); unsubLinks(); };
   }, [user, view, isMaster]);
 
-  // --- MOTOR DE DISPARO EM MASSA (BACKGROUND) ---
-  useEffect(() => {
-    let timer;
-    if (activeQueue.length > 0 && queueIndex < activeQueue.length) {
-      timer = setTimeout(() => {
-        const current = activeQueue[queueIndex];
-        const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-        setQueueIndex(prev => prev + 1);
-        window.location.href = `sms:${current.telefone_cliente}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
-      }, Math.max(sendDelay, 20) * 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [activeQueue, queueIndex, sendDelay]);
-
   // ============================================================================
-  // FUNÇÕES DE COMANDO
+  // FUNÇÕES DE COMANDO (INCLUINDO AUTOMAÇÃO SMS)
   // ============================================================================
   
+  // ---> GATILHO NATIVO SMS (RESOLVE O PROBLEMA DE NÃO ACIONAR) <---
+  const triggerNextInQueue = async () => {
+    if (queueIndex >= activeQueue.length) return;
+    if (!isMaster && (userProfile?.smsCredits || 0) <= 0) {
+      alert("Credit limit reached. Please upgrade to Elite.");
+      return;
+    }
+
+    const current = activeQueue[queueIndex];
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const sep = isIOS ? '&' : '?';
+    
+    // Dispara o aplicativo de SMS nativo
+    window.location.href = `sms:${current.telefone_cliente}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
+
+    // Avança o Progresso Visual
+    setQueueIndex(prev => prev + 1);
+
+    // Consome 1 Crédito no Banco se não for Master
+    if (!isMaster) {
+      try {
+        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+        await updateDoc(profileRef, { smsCredits: increment(-1) });
+      } catch (e) { console.error("Credit deduction failed", e); }
+    }
+  };
+
+  const handlePrepareBatch = () => {
+    if (!aiObjective || logs.length === 0 || aiWarning) return;
+    setIsAiProcessing(true);
+    
+    setTimeout(() => {
+      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
+      if (limit <= 0 && !isMaster) {
+         alert("No credits available.");
+         setIsAiProcessing(false);
+         return;
+      }
+      // Cria a Fila com IA Scrambling Dinâmico
+      const queue = logs.slice(0, limit).map(l => ({ 
+         ...l, 
+         optimizedMsg: `${aiObjective} [Ref:${Math.random().toString(36).substr(2,4).toUpperCase()}]` 
+      }));
+      
+      setActiveQueue(queue);
+      setQueueIndex(0);
+      setIsAiProcessing(false);
+    }, 1200);
+  };
+
   const handleBulkImport = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -270,7 +303,6 @@ export default function App() {
   };
 
   const handleGenerate = async () => {
-    // ISCA DE CAPTAÇÃO: Força o Registo se deslogado
     if (!user) { 
       setIsLoginMode(false); 
       setView('auth'); 
@@ -300,7 +332,8 @@ export default function App() {
   const handleQuickSend = (e) => {
     e.preventDefault();
     if(!genTo || !genMsg) return alert("Destinatário e Mensagem são obrigatórios.");
-    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const sep = isIOS ? '&' : '?';
     window.location.href = `sms:${genTo}${sep}body=${encodeURIComponent(genMsg)}`;
   };
 
@@ -324,7 +357,6 @@ export default function App() {
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
 
-      // Gravação Anti-Duplicação do Lead
       await setDoc(leadRef, {
         ownerId,
         nome_cliente: String(captureForm.name),
@@ -333,7 +365,6 @@ export default function App() {
         device: navigator.userAgent
       }, { merge: true });
 
-      // Lógica de Crédito: Consome apenas se for novo lead (ignora desconto para MASTER)
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
@@ -347,9 +378,12 @@ export default function App() {
         }
       }
 
-      // Redirecionamento P2P Automático
-      const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-      window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const sep = isIOS ? '&' : '?';
+      setView('bridge');
+      setTimeout(() => {
+        window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
+      }, 1000);
       
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -372,7 +406,6 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
       }
 
-      // INJEÇÃO INSTANTÂNEA PARA O MASTER
       if (authUser.uid === ADMIN_MASTER_ID) {
         setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
       }
@@ -385,22 +418,8 @@ export default function App() {
   const validateAIContent = (text) => {
     setAiObjective(text);
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio)/i;
-    if (forbidden.test(text)) {
-      setAiWarning("SECURITY ALERT: Policy Violation.");
-    } else {
-      setAiWarning('');
-    }
-  };
-
-  const handlePrepareBatch = () => {
-    if (!aiObjective || logs.length === 0 || aiWarning) return;
-    setIsAiProcessing(true);
-    setTimeout(() => {
-      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
-      setActiveQueue(logs.slice(0, limit).map(l => ({ ...l, optimizedMsg: `${aiObjective} [ID:${Math.random().toString(36).substr(2,4).toUpperCase()}]` })));
-      setQueueIndex(0);
-      setIsAiProcessing(false);
-    }, 1000);
+    if (forbidden.test(text)) setAiWarning("SECURITY ALERT: Policy Violation.");
+    else setAiWarning('');
   };
 
   const maskData = (s, type) => { 
@@ -409,17 +428,17 @@ export default function App() {
     return String(s || '').substring(0, 6) + '***'; 
   };
 
-  // --- LOADER RÁPIDO ---
   if (!authResolved) {
     return (
-      <div className="min-h-screen bg-[#010101] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#25F4EE] border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
+      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
+        <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] animate-pulse">Initializing Node...</p>
       </div>
     );
   }
 
   // ============================================================================
-  // TELA DE CAPTURA DO LEAD (100% ISOLADA PARA ANONIMATO)
+  // TELA DE CAPTURA (ISOLADA)
   // ============================================================================
   if (view === 'capture') {
     return (
@@ -460,7 +479,7 @@ export default function App() {
   }
 
   // ============================================================================
-  // TELA PRINCIPAL (HOME, DASHBOARD, AUTH)
+  // TELA PRINCIPAL
   // ============================================================================
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
@@ -575,6 +594,7 @@ export default function App() {
                      </div>
                   </div>
                   
+                  {/* Bloco de Instruções */}
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
                        <h5 className="text-[11px] text-[#25F4EE] mb-3">Performance Instructions:</h5>
@@ -789,7 +809,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* AI AGENT MODULE */}
+            {/* ---> AI AGENT MODULE (COM PROGRESSO VISUAL PARA ACIONAR SMS) <--- */}
             <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
               <div className={`flex flex-col text-left`}>
                  <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
@@ -799,10 +819,36 @@ export default function App() {
                     <div className="space-y-4 flex flex-col">
                        <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session." className="input-premium h-[140px] resize-none font-sans font-medium !text-transform-none" />
                        {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] tracking-widest">{aiWarning}</p></div>)}
-                       <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] tracking-widest text-white/50">DISPATCH DELAY</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] w-10 text-right outline-none text-sm font-sans" /><span className="text-[9px] text-white/30">SECS</span></div></div>
-                       <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform">Synthesize Queue ({logs.length} Units)</button>
+                       <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4">
+                          Synthesize Queue ({logs.length} Units)
+                       </button>
                     </div>
-                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative"><div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px]">System Standby</p></div></div>
+                    
+                    {/* PAINEL DE LANÇAMENTO (RESOLVE O PROBLEMA DA TELA ESTAR SEMPRE STANDBY) */}
+                    <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative">
+                      {activeQueue.length > 0 ? (
+                         <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
+                           <div className="mb-6">
+                             <p className="text-5xl font-black text-[#25F4EE] tracking-tighter">{queueIndex} <span className="text-white/20 text-3xl">/ {activeQueue.length}</span></p>
+                             <p className="text-[9px] text-white/40 tracking-widest mt-2">PROTOCOL PROGRESS</p>
+                           </div>
+                           {queueIndex < activeQueue.length ? (
+                             <button onClick={triggerNextInQueue} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full py-5 shadow-[0_0_20px_rgba(37,244,238,0.3)] animate-pulse">
+                               <PlayCircle size={18} className="mr-2" /> LAUNCH NODE {queueIndex + 1}
+                             </button>
+                           ) : (
+                             <div className="text-[#25F4EE] flex flex-col items-center gap-2">
+                               <CheckCircle2 size={32} />
+                               <p className="text-[10px] tracking-widest">BATCH COMPLETED</p>
+                               <button onClick={() => {setActiveQueue([]); setQueueIndex(0);}} className="text-white/40 text-[9px] hover:text-white mt-4 underline">Reset Command</button>
+                             </div>
+                           )}
+                        </div>
+                      ) : (
+                        <div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">SYSTEM STANDBY</p></div>
+                      )}
+                    </div>
+
                  </div>
               </div>
               {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">Unlock Expert IA</button></div>}
@@ -861,6 +907,7 @@ export default function App() {
                  ))}
               </div>
             </div>
+            
           </div>
         )}
 
