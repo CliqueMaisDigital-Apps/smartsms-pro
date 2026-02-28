@@ -16,9 +16,7 @@ import {
   getDoc, 
   setDoc,
   updateDoc,
-  increment,
-  query,
-  where
+  increment
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -39,14 +37,15 @@ const firebaseConfig = {
   messagingSenderId: "269226709034",
   appId: "1:269226709034:web:00af3a340b1e1ba928f353"
 };
-const appId = "smartsms-pro-elite-vfinal-restored";
+const appId = "smartsms-pro-elite-terminal-vfinal";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // Substituir pelo seu UID real
+// --- MASTER ADMIN ACCESS ---
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; 
 
-// --- FAQ COMPONENT (ELITE AIDA - NATIVE AMERICAN ENGLISH) ---
+// --- FAQ COMPONENT ---
 const FAQItem = ({ q, a }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -61,7 +60,7 @@ const FAQItem = ({ q, a }) => {
 };
 
 export default function App() {
-  // 1. ALL STATES AT TOP
+  // --- STATES ---
   const [view, setView] = useState('home');
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -78,7 +77,6 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // AI & Automation Engine
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -88,11 +86,9 @@ export default function App() {
   const [sendDelay, setSendDelay] = useState(30);
   const [isAutoSending, setIsAutoSending] = useState(false);
 
-  // Admin Master Control
   const [searchUid, setSearchUid] = useState('');
   const [foundUser, setFoundUser] = useState(null);
 
-  // Generator/Auth States
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -107,7 +103,7 @@ export default function App() {
   const isPro = userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed || user?.uid === ADMIN_MASTER_ID;
   const MSG_LIMIT = 300;
 
-  // 2. IDENTITY BOOTSTRAP (Zero Anonymous)
+  // --- BOOTSTRAP IDENTITY ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
@@ -142,7 +138,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 3. CAPTURE ENGINE (Compliance Gate)
+  // --- GATE LOGIC ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
@@ -152,7 +148,7 @@ export default function App() {
     }
   }, [view]);
 
-  // 4. SYNC
+  // --- DATA SYNC ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
@@ -160,13 +156,10 @@ export default function App() {
       const myData = user.uid === ADMIN_MASTER_ID ? all : all.filter(l => l.ownerId === user.uid);
       setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
     });
-    const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
-      setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-    });
-    return () => { unsubLeads(); unsubLinks(); };
+    return () => unsubLeads();
   }, [user, view]);
 
-  // 5. AUTOMATION DELAY
+  // --- AUTOMATION MOTOR ---
   useEffect(() => {
     let timer;
     if (isAutoSending && queueIndex < activeQueue.length) {
@@ -182,55 +175,49 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isAutoSending, queueIndex]);
 
-  // --- ENGINE HANDLERS ---
+  // --- CORE HANDLERS ---
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
-    setLoading(true);
+    if(!captureForm.phone.startsWith('+')) return alert("Mobile identification must start with '+' (ex: +1 999 999 9999)");
+    
+    setView('bridge');
     try {
       const ownerId = captureData.ownerId;
       const safeId = captureForm.phone.replace(/\D/g, '');
       const leadId = `${ownerId}_${safeId}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadId);
-      const leadSnap = await getDoc(leadRef);
+      
+      await setDoc(leadRef, {
+        ownerId,
+        nome_cliente: String(captureForm.name),
+        telefone_cliente: String(captureForm.phone),
+        timestamp: serverTimestamp(),
+        device: navigator.userAgent
+      }, { merge: true });
 
-      // Record Lead if doesn't exist
-      if (!leadSnap.exists()) {
-        const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-        const ownerProfSnap = await getDoc(pubRef);
-        if (ownerProfSnap.exists()) {
-           const ownerProf = ownerProfSnap.data();
-           if (ownerProf.tier !== 'MASTER' && ownerProf.smsCredits <= 0) {
-             setQuotaExceeded(true);
-             setLoading(false);
-             return;
-           }
-           // DEDUCT TRIAL COOTA
-           await updateDoc(pubRef, { smsCredits: increment(-1) });
-        }
-        await setDoc(leadRef, {
-          ownerId,
-          nome_cliente: String(captureForm.name),
-          telefone_cliente: String(captureForm.phone),
-          timestamp: serverTimestamp(),
-          created_at: serverTimestamp(),
-          device: navigator.userAgent
-        });
+      const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+      const ownerProfSnap = await getDoc(pubRef);
+      if (ownerProfSnap.exists()) {
+         const ownerProf = ownerProfSnap.data();
+         if (ownerProf.tier !== 'MASTER' && ownerProf.smsCredits <= 0) {
+           setQuotaExceeded(true);
+           return;
+         }
+         await updateDoc(pubRef, { smsCredits: increment(-1) });
       }
-
-      setView('bridge');
+      
       setTimeout(() => {
         const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
         window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
       }, 1500);
     } catch (e) { console.error(e); }
-    setLoading(false);
   };
 
   const validateAIContent = (text) => {
     setAiObjective(text);
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|kill|murder|porn|fake\s*news|malware|virus|golpe|ódio|ofensiv|bulling|discrimin|political)/i;
     if (forbidden.test(text)) {
-      setAiWarning("SECURITY ALERT: Zero Tolerance Policy Violation. Unacceptable vocabulary detected.");
+      setAiWarning("SECURITY ALERT: Policy Violation Detected. Dispatch locked.");
     } else {
       setAiWarning('');
     }
@@ -288,9 +275,10 @@ export default function App() {
         .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
         .btn-strategic:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 16px; outline: none; font-size: 14px; font-weight: 500; font-style: normal; text-transform: none !important; }
-        .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
+        .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.8); }
+        .pro-obscure { position: relative; overflow: hidden; border-radius: 2.5rem; }
+        .pro-obscure::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-blur: 2px; pointer-events: none; z-index: 5; transition: opacity 0.3s; }
+        .pro-lock-layer { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
       `}</style>
 
       {/* Nav */}
@@ -298,21 +286,20 @@ export default function App() {
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-white/10 p-1.5 rounded-lg border border-white/10 shadow-lg shadow-white/5"><Zap size={20} className="text-white fill-white" /></div>
           <span className="text-lg font-black italic tracking-tighter uppercase text-white leading-none mt-1">SMART SMS PRO</span>
-          {isPro && user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic leading-none">MASTER</span>}
         </div>
 
-        {/* Desktop Header Menu */}
+        {/* PREMIUM DESKTOP MENU */}
         <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase italic tracking-widest leading-none">
            {!user ? (
              <>
-               <button onClick={() => setView('auth')} className="hover:text-[#25F4EE] transition-colors">Portal Login</button>
-               <button onClick={() => { setIsLoginMode(false); setView('auth'); }} className="bg-white/10 px-6 py-2.5 rounded-xl border border-white/10 hover:bg-white/20 transition-all text-white">Join Network</button>
+               <button onClick={() => { setIsLoginMode(true); setView('auth'); }} className={`transition-colors ${view === 'auth' && isLoginMode ? 'text-[#25F4EE]' : 'hover:text-[#25F4EE]'}`}>Secure Login</button>
+               <button onClick={() => { setIsLoginMode(false); setView('auth'); }} className={`bg-white/10 px-6 py-2.5 rounded-xl border border-white/10 hover:bg-white/20 transition-all text-white ${view === 'auth' && !isLoginMode && 'border-[#25F4EE] text-[#25F4EE]'}`}>Join Network</button>
              </>
            ) : (
              <>
-               <button onClick={() => setView('dashboard')} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><LayoutDashboard size={14}/> Hub</button>
-               <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={14}/> Support</button>
-               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all uppercase">Logout</button>
+               <button onClick={() => setView('dashboard')} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><LayoutDashboard size={14}/> Operator Hub</button>
+               <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={14}/> Smart Support</button>
+               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all">Logout</button>
              </>
            )}
         </div>
@@ -320,7 +307,7 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[110] leading-none">{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
       </nav>
 
-      {/* Menu Hambúrguer (Mobile) */}
+      {/* Mobile Menu */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
@@ -331,7 +318,7 @@ export default function App() {
             </div>
             <div className="flex flex-col gap-10 flex-1 text-left leading-none font-black italic">
               {!user ? (
-                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left leading-none font-black italic uppercase"><UserPlus size={20} /> Member Access</button>
+                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left leading-none font-black italic uppercase"><UserPlus size={20} /> Identity Login</button>
               ) : (
                 <>
                   <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10 text-left leading-none">
@@ -339,15 +326,15 @@ export default function App() {
                      <p className="text-sm font-black text-[#25F4EE] truncate uppercase leading-none italic">{String(userProfile?.fullName || 'Operator')}</p>
                   </div>
                   <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left font-black italic uppercase"><LayoutDashboard size={20} /> Operator Hub</button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left font-black italic uppercase"><Bot size={20} /> Smart Support</button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all text-left font-black italic uppercase"><LogOut size={20} /> Logout</button>
                 </>
               )}
               
               <div className="mt-auto pt-8 border-t border-white/10 flex flex-col gap-6">
-                <a href="#" className="text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white">Privacy Protocol</a>
-                <a href="#" className="text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white">Terms of Use</a>
-                <a href="#" className="text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white">Compliance (LGPD)</a>
+                <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-xs font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left font-black italic"><Bot size={18} /> SMART SUPPORT</button>
+                <a href="#" className="flex items-center gap-4 text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white transition-colors text-left font-black italic uppercase">PRIVACY POLICY</a>
+                <a href="#" className="flex items-center gap-4 text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white transition-colors text-left font-black italic uppercase">TERMS OF USE</a>
+                <a href="#" className="flex items-center gap-4 text-[10px] font-black uppercase italic tracking-widest text-white/50 hover:text-white transition-colors text-left font-black italic uppercase">COMPLIANCE (LGPD)</a>
               </div>
             </div>
           </div>
@@ -355,27 +342,33 @@ export default function App() {
       )}
 
       {/* Main Container */}
-      <div className="pt-28 flex-1 pb-10 relative leading-none">
+      <div className="pt-28 flex-1 pb-10 relative">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
         {/* --- COMPLIANCE GATE (Capture) --- */}
         {view === 'capture' && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center relative px-8 font-black italic leading-none animate-in fade-in duration-500">
+          <div className="min-h-[85vh] flex flex-col items-center justify-center p-6 text-center relative px-8 animate-in fade-in duration-500">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
-                <ShieldCheck size={64} className="text-[#25F4EE] mb-8 animate-pulse" />
-                <h2 className="text-3xl font-black italic mb-4 uppercase tracking-tighter text-white">Security Validation</h2>
-                <p className="text-[11px] text-white/50 uppercase font-black tracking-widest leading-relaxed mb-10 text-center px-4">
-                  Protocol Identity Check. Please verify your credentials to ensure global anti-spam compliance before accessing the host node.
+              <div className="lighthouse-neon-content p-10 sm:p-16 flex flex-col items-center">
+                <ShieldCheck size={72} className="text-[#25F4EE] mb-8 animate-pulse" />
+                <h2 className="text-3xl font-black italic mb-4 uppercase tracking-tighter text-white">Security Gate</h2>
+                <p className="text-[12px] text-white/60 uppercase font-black tracking-widest leading-relaxed mb-10 text-center px-4">
+                  Identify Verification Required. Confirm your credentials before accessing the host node.
                 </p>
                 <div className="w-full space-y-5 text-left px-4">
-                  <input required placeholder="Full Legal Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
-                  <input required type="tel" placeholder="Mobile Identity Number" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
-                  <button onClick={handleProtocolHandshake} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-5 w-full shadow-2xl mt-6">Confirm & Access <ChevronRight size={16}/></button>
+                  <div>
+                    <label className="text-[9px] uppercase tracking-widest text-white/30 ml-1 mb-2 block">Full Legal Name</label>
+                    <input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-sm w-full font-medium" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] uppercase tracking-widest text-white/30 ml-1 mb-2 block">Mobile ID (ex: +1 999 999 9999)</label>
+                    <input required type="tel" placeholder="+DDI DDD Number" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-sm w-full font-medium" />
+                  </div>
+                  <button onClick={handleProtocolHandshake} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-6 w-full shadow-2xl mt-6">Confirm & Access <ChevronRight size={16}/></button>
                 </div>
                 <div className="flex items-center gap-2 mt-10 opacity-40">
-                   <Lock size={14} className="text-[#25F4EE]"/> <span className="text-[9px] uppercase tracking-widest text-[#25F4EE]">Zero-Knowledge Encrypted Terminal</span>
+                   <Lock size={14} className="text-[#25F4EE]"/> <span className="text-[8px] uppercase tracking-widest text-[#25F4EE]">Zero-Knowledge Encrypted Terminal</span>
                 </div>
               </div>
             </div>
@@ -400,16 +393,16 @@ export default function App() {
                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left space-y-8 leading-none">
                   <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none font-black italic uppercase">Smart Handshake Generator</h3></div>
                   <div className="space-y-3 leading-none">
-                     <label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black block leading-none italic font-black">Global Number <span className="text-[#25F4EE] ml-2 opacity-50 uppercase tracking-widest text-[8px]">ex: +1 999 999 9999</span></label>
-                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium w-full leading-none font-medium italic" placeholder="+1 999 999 9999" />
+                     <label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black block leading-none italic font-black">Destination <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">ex: +1 999 999 9999</span></label>
+                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-medium" placeholder="+1 999 999 9999" />
                   </div>
                   <div className="space-y-3 leading-none">
                      <label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black block leading-none italic font-black">Host Identity</label>
-                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full leading-none !text-transform-none" placeholder="Your Identity or Organization" />
+                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full leading-none !text-transform-none" placeholder="Host / Company Name" />
                   </div>
                   <div className="space-y-3 leading-none">
                      <div className="flex justify-between items-center leading-none uppercase"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none italic font-black">Payload</label><span className="text-[9px] text-white/20 font-black italic leading-none">{genMsg.length}/{MSG_LIMIT}</span></div>
-                     <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-medium leading-relaxed font-black italic !text-transform-none" placeholder="Draft payload..." />
+                     <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-medium leading-relaxed font-black italic !text-transform-none" placeholder="Draft your payload..." />
                   </div>
                   <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-5 w-full shadow-2xl leading-none font-black italic uppercase">Generate Smart Link <ChevronRight size={18} /></button>
                 </div>
@@ -428,20 +421,20 @@ export default function App() {
                 </div>
               )}
 
-              {/* FAQ ELITE AIDA (US ENGLISH) */}
+              {/* FAQ ELITE AIDA */}
               <div className="pt-20 pb-12 text-left font-black italic leading-none uppercase">
                  <div className="flex items-center gap-3 mb-12 text-left leading-none uppercase"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase text-white tracking-widest leading-none font-black italic uppercase">Protocol FAQ</h3></div>
                  <div className="space-y-2 text-left font-black italic leading-tight uppercase">
-                    <FAQItem q="Why utilize our exclusive protocol instead of standard market routing?" a="Standard market redirects trigger automated network heuristics instantly. Our proprietary protocol dynamically formats headers to mirror organic traffic signatures globally, significantly enhancing final delivery rates while strictly adhering to global compliance acts." />
-                    <FAQItem q="Is the cryptographic vault fully impenetrable and compliant?" a="Absolutely. Operating under a robust Zero-Knowledge architecture, lead metadata remains exclusively encrypted within your session context. We maintain rigorous alignment with international data protection protocols (GDPR/LGPD), ensuring total enterprise privacy." />
-                    <FAQItem q="How does the system ensure long-term standing protection?" a="Our ecosystem employs an intelligent pacing engine that meticulously manages dispatch intervals. This infrastructure prevents carrier threshold flags, ensuring sustainable high-volume operations while maintaining pristine standing globally across network nodes." />
-                    <FAQItem q="What is the strategic advantage of Advanced AI Synthesis?" a="Our proprietary framework dynamically optimizes payload contexts in real-time. By utilizing advanced linguistic models, it ensures each dispatch maintains a unique organic fingerprint, maximizing engagement while operating fully within compliance." />
+                    <FAQItem q="Why utilize our exclusive protocol instead of standard redirects?" a="Standard market redirects trigger automated carrier heuristics instantly. Our proprietary protocol dynamically formats headers for recognition as organic traffic signatures globally, significantly enhancing final delivery rates while adhering to international communication acts." />
+                    <FAQItem q="Is the cryptographic vault fully impenetrable and compliant?" a="Absolutely. Operating under a robust Zero-Knowledge architecture, lead metadata remains exclusively encrypted within your session context. We maintain rigorous alignment with international data protection protocols (GDPR/LGPD), ensuring enterprise-grade privacy." />
+                    <FAQItem q="How does the system ensure long-term standing protection?" a="Our ecosystem employs an intelligent pacing engine that meticulously manages dispatch intervals. This infrastructure prevents carrier threshold flags, ensuring sustainable high-volume operations while maintaining pristine network standing." />
+                    <FAQItem q="What is the strategic advantage of Advanced AI Synthesis?" a="Our framework dynamically scrambles payload contexts in real-time. By utilizing advanced frameworks, it ensures each dispatch maintains a unique organic fingerprint, maximizing engagement while operating fully within compliance." />
                  </div>
               </div>
 
               {!user && (
                 <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10 leading-none font-black italic text-center uppercase">
-                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none shadow-xl uppercase"><Rocket size={24} className="group-hover:animate-bounce" /> Start 60 Free Handshakes</button>
+                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none shadow-xl uppercase"><Rocket size={24} className="group-hover:animate-bounce" /> Get Started Free</button>
                   <button onClick={() => window.open("https://buy.stripe.com/nexus_access", '_blank')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none shadow-[0_0_20px_#25F4EE] uppercase"><Star size={24} className="animate-pulse" /> Upgrade to Elite Member</button>
                 </div>
               )}
@@ -459,8 +452,8 @@ export default function App() {
                    {isPro && <span className="text-[9px] text-amber-500 uppercase tracking-widest animate-pulse leading-none font-black italic uppercase">● LIVE PROTOCOL ACTIVE</span>}
                 </div>
               </div>
-              <div className="flex-1 flex justify-end leading-none uppercase"><button onClick={() => setView('home')} className="btn-strategic !bg-white/10 !text-white border border-white/10 text-[10px] !w-fit px-6 py-3 mr-4 font-black italic uppercase leading-none uppercase"><Zap size={14} className="text-[#25F4EE]"/> LINK GENERATOR</button></div>
               <div className="flex items-center gap-4 flex-wrap leading-none font-black italic uppercase text-center">
+                 <button onClick={() => setView('home')} className="flex items-center gap-2 bg-white/5 border border-white/10 px-6 py-4 rounded-xl hover:bg-white/10 transition-colors text-[10px] font-black italic uppercase text-white leading-none"><Zap size={14} className="text-[#25F4EE]"/> LINK GENERATOR</button>
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 py-3 rounded-[1.5rem] text-center shadow-3xl leading-none uppercase">
                     <p className="text-[8px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none uppercase">Active Nodes</p>
                     <div className="flex items-center gap-2 leading-none font-black italic uppercase leading-none"><button onClick={() => setConnectedChips(prev => Math.max(1, prev-1))} className="text-white/30 hover:text-white leading-none">-</button><span className="text-xl font-black text-[#25F4EE] leading-none uppercase">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev+1)} className="text-white/30 hover:text-white leading-none">+</button></div>
@@ -474,56 +467,39 @@ export default function App() {
 
             <div className="space-y-10">
                {/* IMPORT BLOCK */}
-               <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 mb-8 font-black italic leading-none text-left uppercase">
-                  <div className={`flex items-center gap-5 w-full relative z-10 font-black italic leading-none uppercase ${!isPro ? 'opacity-30' : ''}`}>
+               <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 mb-8 font-black italic leading-none text-left uppercase ${!isPro ? 'pro-obscure' : ''}`}>
+                  <div className={`flex items-center gap-5 w-full relative z-10 font-black italic leading-none uppercase`}>
                      <div className="p-4 bg-white/5 rounded-2xl border border-white/10 leading-none uppercase"><FileText size={32} className="text-[#25F4EE]" /></div>
-                     <div><h3 className="text-2xl font-black uppercase italic leading-none font-black italic leading-none uppercase text-white tracking-tight">BULK ASSET INGESTION {!isPro && <Lock size={20} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[10px] text-white/40 font-bold italic tracking-widest mt-2 leading-none uppercase font-black italic uppercase tracking-tighter">IMPORT UP TO 5,000 GLOBAL UNITS IN SECONDS.</p></div>
+                     <div><h3 className="text-2xl font-black uppercase italic leading-none font-black italic leading-none uppercase text-white tracking-tight">BULK ASSET INGESTION {!isPro && <Lock size={20} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[10px] text-white/40 font-bold italic tracking-widest mt-2 leading-none uppercase font-black italic uppercase tracking-tighter uppercase">DESIRE: Import 5,000 global units simultaneously with zero operation lag.</p></div>
                   </div>
-                  <button className="bg-[#25F4EE] text-black text-[11px] px-12 py-5 rounded-2xl font-black uppercase italic shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform relative z-10 disabled:opacity-50">Select Secure Source</button>
+                  {!isPro ? (
+                    <div className="pro-lock-layer">
+                       <p className="text-[#FE2C55] font-black uppercase tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO PROTOCOL LOCKED</p>
+                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl font-black uppercase italic">Unlock Ferrari Speed</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => fileInputRef.current.click()} className="bg-[#25F4EE] text-black text-[11px] px-12 py-5 rounded-2xl font-black uppercase italic shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform whitespace-nowrap relative z-10">Select Secure Source</button>
+                  )}
                   <input type="file" accept=".txt" ref={fileInputRef} className="hidden" />
-                  {!isPro && <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-6"><p className="text-[#FE2C55] font-black uppercase tracking-widest text-[11px] mb-2 shadow-xl"><Lock size={12} className="inline mr-2"/> PRO PROTOCOL LOCKED</p><p className="text-white/60 text-[9px] uppercase tracking-widest text-center max-w-lg leading-relaxed uppercase italic font-black uppercase">BY NOT UTILIZING THE NATIVE SYNTHESIS ENGINE, YOU BYPASS SAFETY HEURISTICS. SECURE FULL ACCESS TO PROCEED.</p></div>}
                </div>
 
-               {/* AI COMMAND BLOCK & DELAY ENGINE */}
-               <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 leading-none uppercase relative overflow-hidden">
-                  <div className={`flex flex-col font-black italic leading-none uppercase ${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity' : ''} leading-none text-left uppercase`}>
+               {/* AI COMMAND BLOCK */}
+               <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 leading-none uppercase relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+                  <div className={`flex flex-col font-black italic leading-none uppercase leading-none text-left uppercase`}>
                      <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8 text-left leading-none font-black italic uppercase leading-none">
-                        <div className="flex items-center gap-4 text-left leading-none uppercase"><div className="p-3 bg-white/5 rounded-xl border border-white/10 leading-none uppercase"><BrainCircuit size={24} className="text-[#25F4EE]" /></div><div><h3 className="text-xl font-black uppercase italic font-black italic leading-none uppercase font-black italic uppercase text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[9px] text-white/40 font-bold uppercase tracking-widest font-black italic leading-none mt-2 uppercase">MULTI-SCRAMBLING SYNTHESIS PROTOCOL</p></div></div>
+                        <div className="flex items-center gap-4 text-left leading-none uppercase"><div className="p-3 bg-white/5 rounded-xl border border-white/10 leading-none uppercase"><BrainCircuit size={24} className="text-[#25F4EE]" /></div><div><h3 className="text-xl font-black uppercase italic font-black italic leading-none uppercase font-black italic uppercase text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[9px] text-white/40 font-bold uppercase tracking-widest font-black italic leading-none mt-2 uppercase">DESIRE: Dynamic linguistic scrambling to obliterate carrier filter blocks.</p></div></div>
                      </div>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left font-black italic leading-none uppercase">
                         <div className="space-y-4 text-left leading-none uppercase font-black italic flex flex-col">
-                           <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Enter marketing goal for IA synthesis..." className="bg-[#111] border border-white/5 rounded-2xl p-5 text-sm font-medium text-white resize-none outline-none focus:border-[#25F4EE]/50 transition-colors h-[140px] font-black italic leading-relaxed !text-transform-none" />
-                           
-                           {aiWarning && (
-                             <div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse">
-                               <AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/>
-                               <p className="text-[9px] text-[#FE2C55] font-black uppercase tracking-widest leading-relaxed">{aiWarning}</p>
-                             </div>
-                           )}
-
-                           <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5">
-                               <span className="text-[10px] font-black uppercase tracking-widest text-white/50 italic leading-none">DISPATCH DELAY PROTOCOL</span>
-                               <div className="flex items-center gap-2">
-                                   <input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black w-10 text-right outline-none text-sm leading-none" />
-                                   <span className="text-[9px] text-white/30 uppercase tracking-widest font-black leading-none">SECS</span>
-                               </div>
-                           </div>
-
+                           <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing objective (160-300 chars)..." className="bg-[#111] border border-white/5 rounded-2xl p-5 text-sm font-medium text-white resize-none outline-none focus:border-[#25F4EE]/50 transition-colors h-[140px] font-black italic leading-relaxed !text-transform-none" />
+                           {aiWarning && (<div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl flex items-start gap-3 animate-pulse"><AlertTriangle size={16} className="text-[#FE2C55] shrink-0 mt-0.5"/><p className="text-[9px] text-[#FE2C55] font-black uppercase tracking-widest leading-relaxed">{aiWarning}</p></div>)}
+                           <div className="flex justify-between items-center bg-[#111] border border-white/5 rounded-2xl p-5"><span className="text-[10px] font-black uppercase tracking-widest text-white/50 italic leading-none">DISPATCH DELAY PROTOCOL</span><div className="flex items-center gap-2"><input disabled={!isPro} type="number" min="20" value={sendDelay} onChange={(e) => setSendDelay(Math.max(20, Number(e.target.value)))} className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black w-10 text-right outline-none text-sm leading-none" /><span className="text-[9px] text-white/30 uppercase tracking-widest font-black leading-none">SECS</span></div></div>
                            <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning} className="bg-[#25F4EE] text-black text-[11px] py-5 rounded-2xl font-black uppercase italic shadow-[0_0_20px_#25F4EE] disabled:opacity-30 hover:scale-[1.02] transition-transform">Synthesize Queue ({logs.length} Units)</button>
                         </div>
-                        <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner leading-none font-black italic uppercase relative">
-                          {activeQueue.length > 0 ? (
-                             <div className="w-full leading-none uppercase">
-                                <div className="mb-6 leading-none font-black italic text-center leading-none uppercase font-black"><p className="text-5xl font-black text-[#25F4EE] italic leading-none font-black uppercase">{queueIndex} / {activeQueue.length}</p></div>
-                                <button onClick={() => setIsAutoSending(!isAutoSending)} className={`w-full py-5 text-black rounded-xl font-black uppercase text-[10px] tracking-widest leading-none uppercase ${isAutoSending ? 'bg-[#FE2C55]' : 'bg-[#25F4EE] animate-pulse shadow-xl'}`}>{isAutoSending ? "STOP AUTOPILOT" : "LAUNCH AUTOPILOT"}</button>
-                             </div>
-                          ) : (
-                             <div className="opacity-20 text-center leading-none font-black italic uppercase"><ShieldAlert size={64} className="mx-auto mb-4 leading-none uppercase" /><p className="text-[10px] uppercase italic tracking-widest font-black italic leading-none uppercase">System Standby</p></div>
-                          )}
-                        </div>
+                        <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner leading-none font-black italic uppercase relative"><div className="opacity-20 text-center leading-none font-black italic uppercase"><ShieldAlert size={64} className="mx-auto mb-4 leading-none uppercase" /><p className="text-[10px] uppercase italic tracking-widest font-black italic leading-none uppercase">System Standby</p></div></div>
                      </div>
                   </div>
-                  {!isPro && <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-6"><p className="text-[#FE2C55] font-black uppercase tracking-widest text-[11px] mb-2 shadow-xl"><Lock size={12} className="inline mr-2"/> PRO PROTOCOL LOCKED</p><p className="text-white/60 text-[9px] uppercase tracking-widest text-center max-w-lg leading-relaxed uppercase italic font-black uppercase">BY NOT UTILIZING THE NATIVE SYNTHESIS ENGINE, YOU BYPASS SAFETY HEURISTICS. SECURE FULL ACCESS TO PROCEED.</p></div>}
+                  {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] font-black uppercase tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO PROTOCOL LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl font-black uppercase italic">Unlock Ferrari Speed</button></div>}
                </div>
 
                {/* MARKETPLACE BLOCK */}
@@ -531,15 +507,15 @@ export default function App() {
                   <div className="flex items-center gap-3 mb-8 text-left leading-none font-black italic uppercase leading-none uppercase"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-xl font-black uppercase text-white font-black italic leading-none uppercase text-glow-white">Maximize ROI: Upgrade Station</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="bg-[#111] border border-white/10 p-10 rounded-[2.5rem] group shadow-2xl text-left leading-none font-black italic uppercase hover:border-[#25F4EE] transition-colors">
-                       <h3 className="text-2xl font-black text-white uppercase mb-4">Nexus Access</h3>
-                       <p className="text-4xl font-black text-[#25F4EE] italic mb-8 leading-none uppercase">$9.00 <span className="text-xs text-white/30 italic">/ Month</span></p>
-                       <p className="text-[9px] text-white/40 mb-10 tracking-widest uppercase leading-relaxed font-black">Unlimited Link Generation & Secure Vault Data Management.</p>
+                       <h3 className="text-3xl font-black text-white uppercase mb-4">Nexus Access</h3>
+                       <p className="text-4xl font-black text-[#25F4EE] italic mb-10 leading-none uppercase">$9.00 <span className="text-xs text-white/30 italic">/ Month</span></p>
+                       <p className="text-[9px] text-white/50 mb-8 tracking-widest uppercase">Unlimited Links & Data Management.</p>
                        <button className="btn-strategic !bg-white !text-black text-xs w-full py-4 uppercase">Upgrade Now</button>
                     </div>
                     <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[2.5rem] group shadow-2xl text-left leading-none font-black italic uppercase hover:scale-[1.01] transition-transform">
-                       <h3 className="text-2xl font-black text-white uppercase mb-4">Expert Agent</h3>
-                       <p className="text-4xl font-black text-[#25F4EE] italic mb-8 leading-none uppercase">$19.90 <span className="text-xs text-white/30 italic">/ Month</span></p>
-                       <p className="text-[9px] text-white/40 mb-10 tracking-widest uppercase leading-relaxed font-black">Full IA Native Synthesis & Automated Delay Protocol Engine.</p>
+                       <h3 className="text-3xl font-black text-white uppercase mb-4 text-[#25F4EE]">Expert Agent</h3>
+                       <p className="text-4xl font-black text-[#25F4EE] italic mb-10 leading-none uppercase">$19.90 <span className="text-xs text-white/30 italic">/ Month</span></p>
+                       <p className="text-[9px] text-white/50 mb-8 tracking-widest uppercase">Full IA Synthesis & Native Delay Motor.</p>
                        <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4 uppercase">Activate Pro</button>
                     </div>
                  </div>
@@ -550,7 +526,7 @@ export default function App() {
                       { name: "Expansion Pack", qty: 800, price: "$20.00" },
                       { name: "Elite Operator", qty: 1800, price: "$29.00" }
                     ].map(pack => (
-                      <div key={pack.name} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] text-center shadow-xl hover:bg-white/[0.08] transition-colors">
+                      <div key={pack.name} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] text-center shadow-xl hover:bg-white/[0.08] transition-colors flex flex-col items-center">
                         <p className="text-[9px] font-black text-white/30 mb-2 uppercase tracking-widest">{pack.name}</p>
                         <p className="text-3xl font-black text-white italic mb-4">{pack.qty} Credits</p>
                         <p className="text-xl font-black text-[#25F4EE] mb-8">{pack.price}</p>
@@ -560,7 +536,7 @@ export default function App() {
                  </div>
                </div>
 
-               {/* VAULT EXPLORER */}
+               {/* VAULT EXPLORER (AIDA MASKING) */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 font-black italic flex flex-col font-black italic leading-none text-left uppercase">
                  <div className="p-6 md:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] leading-none font-black italic text-left leading-none font-black italic leading-none uppercase"><div className="flex items-center gap-3 text-left leading-none font-black italic leading-none font-black italic leading-none uppercase"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic font-black italic leading-none font-black italic leading-none uppercase tracking-tight text-white">DATA VAULT EXPLORER</h3></div></div>
                  <div className="min-h-[250px] max-h-[40vh] overflow-y-auto text-left font-black italic leading-none font-black italic uppercase bg-black custom-scrollbar">
@@ -569,7 +545,7 @@ export default function App() {
                      return (<div key={l.id} className="p-6 md:p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02] leading-none font-black italic font-black italic uppercase leading-none transition-colors"><div><p className="font-black text-lg md:text-xl text-white uppercase italic flex items-center gap-2 font-black italic leading-none font-black italic uppercase leading-none tracking-tight">{mask(l.nome_cliente, 'name')}{!isPro && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase leading-none font-black italic animate-pulse tracking-widest">LOCKED</span>}</p><p className="text-[11px] md:text-[12px] text-[#25F4EE] font-black leading-none mt-2 font-black italic uppercase tracking-widest uppercase leading-none">{mask(l.telefone_cliente, 'phone')}</p></div><div className="text-right text-[9px] md:text-[10px] text-white/30 uppercase font-black italic leading-none font-black italic uppercase tracking-widest leading-none uppercase leading-none"><p>NODE ID: {l.id.substring(0,8)}</p></div></div>);
                    }) : <div className="p-20 text-center opacity-20 font-black italic text-center leading-none uppercase"><Lock size={48} className="mx-auto mb-4 uppercase" /><p className="text-[10px] uppercase font-black italic tracking-widest text-center leading-none leading-none uppercase">Vault Standby</p></div>}
                  </div>
-                 {!isPro && logs.length > 0 && (<div className="p-6 md:p-8 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto font-black italic leading-none leading-none font-black italic uppercase leading-none uppercase">REVEAL FULL IDENTITIES? UPGRADE TO ELITE ACCESS NOW.</div>)}
+                 {!isPro && logs.length > 0 && (<div className="p-6 md:p-8 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto font-black italic leading-none leading-none font-black italic uppercase leading-none uppercase font-black"><p className="text-[10px] md:text-[11px] text-[#FE2C55] uppercase tracking-widest flex items-center justify-center gap-2 font-black italic leading-none leading-none uppercase font-black italic uppercase leading-none uppercase">DESIRE: UNMASK FULL IDENTITIES? UPGRADE TO ELITE ACCESS NOW.</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[10px] w-full max-w-[300px] py-4 shadow-[0_0_20px_#FE2C55] font-black italic uppercase leading-none font-black italic shadow-xl leading-none font-black italic uppercase leading-none">UNLOCK VAULT NOW</button></div>)}
                </div>
 
                {/* MASTER ADMIN TERMINAL */}
@@ -592,7 +568,7 @@ export default function App() {
                             <p className="text-[10px] text-[#FE2C55] uppercase mt-2">Tier: {String(foundUser.tier)} | Credits: {String(foundUser.smsCredits)}</p>
                          </div>
                          <button onClick={async () => {
-                           await updateDoc(doc(db, 'artifacts', appId, 'users', foundUser.uid, 'profile', 'data'), { tier: 'ELITE', smsCredits: 1000, isSubscribed: true });
+                           await updateDoc(doc(db, 'artifacts', appId, 'users', foundUser.uid, 'profile', 'data'), { tier: 'ELITE', smsCredits: 1800, isSubscribed: true });
                            alert("Elite Access granted.");
                            setFoundUser(null);
                          }} className="btn-strategic !bg-white !text-black !w-fit px-8 text-[10px] animate-bounce"><Gift size={16} className="mr-2"/> Grant Elite Access</button>
@@ -608,9 +584,9 @@ export default function App() {
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left font-black italic leading-none font-black italic uppercase">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left font-black italic leading-none uppercase">
               <div className="lighthouse-neon-content p-12 sm:p-20 relative font-black italic text-left leading-none font-black italic uppercase">
-                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center font-black italic text-glow-white leading-none font-black italic uppercase tracking-tighter leading-none font-black italic font-black italic uppercase uppercase">Secure Member Access</h2>
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center font-black italic text-glow-white leading-none font-black italic uppercase tracking-tighter leading-none font-black italic font-black italic uppercase uppercase">Secure Member Portal</h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-6 font-black italic text-left leading-none font-black italic font-black italic uppercase">
-                  {!isLoginMode && (<><input required placeholder="Operator Name" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /><input required placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /></>)}
+                  {!isLoginMode && (<><input required placeholder="Full Legal Name" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /><input required placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /></>)}
                   <input required type="email" placeholder="Email identity..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" />
                   <div className="relative font-black italic leading-none font-black italic leading-none font-black italic font-black italic uppercase">
                     <input required type={showPass ? "text" : "password"} placeholder="Security key..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" />
@@ -627,10 +603,10 @@ export default function App() {
 
       <footer className="mt-auto pb-20 w-full space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left leading-none font-black italic uppercase font-black italic leading-none font-black italic uppercase">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 font-black italic text-left leading-none uppercase leading-none font-black italic font-black italic uppercase">
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase">Privacy Policy</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase">Terms of Use</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase font-black italic">LGPD/GDPR Hub</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase font-black italic">Global Nodes</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase">Support</span><button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none uppercase leading-none uppercase uppercase">SMART SUPPORT <Bot size={14}/></button></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none font-black"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none">Privacy Policy</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none">Terms of Use</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none font-black"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase font-black italic">LGPD Protocol</a><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase font-black italic">GDPR Node</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none font-black"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic leading-none font-black italic uppercase leading-none uppercase font-black italic">Global Nodes</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none uppercase font-black italic leading-none leading-none font-black italic font-black italic uppercase leading-none font-black"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none">Support</span><button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic uppercase leading-none font-black italic uppercase leading-none uppercase leading-none uppercase uppercase">SMART SUPPORT <Bot size={14}/></button></div>
         </div>
         <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic text-center leading-none font-black italic mt-10 font-black italic text-center uppercase tracking-[0.5em] leading-none font-black italic font-black italic uppercase leading-none uppercase">© 2026 ClickMoreDigital | Security Protocol</p>
       </footer>
@@ -644,8 +620,8 @@ export default function App() {
                     <div className="flex items-center gap-3 leading-none text-left font-black italic leading-none uppercase font-black"><Bot size={32} className="text-[#25F4EE]" /><span className="text-sm font-black uppercase tracking-widest text-glow-white italic font-black italic leading-none uppercase font-black leading-none">SMART SUPPORT</span></div>
                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors font-black italic leading-none uppercase font-black"><X size={28}/></button>
                  </div>
-                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center font-black italic leading-none uppercase font-black leading-relaxed leading-none uppercase font-black">
-                    <p className="text-[11px] text-white/50 font-black uppercase italic tracking-widest text-center font-black italic leading-none font-black uppercase leading-none uppercase font-black">IA Agent analyzing operational metadata... online to optimize your protocol and campaign conversions. How can I assist your operation today?</p>
+                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center font-black italic leading-none uppercase font-black leading-relaxed leading-none uppercase font-black italic">
+                    <p className="text-[11px] text-white/50 font-black uppercase italic tracking-widest text-center font-black italic leading-none font-black uppercase leading-none uppercase font-black italic">IA Agent evaluating operational metadata... I am online to optimize your protocol and campaign conversions. How can I assist your elite operation today?</p>
                  </div>
                  <button onClick={() => {alert("Connecting secure node..."); setShowSmartSupport(false);}} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic uppercase font-black py-4 shadow-xl w-full font-black italic leading-none uppercase shadow-2xl hover:scale-[1.02]">Connect To Node</button>
               </div>
