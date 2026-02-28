@@ -7,7 +7,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   signInAnonymously,
-  signInWithCustomToken
+  signInWithCustomToken,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -95,6 +96,7 @@ export default function App() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [isLoginMode, setIsLoginMode] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -170,7 +172,7 @@ export default function App() {
     return () => { if(unsubUsers) unsubUsers(); if(unsubLeads) unsubLeads(); };
   }, [user, view, isVaultActive]);
 
-  // --- AI SAFETY & 40-VARIATION SYNTHESIS ---
+  // --- AI SAFETY & SYNTHESIS ---
   const runSafetyAudit = async (text) => {
     if (!text) return true;
     const restricted = [
@@ -183,19 +185,20 @@ export default function App() {
     return new Promise((resolve) => {
       setTimeout(() => {
         const hasViolation = restricted.some(p => p.test(text));
-        setSafetyViolation(hasViolation ? "TERMINAL BLOCK: Our Advanced AI detected prohibited content (Malicious intent, discriminatory language, or unverified URLs). Action restricted for protocol safety." : null);
+        setSafetyViolation(hasViolation ? "TERMINAL BLOCK: Our Advanced AI detected prohibited content (Malicious intent, discriminatory language, or unverified URLs). Action restricted for global protocol safety." : null);
         setIsAiProcessing(false);
         resolve(!hasViolation);
       }, 1000);
     });
   };
 
-  const synthesize40Variations = (baseMsg) => {
+  const synthesizeVariations = (baseMsg) => {
     const greetings = ["Hi", "Hello", "Greetings", "Hey there", "Notice:", "Attention:", "Update:"];
     const contextFillers = ["as requested,", "following our protocol,", "regarding your interest,", "as a member,"];
     const endings = ["Ref", "ID", "Code", "Track", "Signal", "Hash"];
     const variations = [];
     
+    // Generates multiple intelligent structures to safeguard the process
     for (let i = 0; i < 40; i++) {
       const g = greetings[i % greetings.length];
       const c = contextFillers[Math.floor(Math.random() * contextFillers.length)];
@@ -220,7 +223,7 @@ export default function App() {
 
     setIsAiProcessing(true);
     setTimeout(() => {
-      const pool = synthesize40Variations(aiPrompt);
+      const pool = synthesizeVariations(aiPrompt);
       const limit = Math.min(connectedChips * 60, userProfile?.isUnlimited ? 999999 : userProfile.smsCredits, logs.length);
       const targetLeads = logs.slice(0, limit);
       
@@ -252,7 +255,7 @@ export default function App() {
     window.location.href = `sms:${current.telefone_cliente || current.destination}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
   };
 
-  // --- BULK INGESTION (5k) ---
+  // --- BULK INGESTION (GLOBAL 5k) ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -263,7 +266,7 @@ export default function App() {
       const lines = text.split(/\r?\n/);
       const cleaned = lines.map(line => line.replace(/\D/g, '')).filter(num => num.length >= 8 && num.length <= 15).slice(0, 5000);
       const unique = [...new Set(cleaned)];
-      setImportPreview(unique.map(num => ({ destination: '+' + num, telefone_cliente: '+' + num, nome_cliente: "IMPORTED_ASSET", location: "Bulk Ingestion", timestamp: new Date() })));
+      setImportPreview(unique.map(num => ({ destination: '+' + num, telefone_cliente: '+' + num, nome_cliente: "IMPORTED_ASSET", location: "Global Ingestion", timestamp: new Date() })));
       setIsValidating(false);
     };
     reader.readAsText(file);
@@ -277,7 +280,7 @@ export default function App() {
         await addDoc(leadsCol, { ...lead, created_at: serverTimestamp(), timestamp: serverTimestamp() });
       }
       setImportPreview([]);
-      alert("Vault Updated: 5,000 units processed successfully.");
+      alert("Vault Updated: 5,000 global units processed successfully.");
     } catch (e) { alert("Vault write failed."); }
     setLoading(false);
   };
@@ -348,8 +351,22 @@ export default function App() {
     setLoading(false);
   };
 
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    if (!email) return alert("Please enter your account email address.");
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Protocol Secure: Password reset email sent. Check your inbox.");
+      setIsResetMode(false);
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
+    setLoading(false);
+  };
+
   const handleGenerate = async () => {
-    if (!user || user.isAnonymous) { setView('auth'); return; }
+    if (!user || user.isAnonymous) { setIsLoginMode(false); setView('auth'); return; }
     if (!genTo) return;
     if (genMsg.length > MSG_LIMIT) return alert("Safety Protocol: Payload exceeds limits.");
     const isSafe = await runSafetyAudit(genMsg);
@@ -442,7 +459,7 @@ export default function App() {
               <div className="lighthouse-neon-wrapper mb-4">
                 <div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div>
               </div>
-              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase text-center">High-End Redirection Protocol - 60 Free Handshakes</p>
+              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase text-center font-black italic">High-End Redirection Protocol - 60 Free Handshakes</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
@@ -452,15 +469,18 @@ export default function App() {
                   <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none">Smart Handshake Generator</h3></div>
                   <div className="space-y-8">
                     <div className="space-y-3 text-left">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-tight block">Destination Mobile Number<span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: (+1 999 999 9999)</span></label>
-                       <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold text-sm w-full" placeholder="Number to receive SMS traffic" />
+                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-tight block">
+                         Global Mobile Number
+                         <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: (+CountryCode Number)</span>
+                       </label>
+                       <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-bold text-sm w-full" placeholder="Enter number for optimized traffic" />
                     </div>
                     <div className="space-y-3">
-                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-none">Traffic Attribution Label</label>
+                       <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 leading-none font-black italic">Traffic Attribution Label</label>
                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full" placeholder="e.g. Verified Vendor" />
                     </div>
                     <div className="space-y-3">
-                       <div className="flex justify-between items-center px-1"><label className="text-[10px] font-black uppercase italic text-white/40 leading-none">Handshake Message Body</label><span className={`text-[9px] font-black tracking-widest ${genMsg.length > MSG_LIMIT ? 'text-[#FE2C55]' : 'text-white/20'}`}>{genMsg.length}/{MSG_LIMIT}</span></div>
+                       <div className="flex justify-between items-center px-1"><label className="text-[10px] font-black uppercase italic text-white/40 leading-none font-black">Handshake Message Body</label><span className={`text-[9px] font-black tracking-widest ${genMsg.length > MSG_LIMIT ? 'text-[#FE2C55]' : 'text-white/20'}`}>{genMsg.length}/{MSG_LIMIT}</span></div>
                        <textarea value={genMsg} onChange={e => {setGenMsg(e.target.value); setSafetyViolation(null);}} rows="3" className={`input-premium w-full font-medium resize-none leading-relaxed text-sm ${safetyViolation ? 'border-[#FE2C55]/50 shadow-[0_0_15px_rgba(254,44,85,0.2)]' : ''}`} placeholder="Enter compliant SMS content..." />
                        {/* AVISO VERMELHO SHA */}
                        {safetyViolation && (
@@ -480,37 +500,37 @@ export default function App() {
               {generatedLink && (
                 <div className="animate-in zoom-in-95 duration-500 space-y-6">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
-                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
+                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl text-center"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-32 h-32"/></div>
+                    <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-black italic" />
                     <div className="grid grid-cols-2 gap-6 w-full text-center">
                       <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center">
                         {copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}
-                        <span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span>
+                        <span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest text-center font-black">Quick Copy</span>
                       </button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center">
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center font-black">
                         <ExternalLink size={24} className="text-white/40" />
-                        <span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest">Live Test</span>
+                        <span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest text-center font-black">Live Test</span>
                       </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* FAQ SECTION (Native US English) */}
-              <div className="pt-20 pb-12 text-left">
-                 <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Protocol FAQ</h3></div>
-                 <div className="space-y-2 text-left">
-                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Carriers use automated heuristics to filter suspicious direct redirects. Our Handshake Optimization Protocol formats the traffic signature to be recognized as legitimate organic referral traffic, significantly increasing final delivery rates." />
+              {/* FAQ SECTION (Native US English - Protected) */}
+              <div className="pt-20 pb-12 text-left font-black italic leading-none">
+                 <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none font-black italic">Protocol FAQ</h3></div>
+                 <div className="space-y-2 text-left font-black italic">
+                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Global carriers use automated heuristics to filter suspicious direct redirects. Our Handshake Optimization Protocol formats the traffic signature to be recognized as legitimate organic referral traffic, significantly increasing final delivery rates worldwide." />
                     <FAQItem q="Is the data vault truly isolated?" a="Yes. Our system uses a Zero-Knowledge Architecture. Every Member possesses an encrypted, isolated database vault. Not Even the Administrators of the platform have access to your mapped contacts or traffic metadata." />
-                    <FAQItem q="How does the system ensure ethical compliance?" a="All redirection nodes are governed by our Advanced AI Safety Audit (SHA). The protocol maintains a ZERO TOLERANCE for abuse, automatically blocking traffic containing hate speech, malicious scams, misinformation, or unverified URL signatures." />
-                    <FAQItem q="What is the benefit of the Advanced AI Agent?" a="Members gain exclusive access to our Smart AI for strategic guidance. The agent provides integral support to synthesize 40 structural variations of your message, maximizing conversion probability for your specific packs while maintaining carrier compliance." />
+                    <FAQItem q="How does the system ensure ethical compliance?" a="All redirection nodes are governed by our Advanced AI Safety Audit (SHA). The protocol maintains a ZERO TOLERANCE policy for abuse, automatically blocking traffic containing hate speech, malicious scams, misinformation, or unverified URL signatures globally." />
+                    <FAQItem q="What is the benefit of the Advanced AI Agent?" a="Members gain exclusive access to our Smart AI for strategic guidance. The agent provides integral support to dynamically synthesize intelligent structural adaptations of your message, maximizing conversion probability while maintaining strict global carrier compliance and safeguarding your sender reputation." />
                  </div>
               </div>
 
               {(!user || user.isAnonymous) && (
-                <div className="flex flex-col items-center gap-4 text-center">
+                <div className="flex flex-col items-center gap-4 text-center font-black italic">
                   <button onClick={() => setView('auth')} className="btn-strategic text-xs w-full max-w-[380px] !bg-white !text-black group italic font-black uppercase shadow-2xl py-6 leading-none"><Rocket size={20} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES</button>
-                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6 leading-none"><Star size={20} className="animate-pulse" /> BECOME A FULL MEMBER NOW</button>
+                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6 leading-none font-black italic"><Star size={20} className="animate-pulse" /> BECOME A FULL MEMBER NOW</button>
                 </div>
               )}
             </main>
@@ -519,7 +539,7 @@ export default function App() {
 
         {/* BRIDGE VIEW */}
         {view === 'bridge' && (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center px-8">
+          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
               <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
                 {quotaExceeded ? (
@@ -536,7 +556,7 @@ export default function App() {
                 ) : (
                   <>
                     <Shield size={120} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-14" />
-                    <h2 className="text-4xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-6 leading-none">SECURITY HANDSHAKE</h2>
+                    <h2 className="text-4xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-6 leading-none font-black italic">SECURITY HANDSHAKE</h2>
                     <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden my-12 max-w-xs"><div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_2.5s_linear]"></div></div>
                     <p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center leading-none">Verified Origin: {captureData?.company}</p>
                   </>
@@ -546,7 +566,7 @@ export default function App() {
           </div>
         )}
 
-        {/* DESIGN APROVADO: DASHBOARD */}
+        {/* DASHBOARD (MASTER & MEMBER) */}
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6 text-left">
             <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16 text-left">
@@ -576,7 +596,7 @@ export default function App() {
                      <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
                         <div className="flex items-center gap-5 text-left">
                            <div className="p-5 bg-[#25F4EE]/10 rounded-[2rem] border border-[#25F4EE]/20"><FileText size={40} className="text-[#25F4EE]" /></div>
-                           <div><h3 className="text-3xl font-black uppercase italic leading-none mb-3">Bulk Asset Ingestion</h3><p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw contacts. Automatic validation scan cleans and prepares disparos.</p></div>
+                           <div><h3 className="text-3xl font-black uppercase italic leading-none mb-3">Bulk Asset Ingestion</h3><p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw global contacts. Automatic validation scan cleans and prepares disparos.</p></div>
                         </div>
                         <input type="file" accept=".txt" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                         <div className="flex gap-4">
@@ -586,25 +606,25 @@ export default function App() {
                      </div>
                   </div>
                   
-                  {/* AI AGENT ARCHITECT - 40 VARIATIONS & RED WARNING */}
+                  {/* AI AGENT ARCHITECT - DYNAMIC SYNTHESIS & RED WARNING */}
                   <div className="lighthouse-neon-wrapper shadow-3xl mb-16">
                      <div className="lighthouse-neon-content p-8 sm:p-12 text-left">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
-                           <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">AI Agent Command</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Integral Optimization & 40-Variation Synthesis</p></div></div>
+                           <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">AI Agent Command</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Integral Optimization & Synthesis Engine</p></div></div>
                            <div className="flex items-center gap-2 px-6 py-3 bg-black border border-white/5 rounded-full"><Activity size={14} className="text-[#25F4EE]" /><span className="text-[10px] font-black uppercase text-white/60">Safety Threshold: {connectedChips * 60}/Day</span></div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
                            <div className="space-y-6 text-left">
-                              <textarea value={aiObjective} onChange={(e) => {setAiObjective(e.target.value); setSafetyViolation(null);}} placeholder="Enter campaign objective... AI will synthesize 40 structural variations and perform a mandatory SHA (Safety Handshake Audit) to ensure compliance." className={`input-premium w-full h-[180px] font-black text-sm italic leading-relaxed ${safetyViolation ? 'border-[#FE2C55]/50 shadow-[0_0_20px_rgba(254,44,85,0.2)]' : ''}`} />
+                              <textarea value={aiObjective} onChange={(e) => {setAiObjective(e.target.value); setSafetyViolation(null);}} placeholder="Enter campaign objective... AI will dynamically synthesize variations and perform a mandatory SHA (Safety Handshake Audit) to ensure global carrier compliance." className={`input-premium w-full h-[180px] font-black text-sm italic leading-relaxed ${safetyViolation ? 'border-[#FE2C55]/50 shadow-[0_0_20px_rgba(254,44,85,0.2)]' : ''}`} />
                               {/* SHA RED WARNING */}
-                              {safetyViolation && <div className="p-5 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-[2rem] flex items-start gap-4"><AlertIcon size={24} className="text-[#FE2C55] shrink-0" /><p className="text-xs font-black uppercase italic text-[#FE2C55] leading-relaxed tracking-wider">{safetyViolation}</p></div>}
+                              {safetyViolation && <div className="p-5 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-[2rem] flex items-start gap-4 font-black italic"><AlertIcon size={24} className="text-[#FE2C55] shrink-0" /><p className="text-xs font-black uppercase italic text-[#FE2C55] leading-relaxed tracking-wider font-black italic">{safetyViolation}</p></div>}
                               
                               <button onClick={handlePrepareBatch} disabled={isSafetyAuditing || !!safetyViolation || !aiObjective || logs.length === 0} className="btn-strategic text-xs font-black italic py-5 disabled:opacity-30 w-full">{isSafetyAuditing ? "SHA Audit Active..." : `Synthesize Queue (${logs.length} Units)`}</button>
                            </div>
                            <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
                               {activeQueue.length > 0 ? (
                                  <div className="w-full leading-none">
-                                    <div className="mb-10"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">40-Structure Rotation Active</p></div>
+                                    <div className="mb-10"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Dynamic Rotation Active</p></div>
                                     <button onClick={triggerNextInQueue} className="w-full py-8 bg-[#25F4EE] text-black rounded-[2rem] font-black uppercase text-xs shadow-2xl animate-pulse leading-none"><PlayCircle size={24} className="inline mr-2" /> Launch Native Disparo</button>
                                  </div>
                               ) : (
@@ -650,17 +670,17 @@ export default function App() {
 
             {/* MASTER ADMIN LIST */}
             {user?.uid === ADMIN_MASTER_ID && (
-               <div className="animate-in fade-in duration-700 mt-20 text-left leading-none">
-                  <div className="flex items-center gap-3 mb-12 text-neon-cyan leading-none text-left"><Users size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Member Management</h3></div>
-                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl text-left">
+               <div className="animate-in fade-in duration-700 mt-20 text-left leading-none font-black italic">
+                  <div className="flex items-center gap-3 mb-12 text-neon-cyan leading-none text-left font-black italic"><Users size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none font-black italic">Member Management</h3></div>
+                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl text-left font-black italic">
                      <div className="max-h-[60vh] overflow-y-auto">
                         {allUsers.length > 0 ? allUsers.map(u => (
                            <div key={u.id} className="p-10 border-b border-white/5 flex flex-col md:flex-row justify-between items-center hover:bg-white/[0.04] transition-all gap-8">
                               <div className="flex items-center gap-6 text-left">
                                  <div className={`p-4 rounded-3xl ${u.isSubscribed || u.isUnlimited ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-white/20'}`}>{u.isSubscribed || u.isUnlimited ? <UserCheck size={28} /> : <UserMinus size={28} />}</div>
-                                 <div className="text-left"><p className="font-black text-2xl text-white uppercase italic tracking-tighter leading-none">{u.fullName}</p><div className="flex items-center gap-4 text-[12px] font-black uppercase italic tracking-widest mt-2"><span className="text-[#25F4EE]">{u.email}</span><span className="text-white/20">|</span><span className="text-white/40">{u.phone}</span></div></div>
+                                 <div className="text-left font-black italic"><p className="font-black text-2xl text-white uppercase italic tracking-tighter leading-none">{u.fullName}</p><div className="flex items-center gap-4 text-[12px] font-black uppercase italic tracking-widest mt-2 font-black italic"><span className="text-[#25F4EE]">{u.email}</span><span className="text-white/20">|</span><span className="text-white/40">{u.phone}</span></div></div>
                               </div>
-                              <div className="flex items-center gap-4"><button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[10px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}><Gift size={14} /> {u.isUnlimited ? 'UNLIMITED GRANTED' : 'GRANT UNLIMITED'}</button></div>
+                              <div className="flex items-center gap-4 font-black italic"><button onClick={() => toggleUnlimited(u.id, u.isUnlimited)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[10px] font-black uppercase italic transition-all ${u.isUnlimited ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'}`}><Gift size={14} /> {u.isUnlimited ? 'UNLIMITED GRANTED' : 'GRANT UNLIMITED'}</button></div>
                            </div>
                         )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm text-center">Syncing Database...</div>}
                      </div>
@@ -668,58 +688,79 @@ export default function App() {
                </div>
             )}
             
-            {/* VAULT SYNC (DESIGN APROVADO) */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16">
-              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                <div className="flex items-center gap-3 text-left"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
+            {/* VAULT SYNC */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
+              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
+                <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
                 <button onClick={() => setIsVaultActive(!isVaultActive)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] font-black transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>{isVaultActive ? "DISCONNECT VAULT" : "SYNC LEAD VAULT"}</button>
               </div>
-              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left">
+              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left font-black italic">
                 {isVaultActive ? logs.map(l => (
                   <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02]">
-                    <div className="text-left"><p className="font-black text-xl text-white uppercase italic">{l.nome_cliente || l.location}</p><p className="text-[12px] text-[#25F4EE] font-black">{l.telefone_cliente || l.destination}</p></div>
-                    <div className="text-right text-[10px] text-white/30 font-black uppercase"><p>{l.location}</p><p className="mt-1">{l.ip || 'Native Asset'}</p></div>
+                    <div className="text-left font-black italic"><p className="font-black text-xl text-white uppercase italic">{l.nome_cliente || l.location}</p><p className="text-[12px] text-[#25F4EE] font-black">{l.telefone_cliente || l.destination}</p></div>
+                    <div className="text-right text-[10px] text-white/30 font-black uppercase font-black italic"><p>{l.location}</p><p className="mt-1">{l.ip || 'Global Asset'}</p></div>
                   </div>
-                )) : <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase">Vault Standby Mode</p></div>}
+                )) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
               </div>
             </div>
           </div>
         )}
 
-        {/* AUTHENTICATION VIEW */}
+        {/* AUTHENTICATION & PASSWORD RECOVERY VIEW */}
         {view === 'auth' && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
-            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left">
-              <div className="lighthouse-neon-content p-12 sm:p-16 relative">
-                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white leading-none text-center">Command Access</h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-4 text-left">
-                  {!isLoginMode && (
-                    <>
-                      <input required placeholder="FULL OPERATOR NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                      <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                      <div className="h-px bg-white/5 w-full my-4" />
-                    </>
-                  )}
-                  <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                  <div className="relative">
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-4" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-5 text-white/30 hover:text-[#25F4EE] transition-colors leading-none"><Eye size={18}/></button>
-                  </div>
-                  {!isLoginMode && (
-                    <input required type={showPass ? "text" : "password"} placeholder="REPEAT KEY" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
-                  )}
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left font-black italic">
+            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left font-black italic">
+              <div className="lighthouse-neon-content p-12 sm:p-16 relative font-black italic">
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center tracking-tighter text-glow-white leading-none text-center font-black italic">
+                   {isResetMode ? "Identity Recovery" : isLoginMode ? "Member Login" : "Join the Network"}
+                </h2>
+                
+                {isResetMode ? (
+                   <form onSubmit={handlePasswordReset} className="space-y-7 text-left font-black italic">
+                     <div className="space-y-2 text-left font-black italic">
+                       <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black">Account Email</label>
+                       <input required type="email" placeholder="member@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold font-black w-full" />
+                     </div>
+                     <button type="submit" disabled={loading} className="btn-strategic text-[11px] mt-4 shadow-xl w-full">{loading ? "PROCESSING..." : "Send Recovery Link"}</button>
+                     <button type="button" onClick={() => setIsResetMode(false)} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all">Return to Login</button>
+                   </form>
+                ) : (
+                   <form onSubmit={handleAuthSubmit} className="space-y-4 text-left font-black italic">
+                     {!isLoginMode && (
+                       <>
+                         <input required placeholder="FULL OPERATOR NAME" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
+                         <input required placeholder="VALID MOBILE (+1...)" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
+                         <div className="h-px bg-white/5 w-full my-4" />
+                       </>
+                     )}
+                     <input required type="email" placeholder="EMAIL IDENTITY" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-black text-xs uppercase w-full" />
+                     <div className="relative font-black italic">
+                       <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mb-1 font-black italic" />
+                       <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-5 text-white/30 hover:text-[#25F4EE] transition-colors leading-none"><Eye size={18}/></button>
+                     </div>
+                     
+                     {isLoginMode && (
+                        <div className="text-right mt-1 mb-4 font-black italic">
+                          <button type="button" onClick={() => setIsResetMode(true)} className="text-[9px] text-[#25F4EE] hover:text-white uppercase font-black tracking-widest italic">Forgot Password?</button>
+                        </div>
+                     )}
 
-                  {!isLoginMode && (
-                    <div className="flex items-start gap-3 py-4 cursor-pointer text-left leading-none" onClick={() => setTermsAccepted(!termsAccepted)}>
-                      <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${termsAccepted ? 'bg-[#25F4EE] border-[#25F4EE]' : 'bg-black border-white/20'}`}>{termsAccepted && <Check size={10} className="text-black font-black" />}</div>
-                      <p className="text-[9px] font-black uppercase italic text-white/40 leading-relaxed tracking-wider text-left">I agree to the <button type="button" onClick={(e) => { e.stopPropagation(); setShowTerms(true); }} className="text-white border-b border-white/20 hover:text-[#25F4EE]">General Terms of Use</button> and Ethics.</p>
-                    </div>
-                  )}
-                  
-                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] mt-4 shadow-xl w-full">{loading ? "AUTH..." : isLoginMode ? "Authorize Entry" : "Establish Terminal"}</button>
-                  
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all uppercase">{isLoginMode ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}</button>
-                </form>
+                     {!isLoginMode && (
+                       <input required type={showPass ? "text" : "password"} placeholder="REPEAT KEY" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-black text-xs uppercase w-full mt-3 font-black italic" />
+                     )}
+
+                     {!isLoginMode && (
+                       <div className="flex items-start gap-3 py-4 cursor-pointer text-left leading-none font-black italic" onClick={() => setTermsAccepted(!termsAccepted)}>
+                         <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 font-black italic ${termsAccepted ? 'bg-[#25F4EE] border-[#25F4EE]' : 'bg-black border-white/20'}`}>{termsAccepted && <Check size={10} className="text-black font-black" />}</div>
+                         <p className="text-[9px] font-black uppercase italic text-white/40 leading-relaxed tracking-wider text-left font-black italic">I agree to the <button type="button" onClick={(e) => { e.stopPropagation(); setShowTerms(true); }} className="text-white border-b border-white/20 hover:text-[#25F4EE] font-black italic">General Terms of Use</button> and Ethics.</p>
+                       </div>
+                     )}
+                     
+                     <button type="submit" disabled={loading} className="btn-strategic text-[11px] mt-4 shadow-xl w-full font-black italic">{loading ? "AUTH..." : isLoginMode ? "Authorize Entry" : "Establish Terminal"}</button>
+                     
+                     <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setShowPass(false); }} className="w-full text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all uppercase font-black italic">{isLoginMode ? "ESTABLISH NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}</button>
+                   </form>
+                )}
               </div>
             </div>
           </div>
@@ -728,18 +769,18 @@ export default function App() {
 
       {/* Smart Support Modal */}
       {showSmartSupport && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left">
-           <div className="lighthouse-neon-wrapper w-full max-sm shadow-3xl text-left">
-              <div className="lighthouse-neon-content p-10">
-                 <div className="flex justify-between items-center mb-10 leading-none text-left">
-                    <div className="flex items-center gap-3 text-neon-cyan leading-none text-left"><Bot size={32} /><span className="text-sm font-black uppercase tracking-widest text-glow-white italic">SMART SUPPORT</span></div>
-                    <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors"><X size={28}/></button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left font-black italic">
+           <div className="lighthouse-neon-wrapper w-full max-sm shadow-3xl text-left font-black italic">
+              <div className="lighthouse-neon-content p-10 font-black italic">
+                 <div className="flex justify-between items-center mb-10 leading-none text-left font-black italic">
+                    <div className="flex items-center gap-3 text-neon-cyan leading-none text-left font-black italic"><Bot size={32} /><span className="text-sm font-black uppercase tracking-widest text-glow-white italic font-black italic">SMART SUPPORT</span></div>
+                    <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors font-black italic"><X size={28}/></button>
                  </div>
-                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center">
-                    <p className="text-[11px] text-white/50 font-black uppercase italic tracking-widest leading-relaxed text-center">AI Agent evaluating metadata... System ready for encrypted handshake.</p>
+                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center font-black italic">
+                    <p className="text-[11px] text-white/50 font-black uppercase italic tracking-widest leading-relaxed text-center font-black italic">AI Agent evaluating metadata... System ready for encrypted handshake.</p>
                  </div>
                  <input className="input-premium text-xs mb-6 w-full font-black italic" placeholder="Inquiry details..." />
-                 <button className="btn-strategic text-xs italic uppercase font-black py-4 shadow-xl w-full">Connect Now</button>
+                 <button className="btn-strategic text-xs italic uppercase font-black py-4 shadow-xl w-full font-black italic">Connect Now</button>
               </div>
            </div>
         </div>
@@ -747,32 +788,32 @@ export default function App() {
 
       {/* Terms Modal */}
       {showTerms && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl text-left leading-none">
-           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl text-left">
-              <div className="lighthouse-neon-content p-10 sm:p-14 text-left">
-                 <div className="flex justify-between items-center mb-10 text-left">
-                    <div className="flex items-center gap-3 text-[#FE2C55] leading-none font-black italic uppercase"><Scale size={28} /><span>Compliance Protocol</span></div>
-                    <button onClick={() => setShowTerms(false)} className="text-white/40 hover:text-white"><X size={28}/></button>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl text-left leading-none font-black italic">
+           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl text-left font-black italic">
+              <div className="lighthouse-neon-content p-10 sm:p-14 text-left font-black italic">
+                 <div className="flex justify-between items-center mb-10 text-left font-black italic">
+                    <div className="flex items-center gap-3 text-[#FE2C55] leading-none font-black italic uppercase font-black italic"><Scale size={28} /><span>Compliance Protocol</span></div>
+                    <button onClick={() => setShowTerms(false)} className="text-white/40 hover:text-white font-black italic"><X size={28}/></button>
                  </div>
-                 <div className="max-h-[40vh] overflow-y-auto pr-4 space-y-8 mb-10 custom-scrollbar text-left leading-relaxed">
-                    <section><h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest">01. Responsibility</h4><p className="text-[10px] text-white/40 leading-relaxed italic font-medium">Member retains 100% legal responsibility for message payloads triggered through protocol native disparos.</p></section>
-                    <section><h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest uppercase">02. ZERO TOLERANCE ABUSE</h4><p className="text-[10px] text-white/40 leading-relaxed italic font-medium uppercase font-black">Any use for scams, hate speech, or misinformation result in immediate terminal revocation via SHA Audit.</p></section>
+                 <div className="max-h-[40vh] overflow-y-auto pr-4 space-y-8 mb-10 custom-scrollbar text-left leading-relaxed font-black italic">
+                    <section><h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest font-black italic">01. Responsibility</h4><p className="text-[10px] text-white/40 leading-relaxed italic font-medium font-black italic">Member retains 100% legal responsibility for message payloads triggered through protocol native disparos.</p></section>
+                    <section><h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest uppercase font-black italic">02. ZERO TOLERANCE ABUSE</h4><p className="text-[10px] text-white/40 leading-relaxed italic font-medium uppercase font-black font-black italic">Any use for scams, hate speech, or misinformation result in immediate terminal revocation via SHA Audit.</p></section>
                  </div>
-                 <button onClick={() => { setTermsAccepted(true); setShowTerms(false); }} className="btn-strategic text-xs w-full italic uppercase font-black py-4 leading-none">I Accept Responsibility</button>
+                 <button onClick={() => { setTermsAccepted(true); setShowTerms(false); }} className="btn-strategic text-xs w-full italic uppercase font-black py-4 leading-none font-black italic">I Accept Responsibility</button>
               </div>
            </div>
         </div>
       )}
 
       {/* Strategic Footer */}
-      <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left leading-none">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 text-left leading-none">
-          <div className="flex flex-col gap-5 text-left leading-none"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none">Privacy</a><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none">Terms</a></div>
-          <div className="flex flex-col gap-5 text-left leading-none"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors leading-none">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors leading-none">GDPR</a></div>
-          <div className="flex flex-col gap-5 text-left leading-none"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none">EU Nodes</a></div>
-          <div className="flex flex-col gap-5 text-left leading-none"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Support</span><button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors text-left uppercase font-black italic text-[10px] leading-none flex items-center gap-2">SMART SUPPORT <Bot size={14}/></button></div>
+      <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left leading-none font-black italic">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 text-left leading-none font-black italic">
+          <div className="flex flex-col gap-5 text-left leading-none font-black italic"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none font-black italic">Privacy</a><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none font-black italic">Terms</a></div>
+          <div className="flex flex-col gap-5 text-left leading-none font-black italic"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors leading-none font-black italic">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors leading-none font-black italic">GDPR</a></div>
+          <div className="flex flex-col gap-5 text-left leading-none font-black italic"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none font-black italic">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors leading-none font-black italic">EU Nodes</a></div>
+          <div className="flex flex-col gap-5 text-left leading-none font-black italic"><span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Support</span><button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors text-left uppercase font-black italic text-[10px] leading-none flex items-center gap-2 font-black italic">SMART SUPPORT <Bot size={14}/></button></div>
         </div>
-        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none">© 2026 ClickMoreDigital | Security Protocol</p>
+        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none font-black italic">© 2026 ClickMoreDigital | Security Protocol</p>
       </footer>
     </div>
   );
