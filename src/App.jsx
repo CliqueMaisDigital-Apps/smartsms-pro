@@ -18,7 +18,7 @@ import {
   updateDoc,
   deleteDoc,
   increment,
-  writeBatch // <-- IMPORTADO PARA PROCESSAMENTO EM MASSA (BATCH)
+  writeBatch
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -195,7 +195,6 @@ export default function App() {
   // FUNÇÕES DE COMANDO
   // ============================================================================
   
-  // ---> NOVA REGRA ABSOLUTA: MOTOR DE IMPORTAÇÃO EM MASSA (.TXT) <---
   const handleBulkImport = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -205,7 +204,6 @@ export default function App() {
     
     reader.onload = async (event) => {
       const text = event.target.result;
-      // Separa o txt por quebras de linha e remove linhas vazias
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
       
       try {
@@ -217,18 +215,15 @@ export default function App() {
           let name = "Imported Lead";
           let phone = line;
           
-          // Se houver vírgula, assume que o formato é "Nome, Telefone"
           if (line.includes(',')) {
             const parts = line.split(',');
             name = parts[0].trim();
             phone = parts[1].trim();
           }
 
-          // Limpa tudo que não for número para gerar um ID de documento seguro
           const safePhone = phone.replace(/\D/g, '');
           if (!safePhone) continue;
 
-          // Associa ao Owner Atual
           const leadDocId = `${user.uid}_${safePhone}`;
           const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
 
@@ -243,15 +238,13 @@ export default function App() {
           count++;
           totalImported++;
 
-          // Firestore tem um limite de 500 operações por Batch. Comita a cada 400.
           if (count === 400) {
             await batch.commit();
-            batch = writeBatch(db); // Inicia novo batch
+            batch = writeBatch(db);
             count = 0;
           }
         }
         
-        // Comita o resto que sobrou
         if (count > 0) {
           await batch.commit();
         }
@@ -263,14 +256,13 @@ export default function App() {
       }
       
       setLoading(false);
-      e.target.value = ''; // Limpa o input file
+      e.target.value = '';
     };
     
     reader.readAsText(file);
   };
 
   const handleGenerate = async () => {
-    // ISCA DE CAPTAÇÃO: Se o usuário tentar gerar o link deslogado, é forçado a criar conta
     if (!user) { 
       setIsLoginMode(false); 
       setView('auth'); 
@@ -324,7 +316,6 @@ export default function App() {
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
 
-      // Gravação Anti-Duplicação do Lead
       await setDoc(leadRef, {
         ownerId,
         nome_cliente: String(captureForm.name),
@@ -333,7 +324,6 @@ export default function App() {
         device: navigator.userAgent
       }, { merge: true });
 
-      // Lógica de Crédito: Consome apenas se for novo lead (ignora desconto para MASTER)
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
@@ -347,10 +337,11 @@ export default function App() {
         }
       }
 
-      // Redirecionamento P2P Automático
-      const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
-      window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-      
+      setView('bridge');
+      setTimeout(() => {
+        const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+        window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
+      }, 1000);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -372,7 +363,6 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
       }
 
-      // SE FOR O MASTER, INJETA PERFIL INSTANTANEAMENTE ANTES DE MUDAR A VIEW
       if (authUser.uid === ADMIN_MASTER_ID) {
         setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true });
       }
@@ -403,14 +393,20 @@ export default function App() {
     }, 1000);
   };
 
-  // Mascaramento Inteligente (AIDA)
   const maskData = (s, type) => { 
     if (isPro) return String(s || ''); 
     if (type === 'name') return String(s || '').substring(0, 3) + '***'; 
     return String(s || '').substring(0, 6) + '***'; 
   };
 
-  if (!authResolved) return <div className="min-h-screen bg-[#010101]" />;
+  // INDICADOR DE CONEXÃO ULTRARRÁPIDO NO BOOT (Remove a tela preta "morta")
+  if (!authResolved) {
+    return (
+      <div className="min-h-screen bg-[#010101] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#25F4EE] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   // ============================================================================
   // TELA DE CAPTURA DO LEAD (100% ISOLADA PARA ANONIMATO)
@@ -537,7 +533,7 @@ export default function App() {
 
         {/* ==================== HOME ==================== */}
         {view === 'home' && (
-          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-500">
+          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in zoom-in-95 duration-200">
             <header className="mb-14 text-center flex flex-col items-center">
               <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
               <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] text-center">High-End Redirection Protocol - 60 Free Handshakes</p>
@@ -545,7 +541,7 @@ export default function App() {
 
             <main className="space-y-8 pb-20 text-left">
               {user && (
-                <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-500">
+                <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-200">
                   <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] shadow-[0_0_30px_#25F4EE]"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
                 </div>
               )}
@@ -588,7 +584,7 @@ export default function App() {
               </div>
 
               {generatedLink && (
-                <div className="animate-in zoom-in-95 duration-500 space-y-6">
+                <div className="animate-in zoom-in-95 duration-200 space-y-6">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
                     <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} className="w-32 h-32" alt="QR Code"/></div>
                     <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none" />
@@ -602,7 +598,7 @@ export default function App() {
 
               {/* ISCA DE CAPTAÇÃO: Se Deslogado, força Registo */}
               {!user && (
-                <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10 text-center">
+                <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-200 pb-10 text-center">
                   <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-xs w-full max-w-[420px] group py-6 shadow-xl"><Rocket size={24} className="group-hover:animate-bounce" /> Start 60 Free Handshakes</button>
                   <button onClick={() => window.open("https://buy.stripe.com/nexus_access", '_blank')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] group py-6 shadow-[0_0_20px_#25F4EE]"><Star size={24} className="animate-pulse" /> Upgrade to Elite Member</button>
                 </div>
@@ -624,7 +620,7 @@ export default function App() {
 
         {/* ==================== DASHBOARD (ULTRA PREMIUM FERRARI) ==================== */}
         {view === 'dashboard' && (
-          <div className="w-full max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
+          <div className="w-full max-w-7xl mx-auto py-10 px-6 animate-in fade-in zoom-in-95 duration-150">
             
             {/* Header Operator Hub com Master Identity */}
             <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 mb-12 text-left">
@@ -856,13 +852,53 @@ export default function App() {
                  ))}
               </div>
             </div>
-            
+
+            {/* DATA VAULT EXPLORER (LEADS) */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
+              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg">Data Vault Explorer</h3></div></div>
+              <div className="min-h-[250px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
+                {logs.length > 0 ? (
+                  <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
+                    <thead className="bg-[#111] sticky top-0 z-10 font-black italic uppercase border-b border-white/5">
+                      <tr>
+                        <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Identity Name</th>
+                        <th className="px-8 py-4 text-xs text-white/50 tracking-widest">Mobile ID</th>
+                        <th className="px-8 py-4 text-xs text-white/50 tracking-widest text-right">Node Ref</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {logs.map(l => (
+                        <tr key={l.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-8 py-5">
+                            <span className="text-white text-sm">
+                              {maskData(l.nome_cliente, 'name')}
+                            </span>
+                            {(!isPro) && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full animate-pulse ml-3 uppercase italic font-black">LOCKED</span>}
+                          </td>
+                          <td className="px-8 py-5 text-sm text-[#25F4EE]">{maskData(l.telefone_cliente, 'phone')}</td>
+                          <td className="px-8 py-5 text-right text-xs text-white/30 font-mono">{String(l.id).substring(0,8)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest uppercase italic">Vault Standby</p></div>
+                )}
+              </div>
+              {!isPro && logs.length > 0 && (
+                <div className="p-10 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto">
+                   <p className="text-[11px] text-[#FE2C55] tracking-widest flex items-center gap-2">DESIRE: REVEAL FULL IDENTITIES? UPGRADE TO ELITE NOW.</p>
+                   <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[10px] w-full max-w-[300px] py-4 shadow-xl">UNLOCK VAULT NOW</button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
         {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
         {view === 'auth' && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left animate-in fade-in zoom-in-95 duration-150">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-12 sm:p-20 relative">
                 <h2 className="text-3xl mt-8 mb-12 text-white text-center text-glow-white tracking-tighter">SECURE MEMBER PORTAL</h2>
@@ -873,7 +909,7 @@ export default function App() {
                     <input required type={showPass ? "text" : "password"} placeholder="Security key..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-4 text-white/30"><Eye size={18}/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] mt-4 shadow-xl w-full tracking-widest">Authorize Access</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] mt-4 shadow-xl w-full tracking-widest">{loading ? 'VERIFYING NODE...' : 'Authorize Access'}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[10px] text-white/20 tracking-[0.4em] mt-10 text-center hover:text-white transition-all">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
