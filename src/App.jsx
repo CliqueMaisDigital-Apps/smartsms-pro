@@ -112,6 +112,7 @@ export default function App() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
+  const [isDispatching, setIsDispatching] = useState(false); // <--- ESTADO DO MOTOR DE DELAY ADICIONADO
   
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
@@ -322,7 +323,7 @@ export default function App() {
     setStagedQueue(updatedQueue);
   };
 
-  // DISPATCH STAGED QUEUE TO FIREBASE (NODE APP WILL PICK IT UP)
+  // DISPATCH STAGED QUEUE TO FIREBASE (NATIVE AI DELAY COMMANDER)
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
     
@@ -331,43 +332,43 @@ export default function App() {
        return;
     }
 
-    setLoading(true);
+    // TRAVA A UI E INICIA O MOTOR DE DELAY DA SUPER IA
+    setIsDispatching(true);
 
     try {
-      let batch = writeBatch(db);
-      let count = 0;
-
-      for (const task of stagedQueue) {
-        const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
-        batch.set(docRef, {
-          telefone_cliente: task.telefone_cliente,
-          optimizedMsg: task.optimizedMsg,
-          created_at: serverTimestamp()
-        });
-        count++;
-
-        if (count === 400) {
-          await batch.commit();
-          batch = writeBatch(db);
-          count = 0;
-        }
-      }
-      if (count > 0) await batch.commit();
-
       if (!isMaster) {
         const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
         await updateDoc(profileRef, { smsCredits: increment(-stagedQueue.length) });
       }
 
-      setStagedQueue([]);
-      setIsReviewMode(false);
-      
+      // Copia a fila para memória para garantir o envio na ordem das randomizações
+      const queueCopy = [...stagedQueue];
+
+      for (let i = 0; i < queueCopy.length; i++) {
+        const task = queueCopy[i];
+        
+        const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
+        await setDoc(docRef, {
+          telefone_cliente: task.telefone_cliente,
+          optimizedMsg: task.optimizedMsg,
+          created_at: serverTimestamp()
+        });
+
+        // FEEDBACK VISUAL: Remove o bloco enviado da tela um a um
+        setStagedQueue(prev => prev.slice(1));
+
+        // SUPER IA DELAY LOGIC: Aguarda o tempo selecionado antes de enviar o próximo (exceto no último)
+        if (i < queueCopy.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
+        }
+      }
     } catch (error) {
       console.error("Dispatch Error:", error);
       alert("Failed to push protocol to Node.");
     }
     
-    setLoading(false);
+    setIsDispatching(false);
+    setIsReviewMode(false);
   };
 
   // CLEAR STUCK QUEUE
@@ -913,26 +914,40 @@ export default function App() {
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 mb-6">
                         {stagedQueue.map((task, idx) => (
-                           <div key={task.id || idx} className="bg-[#111] border border-white/5 rounded-xl p-5 hover:border-[#25F4EE]/30 transition-colors group flex flex-col h-[150px]">
+                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-5 transition-colors flex flex-col h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
                               <div className="flex justify-between items-center mb-3">
                                 <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {idx + 1}</span>
                                 <span className="text-white/30 text-[9px] font-mono truncate max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
                               </div>
                               <textarea 
+                                disabled={isDispatching}
                                 value={task.optimizedMsg} 
                                 onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
-                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none" 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50" 
                               />
                            </div>
                         ))}
                      </div>
 
-                     {/* FIX: BUTTON SIZE & ALIGNMENT HARMONY */}
-                     <div className="flex flex-col md:flex-row justify-end items-center gap-4 mt-2">
-                        <button onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-3 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto">CANCEL</button>
-                        <button onClick={dispatchToNode} className="px-10 py-3 bg-amber-500 text-black font-black text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full md:w-auto">
-                           <Send size={16} /> CONFIRM & DISPATCH
-                        </button>
+                     {/* FIX: SETUP DE DELAY COM HARMONIA E CONTROLE DA IA */}
+                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-2 bg-[#111] p-5 rounded-2xl border border-white/5 shadow-inner">
+                        <div className="flex items-center gap-3 px-2">
+                           <Clock size={20} className="text-[#25F4EE] animate-pulse" />
+                           <span className="text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5">DISPATCH DELAY:</span>
+                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#25F4EE] text-[12px] font-black outline-none cursor-pointer border-b border-[#25F4EE]/30 pb-1">
+                              <option value={5}>5 SECONDS</option>
+                              <option value={15}>15 SECONDS</option>
+                              <option value={30}>30 SECONDS</option>
+                              <option value={60}>1 MINUTE</option>
+                              <option value={120}>2 MINUTES</option>
+                           </select>
+                        </div>
+                        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
+                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-10 py-3.5 text-black font-black text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full md:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
+                              {isDispatching ? <><RefreshCw size={16} className="animate-spin" /> TRANSMITTING... KEEP TAB OPEN</> : <><Send size={16} /> CONFIRM & DISPATCH</>}
+                           </button>
+                        </div>
                      </div>
                    </div>
                  ) : (
