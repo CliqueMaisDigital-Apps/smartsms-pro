@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -500,17 +499,20 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
+  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES (CORRIGIDO PARA DESIGN PREMIUM)
   const PremiumLockedFooter = ({ featureName, benefit }) => (
-    <div className="mt-10 pt-8 border-t border-[#FE2C55]/30 flex flex-col lg:flex-row items-center justify-between gap-8 relative z-20">
-      <div className="text-left flex-1">
-         <p className="text-[12px] text-[#FE2C55] font-black uppercase tracking-widest mb-2 flex items-center gap-2 drop-shadow-[0_0_8px_#FE2C55]"><Lock size={14}/> PRO PROTOCOL LOCKED</p>
-         <p className="text-lg text-white font-black italic uppercase leading-tight mb-2">ATTENTION: YOU ARE LOSING MASSIVE SCALING POTENTIAL.</p>
-         <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest leading-relaxed max-w-2xl">
-           Upgrade your Free Trial to unlock <span className="text-[#25F4EE]">{featureName}</span> and {benefit}. Bypass carrier limits, unmask your highly qualified leads, and turn this dashboard into a definitive sales machine.
-         </p>
+    <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 relative z-20 w-full font-black italic">
+      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/30 px-5 py-2 rounded-full mb-1">
+        <Lock size={12} className="text-[#FE2C55]" />
+        <span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest font-black italic">PRO PROTOCOL LOCKED</span>
       </div>
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[11px] w-full lg:w-auto px-10 py-5 shadow-[0_0_30px_rgba(254,44,85,0.4)] animate-pulse shrink-0">
+      <p className="text-xl sm:text-2xl text-white font-black italic uppercase leading-tight text-glow-white">
+        ATTENTION: YOU ARE LOSING MASSIVE SCALING POTENTIAL.
+      </p>
+      <p className="text-[10px] sm:text-[11px] text-white/50 font-bold uppercase tracking-widest leading-relaxed max-w-3xl mx-auto font-black italic mb-2">
+        Upgrade your Free Trial to unlock <span className="text-[#25F4EE]">{featureName}</span> and {benefit}. Bypass carrier limits, unmask your highly qualified leads, and turn this dashboard into a definitive sales machine.
+      </p>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs w-full max-w-[400px] py-5 shadow-[0_0_30px_rgba(254,44,85,0.4)] animate-pulse">
         UPGRADE & UNLOCK NOW
       </button>
     </div>
@@ -985,12 +987,12 @@ export default function App() {
                 }) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
               </div>
               {!isPro && isVaultActive && (
-                <div className="p-6 bg-[#FE2C55]/10 border-t border-[#FE2C55]/20 text-center flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-                   <p className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest leading-relaxed flex items-center justify-center gap-2">
-                     <Lock size={14} /> DATA MASKED. UPGRADE TO REVEAL FULL LEAD IDENTITIES.
+                <div className="p-8 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 mt-auto">
+                   <p className="text-[11px] text-[#FE2C55] font-black uppercase tracking-widest leading-relaxed flex items-center justify-center gap-2">
+                     <Lock size={16} /> DATA MASKED. UPGRADE TO REVEAL FULL LEAD IDENTITIES.
                    </p>
-                   <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[9px] !w-auto px-6 py-4 shadow-[0_0_15px_rgba(254,44,85,0.4)] animate-pulse">
-                     UNLOCK LEADS
+                   <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[10px] w-full max-w-[300px] py-4 shadow-[0_0_20px_rgba(254,44,85,0.4)] animate-pulse">
+                     UNLOCK LEADS NOW
                    </button>
                 </div>
               )}
