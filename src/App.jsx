@@ -110,8 +110,8 @@ export default function App() {
   const [aiObjective, setAiObjective] = useState('');
   const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [isReviewMode, setIsReviewMode] = useState(false); // Controls the Variation Staging Area
-  const [stagedQueue, setStagedQueue] = useState([]); // Holds variations for review/editing
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [stagedQueue, setStagedQueue] = useState([]); 
   
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
@@ -214,6 +214,49 @@ export default function App() {
     }
   };
 
+  // NATIVE AI CONTEXTUAL ENGINE (LOCAL SPINTAX)
+  const spinText = (text, index) => {
+    const synonyms = [
+      { regex: /\b(quote)\b/gi, replacements: ['quote', 'estimate', 'pricing detail', 'proposal'] },
+      { regex: /\b(work|portfolio)\b/gi, replacements: ['work', 'portfolio', 'projects', 'gallery', 'profile'] },
+      { regex: /\b(hi|hello|hey)\b/gi, replacements: ['Hi', 'Hello', 'Hey', 'Greetings', 'Good day'] },
+      { regex: /\b(request|ask for|get)\b/gi, replacements: ['request', 'ask for', 'get', 'receive'] },
+      { regex: /\b(saw|found|noticed)\b/gi, replacements: ['saw', 'found', 'noticed', 'came across'] },
+      { regex: /\b(contact|reach out to)\b/gi, replacements: ['contact', 'reach out to', 'message', 'connect with'] },
+      { regex: /\b(excellent|great|awesome|fantastic)\b/gi, replacements: ['excellent', 'great', 'awesome', 'fantastic', 'impressive'] },
+      { regex: /\b(project|job|service)\b/gi, replacements: ['project', 'job', 'service', 'task'] }
+    ];
+
+    let spunText = text;
+    
+    synonyms.forEach((syn, i) => {
+      let matchCount = 0;
+      spunText = spunText.replace(syn.regex, (match) => {
+        const repIndex = (index + i + matchCount) % syn.replacements.length;
+        const replacement = syn.replacements[repIndex];
+        matchCount++;
+        // Maintain capitalization context
+        if (match[0] === match[0].toUpperCase()) {
+           return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+        }
+        return replacement;
+      });
+    });
+    
+    // Semantic sentence variation based on index entropy
+    const structures = [
+      spunText, // Default spun
+      spunText.replace(/\b(I saw|I found)\b/i, "We saw"), // Pluralize
+      spunText.replace(/\b(and would like to)\b/i, "- looking to"), // Dash structure
+      spunText.replace(/\b(request a quote)\b/i, "request a quote today") // Urgency
+    ];
+    
+    let finalSpun = structures[index % structures.length];
+    
+    // Clean up any double spaces that might occur
+    return finalSpun.replace(/\s{2,}/g, ' ').trim();
+  };
+
   // GENERATE VARIATIONS & OPEN STAGING AREA
   const handlePrepareBatch = () => {
     if (!aiObjective || logs.length === 0 || aiWarning) return;
@@ -227,15 +270,15 @@ export default function App() {
          return;
       }
       
-      // Simulate Contextual AI Scrambling
+      // Map leads and apply Contextual AI Engine
       const queue = logs.slice(0, limit).map((l, idx) => {
-         const variationId = (idx % 60) + 1;
-         const hash = Math.random().toString(36).substring(2, 6).toUpperCase();
+         const contextualMessage = spinText(aiObjective, idx);
+         
          return { 
            id: l.id || Math.random().toString(),
            telefone_cliente: l.telefone_cliente, 
            nome_cliente: l.nome_cliente || 'Valued Customer',
-           optimizedMsg: `${aiObjective}\n[Ref:${hash}-${variationId}]` 
+           optimizedMsg: contextualMessage 
          };
       });
       
@@ -844,7 +887,7 @@ export default function App() {
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 mb-6">
                         {stagedQueue.map((task, idx) => (
-                           <div key={task.id || idx} className="bg-[#111] border border-white/5 rounded-xl p-5 hover:border-[#25F4EE]/30 transition-colors group">
+                           <div key={task.id || idx} className="bg-[#111] border border-white/5 rounded-xl p-5 hover:border-[#25F4EE]/30 transition-colors group flex flex-col h-[150px]">
                               <div className="flex justify-between items-center mb-3">
                                 <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {idx + 1}</span>
                                 <span className="text-white/30 text-[9px] font-mono truncate max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
@@ -852,7 +895,7 @@ export default function App() {
                               <textarea 
                                 value={task.optimizedMsg} 
                                 onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
-                                className="w-full bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none h-24 font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none" 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none" 
                               />
                            </div>
                         ))}
@@ -1019,7 +1062,7 @@ export default function App() {
         </div>
       )}
 
-      {/* SETUP GUIDE MODAL - FIXED OVERFLOW & REMOVED IDIOM */}
+      {/* SETUP GUIDE MODAL */}
       {showHelpModal && (
         <div className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 text-center animate-in fade-in">
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-[2rem] p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[85vh] overflow-y-auto custom-scrollbar">
