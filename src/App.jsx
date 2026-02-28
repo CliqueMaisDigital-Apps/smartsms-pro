@@ -214,47 +214,83 @@ export default function App() {
     }
   };
 
-  // NATIVE AI CONTEXTUAL ENGINE (LOCAL SPINTAX)
-  const spinText = (text, index) => {
-    const synonyms = [
-      { regex: /\b(quote)\b/gi, replacements: ['quote', 'estimate', 'pricing detail', 'proposal'] },
-      { regex: /\b(work|portfolio)\b/gi, replacements: ['work', 'portfolio', 'projects', 'gallery', 'profile'] },
-      { regex: /\b(hi|hello|hey)\b/gi, replacements: ['Hi', 'Hello', 'Hey', 'Greetings', 'Good day'] },
-      { regex: /\b(request|ask for|get)\b/gi, replacements: ['request', 'ask for', 'get', 'receive'] },
-      { regex: /\b(saw|found|noticed)\b/gi, replacements: ['saw', 'found', 'noticed', 'came across'] },
-      { regex: /\b(contact|reach out to)\b/gi, replacements: ['contact', 'reach out to', 'message', 'connect with'] },
-      { regex: /\b(excellent|great|awesome|fantastic)\b/gi, replacements: ['excellent', 'great', 'awesome', 'fantastic', 'impressive'] },
-      { regex: /\b(project|job|service)\b/gi, replacements: ['project', 'job', 'service', 'task'] }
+  // NATIVE AI CONTEXTUAL ENGINE (SUPER NLP SIMULATION)
+  const superAIVariationEngine = (baseText, index, leadName) => {
+    const isPT = /\b(o|a|um|uma|para|com|este|esta|orçamento|teste|tarde|bom|dia|gostaria|quero|vocês|empresa|trabalho)\b/i.test(baseText);
+
+    const synonymsPT = [
+      { rx: /\b(gostaria de|queria|quero)\b/gi, reps: ["gostaria de", "queria", "tenho interesse em", "estou buscando", "poderia", "preciso de"] },
+      { rx: /\b(um orçamento|orçamento|cotação)\b/gi, reps: ["um orçamento", "uma cotação", "uma estimativa", "saber os valores", "uma base de preço", "os custos"] },
+      { rx: /\b(trabalho|serviço|projeto|fotos)\b/gi, reps: ["trabalho", "serviço", "projeto", "portfólio", "perfil", "resultado"] },
+      { rx: /\b(vi|encontrei|achei|descobri)\b/gi, reps: ["vi", "encontrei", "achei", "descobri", "pesquisei e achei", "me deparei com"] },
+      { rx: /\b(empresa|vocês|sua empresa)\b/gi, reps: ["empresa", "equipe", "vocês", "seu perfil", "seu negócio"] },
+      { rx: /\b(teste)\b/gi, reps: ["teste", "ensaio", "validação", "experimento"] },
+      { rx: /\b(bom dia|boa tarde|boa noite|olá|oi|ei)\b/gi, reps: ["Olá", "Oi", "Tudo bem?", "Saudações", "Opa", "Ei"] },
+      { rx: /\b(google)\b/gi, reps: ["Google", "Google Search", "busca do Google", "Google Maps"] },
+      { rx: /\b(pedir|solicitar)\b/gi, reps: ["pedir", "solicitar", "requerer", "agendar"] }
     ];
 
-    let spunText = text;
+    const synonymsEN = [
+      { rx: /\b(request a quote|get a quote|quote|estimate|pricing)\b/gi, reps: ["request a quote", "get an estimate", "ask for pricing", "get a proposal", "request an estimate"] },
+      { rx: /\b(work|portfolio|projects|photos)\b/gi, reps: ["work", "portfolio", "projects", "services", "past jobs", "profile"] },
+      { rx: /\b(saw|found|noticed)\b/gi, reps: ["saw", "found", "noticed", "came across", "discovered"] },
+      { rx: /\b(request|ask for|get)\b/gi, reps: ["request", "ask for", "get", "receive", "inquire about"] },
+      { rx: /\b(hi|hello|hey|greetings)\b/gi, reps: ["Hi", "Hello", "Hey", "Greetings", "Good day", "Hi there"] },
+      { rx: /\b(test)\b/gi, reps: ["test", "trial", "validation", "check"] },
+      { rx: /\b(google)\b/gi, reps: ["Google", "Google Search", "Google Maps", "online search"] }
+    ];
+
+    let spun = baseText;
+    const syns = isPT ? synonymsPT : synonymsEN;
     
-    synonyms.forEach((syn, i) => {
+    syns.forEach((s, i) => {
       let matchCount = 0;
-      spunText = spunText.replace(syn.regex, (match) => {
-        const repIndex = (index + i + matchCount) % syn.replacements.length;
-        const replacement = syn.replacements[repIndex];
-        matchCount++;
-        // Maintain capitalization context
-        if (match[0] === match[0].toUpperCase()) {
-           return replacement.charAt(0).toUpperCase() + replacement.slice(1);
-        }
-        return replacement;
+      spun = spun.replace(s.rx, (match) => {
+         const repIdx = (index * 13 + i * 7 + matchCount) % s.reps.length;
+         let replacement = s.reps[repIdx];
+         matchCount++;
+         if (match[0] === match[0].toUpperCase()) {
+            replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
+         }
+         return replacement;
       });
     });
+
+    const ptClosings = [" Fico no aguardo.", " Aguardo retorno.", " Podemos conversar?", " Me avise.", " Obrigado.", " Qual o próximo passo?", ""];
+    const enClosings = [" Looking forward to hearing from you.", " Awaiting your reply.", " Can we chat?", " Let me know.", " Thanks.", " What's the next step?", ""];
     
-    // Semantic sentence variation based on index entropy
-    const structures = [
-      spunText, // Default spun
-      spunText.replace(/\b(I saw|I found)\b/i, "We saw"), // Pluralize
-      spunText.replace(/\b(and would like to)\b/i, "- looking to"), // Dash structure
-      spunText.replace(/\b(request a quote)\b/i, "request a quote today") // Urgency
-    ];
-    
-    let finalSpun = structures[index % structures.length];
-    
-    // Clean up any double spaces that might occur
-    return finalSpun.replace(/\s{2,}/g, ' ').trim();
+    const ptOpenings = ["Tudo bem? ", "Com licença, ", "Opa! ", "Olá! ", "Oi! ", ""];
+    const enOpenings = ["Hope you're well! ", "Excuse me, ", "Hey there! ", "Hi! ", "Hello! ", ""];
+
+    const closing = isPT ? ptClosings[index % ptClosings.length] : enClosings[index % enClosings.length];
+    const opening = isPT ? ptOpenings[(index * 3) % ptOpenings.length] : enOpenings[(index * 3) % enOpenings.length];
+
+    let finalMessage = spun;
+
+    if (index > 0) {
+        const structType = index % 7;
+        const cleanRegex = isPT ? /^(Olá|Oi|Tudo bem|Opa|Ei|Bom dia|Boa tarde|Boa noite)[!,.\s]*/i : /^(Hi|Hello|Hey|Greetings|Good day)[!,.\s]*/i;
+        const cleanSpun = spun.replace(cleanRegex, '');
+        const lowerSpun = cleanSpun ? cleanSpun.charAt(0).toLowerCase() + cleanSpun.slice(1) : '';
+
+        switch(structType) {
+            case 0: finalMessage = `${opening}${lowerSpun || spun}`; break;
+            case 1: finalMessage = `${spun}${closing}`; break;
+            case 2: finalMessage = `${opening}${lowerSpun || spun}${closing}`; break;
+            case 3: finalMessage = `${spun.replace(/[.!?,;]+$/, '')}...${closing}`; break;
+            case 4: 
+              const safeName = leadName && leadName !== 'Valued Customer' ? leadName.split(' ')[0] : (isPT ? "pessoal" : "there");
+              finalMessage = `${isPT ? 'Oi' : 'Hi'} ${safeName}, ${lowerSpun || spun}`;
+              break;
+            case 5: finalMessage = `${spun}`; break; 
+            case 6: finalMessage = `${opening}${spun.replace(/[.!?,;]+$/, '')}?${closing}`; break; 
+        }
+    }
+
+    const invisibleChars = ["\u200B", "\u200C", "\u200D", "\uFEFF"];
+    const byteBypass = invisibleChars[index % invisibleChars.length].repeat((index % 4) + 1);
+
+    return (finalMessage.trim() + byteBypass).replace(/\s{2,}/g, ' ');
   };
 
   // GENERATE VARIATIONS & OPEN STAGING AREA
@@ -272,7 +308,7 @@ export default function App() {
       
       // Map leads and apply Contextual AI Engine
       const queue = logs.slice(0, limit).map((l, idx) => {
-         const contextualMessage = spinText(aiObjective, idx);
+         const contextualMessage = superAIVariationEngine(aiObjective, idx, l.nome_cliente);
          
          return { 
            id: l.id || Math.random().toString(),
