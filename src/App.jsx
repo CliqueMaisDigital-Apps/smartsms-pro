@@ -182,6 +182,14 @@ export default function App() {
     const t = params.get('t');
     const m = params.get('m');
     const o = params.get('o');
+    const syncProto = params.get('sync_protocol');
+
+    // MÓDULO NOVO: RECEPTOR DO ESPELHAMENTO MOBILE (QR CODE)
+    if (syncProto === 'active') {
+      setCaptureData({ uid: params.get('uid'), token: params.get('token') });
+      setView('mobile_sync');
+      return;
+    }
 
     if (t && m && view !== 'bridge') {
       setCaptureData({ to: t, msg: m, company: params.get('c') || 'Verified Host', ownerId: o });
@@ -506,6 +514,48 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
+  // MÓDULO NOVO: PEDIDO DE PERMISSÃO E PUXADA DA AGENDA NATIVA
+  const handleSyncContacts = async () => {
+    if (!('contacts' in navigator && 'ContactsManager' in window)) {
+      alert("Protocol Error: Native Web Contact Sync requires a supported mobile browser (e.g., Google Chrome for Android). Apple iOS restricts this protocol. Please use the Bulk 5k Import feature on your dashboard for iOS lists.");
+      return;
+    }
+    try {
+      const props = ['name', 'tel'];
+      const opts = { multiple: true };
+      const contacts = await navigator.contacts.select(props, opts);
+
+      if (contacts.length > 0) {
+         setLoading(true);
+         for (const c of contacts) {
+            if (c.tel && c.tel.length > 0) {
+               const phone = c.tel[0].replace(/[^0-9+]/g, '');
+               const name = c.name && c.name.length > 0 ? c.name[0] : 'Mobile Contact';
+               const safePhoneId = phone.replace(/[^0-9]/g, '');
+
+               if(phone && captureData?.uid) {
+                   await setDoc(doc(db, 'artifacts', appId, 'users', captureData.uid, 'leads', safePhoneId || crypto.randomUUID()), {
+                      timestamp: serverTimestamp(),
+                      created_at: serverTimestamp(),
+                      destination: phone,
+                      telefone_cliente: phone,
+                      nome_cliente: name,
+                      location: `Native Mobile Sync`,
+                      ip: 'P2P Authenticated Device',
+                      device: navigator.userAgent
+                   }, { merge: true });
+               }
+            }
+         }
+         setLoading(false);
+         alert(`Protocol Success: ${contacts.length} units securely mirrored to your Data Vault.`);
+      }
+    } catch (e) {
+      alert("Sync Protocol Cancelled or Failed.");
+      setLoading(false);
+    }
+  };
+
   const handleGenerateDeviceQR = () => {
     if (!isPro) return;
     setIsGeneratingSync(true);
@@ -763,6 +813,27 @@ export default function App() {
                     <p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center leading-none">Verified Origin: {captureData?.company}</p>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MOBILE SYNC VIEW (RECEPTOR DO QR CODE PARA O TELEMÓVEL) */}
+        {view === 'mobile_sync' && (
+          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8">
+            <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
+              <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
+                <Smartphone size={100} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-10 mx-auto" />
+                <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center">DEVICE SYNC INITIATED</h2>
+                <div className="p-8 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-10 relative overflow-hidden shadow-2xl text-center">
+                   <p className="text-xs text-white/50 uppercase italic font-black leading-relaxed tracking-widest mb-8">
+                     Your mobile device is securely connecting to the Command Center. Authorize access to synchronize your native contacts directly to your encrypted vault.
+                   </p>
+                   <button onClick={handleSyncContacts} disabled={loading} className="btn-strategic btn-neon-cyan text-xs italic font-black uppercase py-5 shadow-2xl w-full">
+                     {loading ? "SYNCING VAULT..." : "AUTHORIZE CONTACTS ACCESS"}
+                   </button>
+                </div>
+                <p className="text-[9px] text-[#FE2C55] font-black uppercase tracking-widest text-center mt-4">Zero-Knowledge Encrypted Transfer</p>
               </div>
             </div>
           </div>
