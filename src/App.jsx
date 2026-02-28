@@ -44,11 +44,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
+// SEARCH FOR THIS LINE AND PASTE YOUR UID FROM FIREBASE TO UNLOCK MASTER CONTROL
 const ADMIN_MASTER_ID = "W41IbExRiYb7HJ0Dx3up3JEUAqf2"; 
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 
-// --- FAQ COMPONENT ---
+// --- FAQ COMPONENT (ELITE US ENGLISH) ---
 const FAQItem = ({ q, a }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -98,10 +99,8 @@ export default function App() {
   const [companyName, setCompanyName] = useState('');
   const MSG_LIMIT = 300;
 
-  // AI & Batch States
+  // AI Commands
   const [aiPrompt, setAiPrompt] = useState('');
-  const [queueIndex, setQueueIndex] = useState(0);
-  const [connectedChips, setConnectedChips] = useState(1);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -123,32 +122,34 @@ export default function App() {
 
   useEffect(() => {
     if (!user || user.uid !== ADMIN_MASTER_ID || view !== 'dashboard') return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles');
+    return onSnapshot(usersCol, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, view]);
 
   useEffect(() => {
     if (!user || (!userProfile?.isSubscribed && !userProfile?.isUnlimited) || view !== 'dashboard' || !isVaultActive) return;
-    return onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+    const leadsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+    return onSnapshot(leadsCol, (snap) => {
       setMyLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user, userProfile, view, isVaultActive]);
 
-  // ADVANCED AI SAFETY AUDIT
+  // ADVANCED AI SAFETY AUDIT (ZERO TOLERANCE POLICY)
   const runSafetyAudit = async (text) => {
     if (!text) return true;
-    const restricted = [
-      /\b(scam|fraud|money|bank|irs|urgent|verify|inherited|winner|lottery|account|password|ssn|pin)\b/i,
-      /\b(hate|offensive|racist|kill|die|explicit|porn|abuse|slur)\b/i,
-      /\b(fake|hoax|misinfo|election|conspiracy)\b/i
+    const restrictedPatterns = [
+      /\b(scam|fraud|money|bank|irs|urgent|verify|inherited|winner|lottery|account|password|ssn|pin|card)\b/i,
+      /\b(hate|offensive|racist|kill|die|explicit|porn|abuse|slur|discriminat|prejudice)\b/i,
+      /\b(fake|hoax|misinfo|election|conspiracy|rumor|defam)\b/i
     ];
     
     setIsSafetyAuditing(true);
     return new Promise((resolve) => {
       setTimeout(() => {
-        const hasViolation = restricted.some(p => p.test(text));
-        setSafetyViolation(hasViolation ? "CONTENT REJECTED: Malicious intent or offensive language detected. Terminal block active." : null);
+        const hasViolation = restrictedPatterns.some(p => p.test(text));
+        setSafetyViolation(hasViolation ? "TERMINAL BLOCK: Our Advanced AI detected prohibited content (Malicious Intent, Discriminatory language, or Misinformation). This action is non-negotiable to protect the network's integrity." : null);
         setIsSafetyAuditing(false);
         resolve(!hasViolation);
       }, 1200);
@@ -168,7 +169,8 @@ export default function App() {
       }
 
       await updateDoc(ownerRef, { usageCount: increment(1) });
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
+      const publicRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
+      await updateDoc(publicRef, { usageCount: increment(1) });
 
       if (ownerProfile.isSubscribed || ownerProfile.isUnlimited) {
         try {
@@ -191,7 +193,7 @@ export default function App() {
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    if (!isLoginMode && !termsAccepted) return alert("Compliance Error: You must accept the Protocol Terms to continue.");
+    if (!isLoginMode && !termsAccepted) return alert("Compliance Error: You must accept the General Terms of Use to continue.");
     setLoading(true);
     try {
       if (isLoginMode) {
@@ -233,6 +235,7 @@ export default function App() {
         .input-premium:focus { border-color: #25F4EE; background: #000; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
         .text-neon-cyan { color: #25F4EE; text-shadow: 0 0 10px rgba(37,244,238,0.3); }
+        * { hyphens: none !important; word-break: normal !important; text-decoration: none; }
       `}</style>
 
       {/* Nav */}
@@ -242,7 +245,7 @@ export default function App() {
           <span className="text-lg font-black italic tracking-tighter uppercase text-white leading-none">SMART SMS PRO</span>
           {user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic leading-none">MASTER</span>}
         </div>
-        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white/50 hover:text-white transition-all z-[110]">
+        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 text-white/50 hover:text-white transition-all z-[110]">
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </nav>
@@ -252,17 +255,17 @@ export default function App() {
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
           <div className="fixed top-0 right-0 w-80 bg-[#050505] border-l border-white/10 h-screen z-[150] p-10 flex flex-col shadow-2xl animate-in slide-in-from-right text-left">
-            <div className="flex justify-between items-center mb-12">
+            <div className="flex justify-between items-center mb-12 text-left">
               <span className="text-xs font-black text-white/20 uppercase tracking-[0.3em]">Command Menu</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40"><X size={24} /></button>
             </div>
-            <div className="flex flex-col gap-8 flex-1">
+            <div className="flex flex-col gap-8 flex-1 text-left">
               {!user ? (
                 <>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors leading-none">
+                  <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors leading-none text-left">
                      <UserPlus size={20} /> JOIN THE NETWORK
                   </button>
-                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors leading-none">
+                  <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors leading-none text-left">
                      <Lock size={20} /> MEMBER LOGIN
                   </button>
                 </>
@@ -275,7 +278,7 @@ export default function App() {
                   <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left">
                      <LayoutDashboard size={20} /> {user.uid === ADMIN_MASTER_ID ? "COMMAND CENTER" : "MEMBER HUB"}
                   </button>
-                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors uppercase font-black">
+                  <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors uppercase font-black text-left">
                      <Bot size={20} /> SMART SUPPORT
                   </button>
                   <button onClick={() => {signOut(auth).then(()=>setView('home')); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#FE2C55] hover:opacity-70 transition-all mt-auto mb-10 text-left">
@@ -284,7 +287,7 @@ export default function App() {
                 </>
               )}
               <div className="h-px bg-white/5 w-full my-4" />
-              <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em]">
+              <div className="flex flex-col gap-6 text-[10px] font-black text-white/30 uppercase italic tracking-[0.2em] text-left">
                 <a href="#" className="hover:text-white transition-colors uppercase italic font-black">Privacy Protocol</a>
                 <a href="#" className="hover:text-white transition-colors uppercase italic font-black">Security Terms</a>
                 <button onClick={() => {setShowSmartSupport(true); setIsMenuOpen(false)}} className="text-left hover:text-white transition-colors flex items-center gap-2 uppercase font-black italic text-[10px]">SMART SUPPORT <Bot size={12}/></button>
@@ -295,14 +298,14 @@ export default function App() {
       )}
 
       {/* Main UI */}
-      <div className="pt-28 flex-1 pb-10 relative">
+      <div className="pt-28 flex-1 pb-10 relative text-center">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
         {view === 'home' && (
-          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center">
+          <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative">
             <header className="mb-14 flex flex-col items-center">
-              <div className="lighthouse-neon-wrapper mb-6"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
+              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl font-black italic uppercase text-white text-glow-white leading-none">SMART SMS PRO</h1></div></div>
               <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] uppercase leading-relaxed max-w-xs text-center">High-End Redirection Protocol - 60 Free Handshakes</p>
             </header>
 
@@ -310,7 +313,7 @@ export default function App() {
               {/* GENERATOR BLOCK */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12">
-                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60">Smart Handshake Generator</h3></div>
+                  <div className="flex items-center gap-2 mb-10"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none font-black italic">Smart Handshake Generator</h3></div>
                   <div className="space-y-8">
                     <div className="space-y-3">
                        <label className="text-[10px] font-black uppercase italic tracking-widest text-white/40 ml-1 italic leading-tight block">
@@ -346,20 +349,20 @@ export default function App() {
               {generatedLink && (
                 <div className="animate-in zoom-in-95 duration-500 space-y-6">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl text-center"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
+                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedLink)}&color=000000`} alt="QR" className="w-36 h-36"/></div>
                     <input readOnly value={generatedLink} onClick={(e) => e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-5 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed" />
-                    <div className="grid grid-cols-2 gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest text-center">Quick Copy</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest text-center">Live Test</span></button>
+                    <div className="grid grid-cols-2 gap-6 w-full text-center">
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-center">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[10px] font-black uppercase italic mt-2 text-white/50 tracking-widest">Quick Copy</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center"><ExternalLink size={24} className="text-white/40" /><span className="text-[10px] font-black uppercase italic mt-1 text-white/50 tracking-widest text-center text-center">Live Test</span></button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* FAQ AIDA SECTION */}
-              <div className="pt-20 pb-12">
+              {/* FAQ SECTION */}
+              <div className="pt-20 pb-12 text-left">
                  <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Protocol FAQ</h3></div>
-                 <div className="space-y-2">
+                 <div className="space-y-2 text-left">
                     <FAQItem 
                       q="Why use a protocol link instead of a standard redirect?" 
                       a="Carriers use automated heuristics to filter suspicious redirects. Our Handshake Optimization Protocol formats the traffic signature to be recognized as legitimate organic referral traffic, significantly increasing final delivery rates." 
@@ -370,11 +373,11 @@ export default function App() {
                     />
                     <FAQItem 
                       q="How does the system ensure ethical compliance?" 
-                      a="Redirection nodes are governed by our Advanced AI Safety Audit. The protocol maintains a ZERO TOLERANCE for abuse, automatically blocking traffic containing hate speech, malicious scams, misinformation, or defamatory content." 
+                      a="All redirection nodes are governed by our Advanced AI Safety Audit. The protocol maintains a ZERO TOLERANCE for abuse, automatically blocking traffic containing hate speech, malicious scams, misinformation, or defamatory content." 
                     />
                     <FAQItem 
-                      q="What are the operational advantages of Joining?" 
-                      a="Members dominate the redirection flow. Joining unlocks unlimited handshake volume, automated attribution mapping, and access to the AI Agent Deployment Engine for high-conversion native campaigns." 
+                      q="What is the benefit of the Advanced AI Agent?" 
+                      a="Members gain exclusive access to our Smart AI for strategic guidance. The agent provides integral support to optimize SMS content, maximize conversion probability, and ensure your message payloads maintain full compliance with carrier standards." 
                     />
                  </div>
               </div>
@@ -384,7 +387,7 @@ export default function App() {
                   <button onClick={() => setView('auth')} className="btn-strategic text-xs w-full max-w-[380px] !bg-white !text-black group italic font-black uppercase shadow-2xl py-6 leading-none">
                     <Rocket size={20} className="group-hover:animate-bounce" /> INITIALIZE 60 FREE HANDSHAKES
                   </button>
-                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6 leading-none font-black">
+                  <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs w-full max-w-[380px] !bg-[#25F4EE] !text-black group italic font-black uppercase shadow-2xl py-6 leading-none font-black italic">
                     <Star size={20} className="animate-pulse" /> BECOME A FULL MEMBER NOW
                   </button>
                 </div>
@@ -401,10 +404,10 @@ export default function App() {
                   <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
                     <ShieldAlert size={100} className="text-[#FE2C55] animate-pulse mb-10 mx-auto" />
                     <h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-glow-white text-center leading-none">Protocol Limit Reached</h2>
-                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 relative overflow-hidden group">
+                    <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 relative overflow-hidden group shadow-2xl">
                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform"><Crown size={50} className="text-amber-500" /></div>
                        <h3 className="text-2xl font-black italic text-white uppercase mb-4 leading-none text-left">Full Access Offer</h3>
-                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12 text-left">Upgrade to Member level to bypass limits and enable advanced traffic attribution mapping.</p>
+                       <p className="text-xs text-white/40 uppercase italic font-black leading-relaxed tracking-widest mb-12 text-left italic">Upgrade to Member level to bypass limits and enable advanced traffic attribution mapping.</p>
                        <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-white !text-black w-full text-xs italic font-black uppercase py-5 shadow-2xl leading-none">Unlock Full Access ($9/MO)</button>
                     </div>
                   </div>
@@ -449,27 +452,27 @@ export default function App() {
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && (
                <div className="mb-20 bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group shadow-2xl text-left">
                   <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform text-right"><BookOpen size={120} /></div>
-                  <div className="flex items-center gap-3 mb-10 text-neon-cyan text-left"><Star size={24} className="animate-pulse shadow-xl"/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">AI Agent Deployment Guide</h3></div>
+                  <div className="flex items-center gap-3 mb-10 text-neon-cyan text-left"><Star size={24} className="animate-pulse shadow-xl"/><h3 className="text-2xl font-black uppercase italic text-white tracking-widest leading-none">Advanced AI Agent Support</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 text-left">
                      <div className="space-y-4 text-left">
                         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none font-black">01</div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Sync Metadata</h4>
-                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Activate your Lead Vault to bridge campaign metadata to the AI Synthesis Engine.</p>
+                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Content Analysis</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Our AI performs a mandatory **Safety Audit** to block restricted content (hate speech, scams) before generation.</p>
                      </div>
                      <div className="space-y-4 text-left">
                         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none font-black">02</div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Import Assets</h4>
-                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic text-left">AI performs a mandatory **Safety Audit** to reject hate speech or malicious intent automatically.</p>
+                        <h4 className="text-sm font-black uppercase italic text-white leading-none">SMS Optimization</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Get strategic assistance to synthesize variations that maintain a high-reputation status across all carriers.</p>
                      </div>
                      <div className="space-y-4 text-left">
                         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-sm text-[#25F4EE] italic shadow-xl leading-none font-black">03</div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Synthesis</h4>
-                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic text-left">AI generates unique compliant header variations to maintain a high-reputation status.</p>
+                        <h4 className="text-sm font-black uppercase italic text-white leading-none">Metadata Link</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic">Bridge campaign metadata with the AI engine to maximize conversion probability for your specific packs.</p>
                      </div>
                      <div className="space-y-4 text-left">
                         <div className="w-12 h-12 rounded-2xl bg-[#FE2C55]/20 border border-[#FE2C55]/30 flex items-center justify-center font-black text-sm text-[#FE2C55] italic shadow-xl leading-none font-black italic">04</div>
-                        <h4 className="text-sm font-black uppercase italic text-[#FE2C55] leading-none">Native Launch</h4>
-                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic text-left">Trigger optimized handshake requests through your local device for P2P carrier compliance.</p>
+                        <h4 className="text-sm font-black uppercase italic text-[#FE2C55] leading-none">Native Deployment</h4>
+                        <p className="text-[11px] text-white/40 font-medium leading-relaxed italic text-left">Trigger optimized native requests through your local node for guaranteed P2P compliance.</p>
                      </div>
                   </div>
                </div>
@@ -478,39 +481,16 @@ export default function App() {
             {/* MASTER ADMIN VIEW */}
             {user?.uid === ADMIN_MASTER_ID && (
                <div className="animate-in fade-in duration-700">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20 text-center text-left">
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-center">
-                        <Users size={48} className="text-[#25F4EE] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none font-black italic">Network Members</p>
-                        <p className="text-5xl font-black italic leading-none">{allUsers.length}</p>
-                     </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-center font-black italic">
-                        <Star size={48} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none font-black italic">Paid Members</p>
-                        <p className="text-5xl font-black italic text-amber-500 leading-none">{allUsers.filter(u => u.isSubscribed).length}</p>
-                     </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-center font-black italic">
-                        <Server size={48} className="text-[#FE2C55] opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none font-black italic">System Traffic</p>
-                        <p className="text-5xl font-black italic text-[#FE2C55] leading-none">{allUsers.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</p>
-                     </div>
-                     <div className="bg-white/5 border border-white/10 p-10 rounded-[3.5rem] relative overflow-hidden group shadow-2xl text-center font-black italic">
-                        <Radio size={48} className="text-green-500 opacity-10 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 italic leading-none font-black italic">Protocol Status</p>
-                        <p className="text-3xl font-black italic text-green-500 uppercase italic font-black leading-none">Secured</p>
-                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-12 text-neon-cyan leading-none text-left"><Users size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Member Management</h3></div>
+                  <div className="flex items-center gap-3 mb-12 text-neon-cyan leading-none text-left font-black italic"><Users size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none font-black italic">Network Member Management</h3></div>
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl text-left">
-                     <div className="max-h-[60vh] overflow-y-auto">
+                     <div className="max-h-[60vh] overflow-y-auto text-left">
                         {allUsers.length > 0 ? allUsers.map(u => (
                            <div key={u.id} className="p-12 border-b border-white/5 flex flex-col md:flex-row justify-between items-center hover:bg-white/[0.04] transition-all gap-8">
                               <div className="flex items-center gap-8 text-left">
                                  <div className={`p-5 rounded-[2rem] ${u.isSubscribed ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-white/5 text-white/20'}`}>
                                     {u.isSubscribed ? <UserCheck size={32} /> : <UserMinus size={32} />}
                                  </div>
-                                 <div className="text-left">
+                                 <div className="text-left font-black italic">
                                     <p className="font-black text-3xl text-white uppercase italic tracking-tighter leading-none">{u.fullName}</p>
                                     <div className="flex items-center gap-5 text-sm font-black uppercase italic tracking-widest mt-4 leading-none italic font-black">
                                        <span className="text-[#25F4EE]">{u.email}</span>
@@ -525,7 +505,7 @@ export default function App() {
                                  </button>
                               </div>
                            </div>
-                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm italic leading-relaxed text-center font-black italic uppercase font-black italic">Syncing member identities...</div>}
+                        )) : <div className="p-20 text-center opacity-20 uppercase font-black italic tracking-widest text-sm italic leading-relaxed text-center font-black italic uppercase font-black italic">Synchronizing network operators...</div>}
                      </div>
                   </div>
                </div>
@@ -534,102 +514,82 @@ export default function App() {
             {/* OPERATOR VAULT */}
             {(userProfile?.isSubscribed || userProfile?.isUnlimited) && user?.uid !== ADMIN_MASTER_ID && (
                 <div className="animate-in fade-in duration-700 text-left">
-                  <div className="flex items-center justify-between mb-12 flex-wrap gap-6">
-                     <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic"><Database size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none">Private Lead Vault</h3></div>
+                  <div className="flex items-center justify-between mb-12 flex-wrap gap-6 text-left font-black italic">
+                     <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic"><Database size={28}/><h3 className="text-3xl font-black uppercase italic text-white tracking-widest leading-none font-black italic">Private Lead Vault</h3></div>
                      <button onClick={() => setIsVaultActive(!isVaultActive)} className={`px-10 py-4 rounded-full border text-[11px] font-black uppercase italic transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>
                         {isVaultActive ? "DISCONNECT VAULT" : "SYNC LEAD VAULT"}
                      </button>
                   </div>
-                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl">
+                  <div className="bg-[#0a0a0a] border border-white/10 rounded-[4rem] overflow-hidden shadow-3xl text-left">
                      {!isVaultActive ? (
                         <div className="p-40 text-center opacity-20 flex flex-col items-center text-center"><Lock size={80} className="mb-8" /><p className="text-sm font-black uppercase tracking-[0.5em] italic leading-none font-black italic">Vault Encrypted & Standby</p></div>
                      ) : (
-                        <div className="max-h-[60vh] overflow-y-auto text-left">
+                        <div className="max-h-[60vh] overflow-y-auto text-left text-left">
                            {myLeads.length > 0 ? myLeads.map(l => (
                               <div key={l.id} className="p-12 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.04] transition-all group">
-                                 <div className="text-left text-left"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic leading-none italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none font-black italic">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-4 text-neon-cyan leading-none uppercase font-black italic">ATTR: {l.destination}</p></div>
-                                 <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 leading-none">{l.ip}</div>
+                                 <div className="text-left text-left font-black italic"><p className="text-[11px] text-white/30 font-black uppercase tracking-widest mb-2 italic leading-none italic font-black italic">{new Date(l.timestamp?.seconds * 1000).toLocaleString()}</p><p className="font-black text-3xl text-white uppercase italic tracking-tighter group-hover:text-[#25F4EE] transition-colors leading-none font-black italic">{l.location}</p><p className="text-sm text-white/40 font-black uppercase italic tracking-widest mt-4 text-neon-cyan leading-none uppercase font-black italic">ATTR: {l.destination}</p></div>
+                                 <div className="text-right text-xs text-white/60 font-mono tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 leading-none font-black italic">{l.ip}</div>
                               </div>
-                           )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs leading-relaxed text-center font-black italic font-black italic">System Operational. Waiting for traffic handshake metadata...</div>}
+                           )) : <div className="p-32 text-center opacity-20 uppercase font-black italic tracking-widest text-xs leading-relaxed text-center font-black italic font-black italic">System Operational. Waiting for handshake metadata...</div>}
                         </div>
                      )}
                   </div>
                 </div>
             )}
-            
-            {/* TIERS UPSELL */}
-            {(!userProfile?.isSubscribed && !userProfile?.isUnlimited && user?.uid !== ADMIN_MASTER_ID) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left">
-                 <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
-                    <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Nexus Access</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs uppercase font-black italic">Premium Attribution Mapping + Unlimited Handshakes.</p>
-                    <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic text-xs italic uppercase font-black py-5 shadow-2xl leading-none">UPGRADE TO NEXUS</button>
-                 </div>
-                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
-                    <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
-                    <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none font-black italic">Expert Agent</h3>
-                    <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest italic leading-relaxed max-w-xs uppercase font-black italic">AI Synthesis Engine + Multi-Device Operations.</p>
-                    <p className="text-5xl font-black text-white italic mb-12 leading-none font-black italic">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
-                    <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic !bg-[#25F4EE] text-xs italic uppercase font-black py-5 shadow-2xl leading-none">ACTIVATE EXPERT AI</button>
-                 </div>
-              </div>
-            )}
           </div>
         )}
 
         {(view === 'auth' || view === 'login') && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left">
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left text-left">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left">
               <div className="lighthouse-neon-content p-12 sm:p-16 relative">
                 <h2 className="text-3xl font-black italic mt-8 mb-14 uppercase text-white text-center tracking-tighter text-glow-white leading-none italic uppercase text-center font-black">
-                  {isLoginMode ? "Member Login" : "Join the Network"}
+                  {view === 'login' ? "Member Login" : "Join the Network"}
                 </h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-7 text-left text-left">
                   {!isLoginMode && (
                     <>
-                      <div className="space-y-2 text-left text-left">
+                      <div className="space-y-2 text-left text-left font-black italic">
                         <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black italic">Full Operator Name</label>
                         <input required placeholder="Your Name or Company" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium font-bold" />
                       </div>
-                      <div className="space-y-2 text-left text-left">
+                      <div className="space-y-2 text-left text-left font-black italic">
                         <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-tight block text-left font-black italic">
                            Valid Mobile Number
-                           <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px]">ex: (+1 999 999 9999)</span>
+                           <span className="block text-[#25F4EE] opacity-80 mt-1 uppercase font-black tracking-widest text-[9px] font-black italic">ex: (+1 999 999 9999)</span>
                         </label>
                         <input required placeholder="Phone Identity" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium font-bold" />
                       </div>
                     </>
                   )}
-                  <div className="space-y-2 text-left text-left">
+                  <div className="space-y-2 text-left text-left font-black italic">
                     <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black italic text-left">Email Address</label>
                     <input required type="email" placeholder="member@example.com" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium font-bold" />
                   </div>
-                  <div className="space-y-2 relative text-left text-left">
+                  <div className="space-y-2 relative text-left text-left font-black italic">
                     <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black italic">{isLoginMode ? 'Security Password' : 'Create Password'}</label>
                     <input required type={showPass ? "text" : "password"} placeholder="Alpha-numeric security key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium font-bold" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-11 text-white/30 hover:text-[#25F4EE] transition-colors leading-none">{showPass ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
                   </div>
                   {!isLoginMode && (
-                    <div className="space-y-2 text-left">
+                    <div className="space-y-2 text-left text-left font-black italic">
                       <label className="text-[10px] font-black uppercase italic text-white/40 ml-1 italic leading-none font-black italic">Confirm Password</label>
                       <input required type={showPass ? "text" : "password"} placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="input-premium font-bold" />
                     </div>
                   )}
 
                   {!isLoginMode && (
-                    <div className="flex items-start gap-3 py-2 cursor-pointer text-left" onClick={() => setTermsAccepted(!termsAccepted)}>
+                    <div className="flex items-start gap-3 py-2 cursor-pointer text-left font-black italic" onClick={() => setTermsAccepted(!termsAccepted)}>
                       <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-all ${termsAccepted ? 'bg-[#25F4EE] border-[#25F4EE]' : 'bg-black border-white/20'}`}>
                         {termsAccepted && <Check size={10} className="text-black font-black" />}
                       </div>
-                      <p className="text-[9px] font-black uppercase italic text-white/40 leading-relaxed tracking-wider text-left">
+                      <p className="text-[9px] font-black uppercase italic text-white/40 leading-relaxed tracking-wider text-left font-black italic">
                         I agree to the <button type="button" onClick={(e) => { e.stopPropagation(); setShowTerms(true); }} className="text-white border-b border-white/20 hover:text-[#25F4EE]">Protocol Responsibility Terms</button> and Compliance Policy.
                       </p>
                     </div>
                   )}
                   
-                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-8 py-5 leading-none font-black">
+                  <button type="submit" disabled={loading} className="btn-strategic text-[11px] w-full shadow-xl italic uppercase font-black mt-8 py-5 leading-none font-black font-black italic">
                     {loading ? "AUTHENTICATING..." : isLoginMode ? "Authorize Access" : "Join Network"}
                   </button>
                   
@@ -645,18 +605,18 @@ export default function App() {
 
       {/* Smart Support Modal */}
       {showSmartSupport && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left">
-           <div className="lighthouse-neon-wrapper w-full max-sm shadow-3xl text-left">
-              <div className="lighthouse-neon-content p-10">
-                 <div className="flex justify-between items-center mb-10 leading-none">
-                    <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic leading-none"><Bot size={32} /><span className="text-sm uppercase tracking-widest text-glow-white">SMART SUPPORT</span></div>
-                    <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors leading-none font-black"><X size={28}/></button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left text-left font-black italic">
+           <div className="lighthouse-neon-wrapper w-full max-sm shadow-3xl text-left font-black italic">
+              <div className="lighthouse-neon-content p-10 font-black italic">
+                 <div className="flex justify-between items-center mb-10 leading-none text-left">
+                    <div className="flex items-center gap-3 text-neon-cyan leading-none font-black italic leading-none text-left"><Bot size={32} /><span className="text-sm uppercase tracking-widest text-glow-white font-black italic">SMART SUPPORT</span></div>
+                    <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white transition-colors leading-none font-black italic"><X size={28}/></button>
                  </div>
-                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center">
-                    <p className="text-[11px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center leading-relaxed">The AI Agent is analyzing your request... Protocol ready for encrypted support handshake.</p>
+                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center font-black italic">
+                    <p className="text-[11px] text-white/50 uppercase italic font-black tracking-widest leading-relaxed text-center leading-relaxed font-black italic">The AI Agent is analyzing your request... Protocol ready for encrypted support handshake.</p>
                  </div>
-                 <input className="input-premium text-xs mb-6 italic font-black" placeholder="Enter support inquiry..." />
-                 <button className="btn-strategic text-xs italic uppercase font-black py-4 shadow-xl leading-none">Establish Connection</button>
+                 <input className="input-premium text-xs mb-6 italic font-black font-black italic" placeholder="Enter support inquiry..." />
+                 <button className="btn-strategic text-xs italic uppercase font-black py-4 shadow-xl leading-none font-black italic">Establish Connection</button>
               </div>
            </div>
         </div>
@@ -664,55 +624,55 @@ export default function App() {
 
       {/* Terms Modal */}
       {showTerms && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl">
-           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-10 sm:p-14 text-left">
-                 <div className="flex justify-between items-center mb-10">
-                    <div className="flex items-center gap-3 text-[#FE2C55] leading-none font-black italic uppercase font-black"><Scale size={28} /><span>Compliance Protocol</span></div>
-                    <button onClick={() => setShowTerms(false)} className="text-white/40 hover:text-white font-black"><X size={28}/></button>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl text-left font-black italic">
+           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl text-left font-black italic">
+              <div className="lighthouse-neon-content p-10 sm:p-14 text-left font-black italic">
+                 <div className="flex justify-between items-center mb-10 text-left font-black italic">
+                    <div className="flex items-center gap-3 text-[#FE2C55] leading-none font-black italic uppercase font-black italic"><Scale size={28} /><span>Compliance Protocol</span></div>
+                    <button onClick={() => setShowTerms(false)} className="text-white/40 hover:text-white font-black italic"><X size={28}/></button>
                  </div>
                  <div className="max-h-[40vh] overflow-y-auto pr-4 space-y-8 mb-10 custom-scrollbar text-left font-black italic">
                     <section>
-                       <h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest">01. Content Ownership & Responsibility</h4>
-                       <p className="text-[10px] text-white/40 leading-relaxed italic font-medium">As a Member of the Network, you retain 100% legal responsibility for any message payload triggered through the protocol.</p>
+                       <h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest font-black italic">01. Content Ownership & Responsibility</h4>
+                       <p className="text-[10px] text-white/40 leading-relaxed italic font-medium font-black italic">As a Member of the Network, you retain 100% legal responsibility for any message payload triggered through the protocol.</p>
                     </section>
                     <section>
-                       <h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest uppercase">02. TOLERANCE ZERO FOR ABUSE</h4>
-                       <p className="text-[10px] text-white/40 leading-relaxed italic font-medium uppercase font-black">Any use of the protocol for scams, hate speech, defamatory content, explicit material, or discriminatory campaigns will result in immediate terminal revocation without refund.</p>
+                       <h4 className="text-xs font-black uppercase text-[#25F4EE] mb-3 italic tracking-widest uppercase font-black italic">02. TOLERANCE ZERO FOR ABUSE</h4>
+                       <p className="text-[10px] text-white/40 leading-relaxed italic font-medium uppercase font-black font-black italic">Any use of the protocol for scams, hate speech, discriminatory campaigns, or misinformation will result in immediate terminal revocation through our AI Safety Audit.</p>
                     </section>
                  </div>
-                 <button onClick={() => { setTermsAccepted(true); setShowTerms(false); }} className="btn-strategic text-xs italic uppercase font-black py-4">I Accept Responsibility</button>
+                 <button onClick={() => { setTermsAccepted(true); setShowTerms(false); }} className="btn-strategic text-xs italic uppercase font-black py-4 font-black italic">I Accept Responsibility</button>
               </div>
            </div>
         </div>
       )}
 
       {/* Footer */}
-      <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 text-left">
-          <div className="flex flex-col gap-5 text-left font-black italic">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase">Legal</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Privacy</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none">Terms</a>
+      <footer className="mt-auto pb-20 w-full text-center space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left text-left font-black italic">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 text-left text-left font-black italic text-left">
+          <div className="flex flex-col gap-5 text-left font-black italic text-left font-black italic">
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic text-left">Legal</span>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic text-left">Privacy</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic text-left">Terms</a>
           </div>
-          <div className="flex flex-col gap-5 text-left font-black italic">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Compliance</span>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">CCPA</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none">GDPR</a>
+          <div className="flex flex-col gap-5 text-left font-black italic text-left font-black italic text-left font-black italic">
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic text-left">Compliance</span>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black italic text-left">CCPA</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black italic text-left">GDPR</a>
           </div>
-          <div className="flex flex-col gap-5 text-left font-black italic">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Network</span>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic">U.S. Nodes</a>
-             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic">EU Nodes</a>
+          <div className="flex flex-col gap-5 text-left font-black italic text-left font-black italic text-left font-black italic">
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic text-left">Network</span>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic text-left">U.S. Nodes</a>
+             <a href="#" className="hover:text-[#25F4EE] transition-colors uppercase italic font-black leading-none font-black italic text-left">EU Nodes</a>
           </div>
-          <div className="flex flex-col gap-5 text-left font-black italic font-black italic">
-             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic">Support</span>
-             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px] leading-none uppercase italic">SMART SUPPORT <Bot size={14}/></button>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic">Status</a>
-             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic tracking-widest font-black italic">Abuse</a>
+          <div className="flex flex-col gap-5 text-left font-black italic text-left font-black italic text-left font-black italic">
+             <span className="text-white/40 mb-2 border-b border-white/5 pb-2 italic leading-none uppercase font-black italic text-left">Support</span>
+             <button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] transition-colors flex items-center gap-1 text-left uppercase font-black italic text-[10px] leading-none uppercase italic text-left">SMART SUPPORT <Bot size={14}/></button>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic text-left">Status</a>
+             <a href="#" className="hover:text-[#FE2C55] transition-colors uppercase italic font-black leading-none font-black leading-none uppercase italic tracking-widest font-black italic text-left">Abuse</a>
           </div>
         </div>
-        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none italic font-black uppercase italic font-black italic uppercase italic">© 2026 ClickMoreDigital | High-End Security Protocol</p>
+        <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic drop-shadow-2xl text-center leading-none italic font-black uppercase italic font-black italic uppercase italic text-center">© 2026 ClickMoreDigital | High-End Security Protocol</p>
       </footer>
     </div>
   );
