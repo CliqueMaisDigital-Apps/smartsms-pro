@@ -30,22 +30,21 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi
 } from 'lucide-react';
 
-// --- FIREBASE CONFIGURATION ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-  ? JSON.parse(__firebase_config) 
-  : {
-      apiKey: "AIzaSyBI-JSC-FtVOz_r6p-XjN6fUrapMn_ad24",
-      authDomain: "smartsmspro-4ee81.firebaseapp.com",
-      projectId: "smartsmspro-4ee81",
-      storageBucket: "smartsmspro-4ee81.firebasestorage.app",
-      messagingSenderId: "269226709034",
-      appId: "1:269226709034:web:00af3a340b1e1ba928f353"
-    };
+// --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
+// A regra dinâmica foi removida. A Web aponta 100% para o mesmo banco fixo do seu APK Android.
+const firebaseConfig = {
+  apiKey: "AIzaSyBI-JSC-FtVOz_r6p-XjN6fUrapMn_ad24",
+  authDomain: "smartsmspro-4ee81.firebaseapp.com",
+  projectId: "smartsmspro-4ee81",
+  storageBucket: "smartsmspro-4ee81.firebasestorage.app",
+  messagingSenderId: "269226709034",
+  appId: "1:269226709034:web:00af3a340b1e1ba928f353"
+};
 
-const appId = typeof __app_id !== 'undefined' ? __app_id : "smartsms-pro-elite-terminal-vfinal";
+const appId = "smartsms-pro-elite-terminal-vfinal";
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
@@ -113,11 +112,11 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
   
-  // ---> NEW AI DELAY COMMANDER & REAL-TIME COUNTER STATES <---
   const [isDispatching, setIsDispatching] = useState(false);
-  const [sendDelay, setSendDelay] = useState(30);
+  const [sendDelay, setSendDelay] = useState(15);
   const [sessionSentCount, setSessionSentCount] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
+  const [nodeWarningActive, setNodeWarningActive] = useState(false); // Novo Diagnóstico de Nó
   
   const [connectedChips, setConnectedChips] = useState(1);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
@@ -197,6 +196,9 @@ export default function App() {
       collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'),
       (snap) => {
         setSmsQueueCount(snap.docs.length);
+        // Diagnóstico: Se há itens na fila e o app de celular não os apaga, ativa aviso.
+        if (snap.docs.length > 5) setNodeWarningActive(true);
+        else setNodeWarningActive(false);
       },
       (error) => console.error("Queue Sync Error:", error)
     );
@@ -208,7 +210,6 @@ export default function App() {
   // PRO COMMAND FUNCTIONS
   // ============================================================================
   
-  // ZERO TOLERANCE POLICY VALIDATION
   const validateAIContent = (text) => {
     setAiObjective(text);
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
@@ -219,7 +220,6 @@ export default function App() {
     }
   };
 
-  // NATIVE AI CONTEXTUAL ENGINE (SUPER NLP SIMULATION)
   const superAIVariationEngine = (baseText, index, leadName) => {
     const ptMarkers = /\b(orçamento|cotação|gostaria|quero|trabalho|serviço|projeto|vocês|empresa|teste|olá|boa tarde|bom dia|para|com|como|fazer|preço)\b/gi;
     const enMarkers = /\b(quote|estimate|pricing|work|portfolio|projects|request|ask|hi|hello|hey|test|this|for|with)\b/gi;
@@ -284,7 +284,6 @@ export default function App() {
     return (finalMessage.trim() + byteBypass).replace(/\s{2,}/g, ' ');
   };
 
-  // GENERATE VARIATIONS & OPEN STAGING AREA
   const handlePrepareBatch = () => {
     if (!aiObjective || logs.length === 0 || aiWarning) return;
     setIsAiProcessing(true);
@@ -314,14 +313,12 @@ export default function App() {
     }, 1500);
   };
 
-  // EDIT INDIVIDUAL VARIATION BLOCK
   const handleEditStagedMsg = (index, newMsg) => {
     const updatedQueue = [...stagedQueue];
     updatedQueue[index].optimizedMsg = newMsg;
     setStagedQueue(updatedQueue);
   };
 
-  // ---> DISPATCH STAGED QUEUE WITH REAL-TIME COUNTER & SANITIZATION <---
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
     
@@ -331,8 +328,6 @@ export default function App() {
     }
 
     setIsDispatching(true);
-    
-    // Set HUD Counters
     const queueCopy = [...stagedQueue];
     setSessionTotal(queueCopy.length);
     setSessionSentCount(0);
@@ -341,10 +336,9 @@ export default function App() {
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
         
-        // CRITICAL FIX: Sanitize Phone Number for Android Bridge (Remove spaces, brackets, dashes)
+        // HIGHEST SANITIZATION: Remove espaços, travessões, parênteses
         const sanitizedPhone = task.telefone_cliente.replace(/[^\d+]/g, ''); 
         
-        // Push single unit to Firebase
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
           telefone_cliente: sanitizedPhone,
@@ -352,11 +346,9 @@ export default function App() {
           created_at: serverTimestamp()
         });
 
-        // LIVE FEEDBACK: Remove message from screen & Update Session Counter
         setStagedQueue(prev => prev.slice(1));
         setSessionSentCount(i + 1);
 
-        // LIVE FEEDBACK: Update Global Stats locally (avoids unnecessary DB reads)
         if (!isMaster) {
           const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
           await updateDoc(profileRef, { 
@@ -372,7 +364,6 @@ export default function App() {
           setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
         }
 
-        // NATIVE AI DELAY LOGIC: Wait before injecting next
         if (i < queueCopy.length - 1) {
           await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
         }
@@ -386,7 +377,6 @@ export default function App() {
     setIsReviewMode(false);
   };
 
-  // CLEAR STUCK QUEUE
   const handleClearQueue = async () => {
     if (!window.confirm("CONFIRMATION: Are you sure you want to completely clear the stuck queue?")) return;
     setLoading(true);
@@ -424,11 +414,10 @@ export default function App() {
             phone = parts[1].trim();
           }
           
-          // EXTRAI APENAS NÚMEROS PARA GERAR ID SEGURO DO DOCUMENTO
           const safeId = phone.replace(/\D/g, '');
           if (!safeId) continue;
           
-          // FILTRO SANITIZADOR REGEX NATIVO: LIMPA DESDE O INÍCIO (Mantém o '+' e dígitos)
+          // NATIVE REGEX SANITIZATION
           const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
           
           const leadDocId = `${user.uid}_${safeId}`;
@@ -436,7 +425,7 @@ export default function App() {
           batch.set(leadRef, {
             ownerId: user.uid,
             nome_cliente: name,
-            telefone_cliente: sanitizedPhone, // GRAVA LIMPO E VALIDADO
+            telefone_cliente: sanitizedPhone,
             timestamp: serverTimestamp(),
             device: 'Bulk Import TXT'
           }, { merge: true });
@@ -499,7 +488,6 @@ export default function App() {
         setGenTo(''); setGenMsg('');
         
         setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
-        
         alert("PUSHED TO SECURE NODE!");
       } catch(e) { console.error(e); }
       setLoading(false);
@@ -520,10 +508,7 @@ export default function App() {
     setLoading(true);
     try {
       const ownerId = captureData.ownerId;
-      // EXTRAI APENAS NÚMEROS PARA GERAR ID SEGURO DO DOCUMENTO
       const safeId = captureForm.phone.replace(/\D/g, '');
-      
-      // FILTRO SANITIZADOR REGEX NATIVO: LIMPA A ENTRADA DO LEAD (Mantém o '+' e dígitos)
       const sanitizedPhone = captureForm.phone.replace(/[^\d+]/g, ''); 
       
       const leadDocId = `${ownerId}_${safeId}`;
@@ -534,7 +519,7 @@ export default function App() {
       await setDoc(leadRef, {
         ownerId,
         nome_cliente: String(captureForm.name),
-        telefone_cliente: sanitizedPhone, // GRAVA LIMPO E VALIDADO NO BANCO
+        telefone_cliente: sanitizedPhone,
         timestamp: serverTimestamp(),
         device: navigator.userAgent
       }, { merge: true });
@@ -1007,7 +992,7 @@ export default function App() {
                          </button>
                       </div>
                       
-                      {/* PAINEL DE DISPARO REMOTO */}
+                      {/* PAINEL DE DISPARO REMOTO & DIAGNÓSTICO GHOST PROTOCOL */}
                       <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative overflow-hidden">
                         {smsQueueCount > 0 ? (
                           <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
@@ -1020,12 +1005,30 @@ export default function App() {
                                <p className="text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P NODE..."}</p>
                              </div>
                              
-                             <button onClick={handleClearQueue} disabled={loading} className="mt-8 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
+                             <button onClick={handleClearQueue} disabled={loading} className="mt-6 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
                                <Trash2 size={12} /> CLEAR STUCK QUEUE
                              </button>
+
+                             {nodeWarningActive && (
+                               <div className="mt-6 p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
+                                 <p className="text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-2 mb-1"><WifiOff size={12}/> NODE DISCONNECTED OR KEY MISMATCH</p>
+                                 <p className="text-[8px] text-white/60 font-sans !text-transform-none">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
+                               </div>
+                             )}
                           </div>
                         ) : (
-                          <div className="opacity-20"><ShieldAlert size={64} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">SYSTEM STANDBY</p></div>
+                          <div className="opacity-20 flex flex-col items-center">
+                            <ShieldAlert size={54} className="mb-4 text-white" />
+                            <p className="text-[11px] font-black tracking-widest">SYSTEM STANDBY</p>
+                          </div>
+                        )}
+
+                        {/* HIGH-TECH GHOST PROTOCOL EXPLANATION BADGE */}
+                        {!smsQueueCount && (
+                          <div className="absolute bottom-4 left-4 right-4 p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left">
+                             <p className="text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-2 mb-1"><Wifi size={12} className="animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
+                             <p className="text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Dispatches are injected directly into the cellular radio baseband, bypassing Google Messages & RCS entirely. Sent messages will NOT appear in your Android outbox to preserve operational stealth.</p>
+                          </div>
                         )}
                       </div>
                    </div>
