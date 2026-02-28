@@ -19,7 +19,8 @@ import {
   setDoc,
   updateDoc,
   increment,
-  addDoc
+  addDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -28,7 +29,7 @@ import {
   UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck,
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, ShieldAlert as AlertIcon, FileText, UploadCloud, PlayCircle,
-  ShoppingCart, Wallet, AlertTriangle
+  ShoppingCart, Wallet, AlertTriangle, Trash, Edit
 } from 'lucide-react';
 
 // --- CONFIGURAÇÃO BLINDADA DO FIREBASE ---
@@ -76,6 +77,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState([]); 
   const [allUsers, setAllUsers] = useState([]); 
+  const [myLeads, setMyLeads] = useState([]); 
+  const [myLinks, setMyLinks] = useState([]); // Histórico de Links
   const [isVaultActive, setIsVaultActive] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
   const [captureData, setCaptureData] = useState(null);
@@ -85,6 +88,10 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   
+  // Link Editor States
+  const [editingLink, setEditingLink] = useState(null);
+  const [editMsg, setEditMsg] = useState('');
+
   // AI Safety & Synthesis Engine
   const [safetyViolation, setSafetyViolation] = useState(null);
   const [isSafetyAuditing, setIsSafetyAuditing] = useState(false);
@@ -157,20 +164,21 @@ export default function App() {
     });
 
     const params = new URLSearchParams(window.location.search);
+    const lid = params.get('lid');
     if (params.get('t') && params.get('m')) {
       setCaptureData({ to: params.get('t'), msg: params.get('m'), company: params.get('c') || 'Verified Host', ownerId: params.get('o') });
-      handleProtocolHandshake(params.get('t'), params.get('m'), params.get('o'));
+      handleProtocolHandshake(params.get('t'), params.get('m'), params.get('o'), lid);
     }
     return () => unsubscribe();
   }, []);
 
   // DATA SYNCHRONIZATION
   useEffect(() => {
-    if (!user) return;
+    if (!user || view !== 'dashboard') return;
     
-    let unsubUsers, unsubLeads, unsubProfile;
+    let unsubUsers, unsubLeads, unsubLinks, unsubProfile;
     try {
-      // 1. Sincronização em Tempo Real do Perfil (Atualiza Créditos Instantaneamente)
+      // 1. Sync do Perfil para Atualização de Créditos em Tempo Real
       unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
         if (docSnap.exists()) {
            const data = docSnap.data();
@@ -182,26 +190,29 @@ export default function App() {
         }
       });
 
-      // 2. Sincronização de Listas (Apenas visível na Dashboard)
-      if (view === 'dashboard') {
-        if (user.uid === ADMIN_MASTER_ID) {
-          unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
-            setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          }, (err) => console.warn("List hidden pending permissions."));
-        }
+      // 2. Sync do Histórico de Links (NOVO)
+      unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
+        setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+      }, (err) => console.warn("Link sync bypassed."));
 
-        if (isVaultActive) {
-          unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-          }, (err) => console.warn("Vault locked pending sync."));
-        }
+      if (user.uid === ADMIN_MASTER_ID) {
+        unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'user_profiles'), (snap) => {
+          setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => console.warn("List hidden pending permissions."));
+      }
+
+      if (isVaultActive) {
+        unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setLogs(data.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+        }, (err) => console.warn("Vault locked pending sync."));
       }
     } catch(e) {}
     
     return () => { 
       if(unsubUsers) unsubUsers(); 
       if(unsubLeads) unsubLeads(); 
+      if(unsubLinks) unsubLinks();
       if(unsubProfile) unsubProfile();
     };
   }, [user, view, isVaultActive]);
@@ -210,7 +221,6 @@ export default function App() {
   const runSafetyAudit = async (text) => {
     if (!text) return true;
     
-    // Padrões de Risco (Global & Nativo Americano)
     const restrictedPatterns = [
       /\b(bit\.ly|t\.co|tinyurl|is\.gd|cutt\.ly)\b/i, 
       /\b(scam|fraud|money|bank|irs|verify|lottery|winner|inherited|password|pin|ssn|urgent|police)\b/i, 
@@ -230,7 +240,6 @@ export default function App() {
   };
 
   const synthesizeDynamicVariations = (baseMsg) => {
-    // Intelligent Structural Rotations
     const greetings = ["Hi", "Hello", "Greetings", "Hey there", "Notice:", "Attention:", "Update:"];
     const contextFillers = ["as requested,", "following our protocol,", "regarding your interest,", "as a member,"];
     const endings = ["Ref", "ID", "Code", "Track", "Signal", "Hash"];
@@ -253,7 +262,7 @@ export default function App() {
 
   const handlePrepareBatch = async () => {
     if (!aiObjective || logs.length === 0) return;
-    if (userProfile?.smsCredits <= 0 && user.uid !== ADMIN_MASTER_ID) return alert("Insufficient credits.");
+    if (userProfile?.smsCredits <= 0 && user.uid !== ADMIN_MASTER_ID) return alert("Insufficient Trial Handshakes.");
     
     const isSafe = await runSafetyAudit(aiObjective);
     if (!isSafe) return;
@@ -277,7 +286,7 @@ export default function App() {
 
   const triggerNextInQueue = async () => {
     if (queueIndex >= activeQueue.length) return;
-    if (userProfile.smsCredits <= 0 && !userProfile.isUnlimited) return alert("Credit limit reached.");
+    if (userProfile.smsCredits <= 0 && !userProfile.isUnlimited) return alert("Handshake limit reached.");
 
     const current = activeQueue[queueIndex];
     const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
@@ -286,7 +295,6 @@ export default function App() {
       try {
         const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
         await updateDoc(profileRef, { smsCredits: increment(-1), usageCount: increment(1) });
-        setUserProfile(prev => ({...prev, smsCredits: prev.smsCredits - 1, usageCount: (prev.usageCount||0) + 1}));
       } catch (e) { console.warn("Credit decrement bypass") }
     }
 
@@ -326,33 +334,37 @@ export default function App() {
   };
 
   // --- PROTOCOL HANDSHAKE ---
-  const handleProtocolHandshake = async (to, msg, ownerId) => {
+  const handleProtocolHandshake = async (to, msg, ownerId, lid) => {
     setView('bridge');
     if(!ownerId) return;
+
+    // Validate if Link is Canceled
+    if (lid) {
+      try {
+        const linkSnap = await getDoc(doc(db, 'artifacts', appId, 'users', ownerId, 'links', lid));
+        if (linkSnap.exists() && linkSnap.data().status === 'canceled') {
+           alert("Protocol Alert: This Smart Link has been deactivated by the host.");
+           setView('home');
+           return;
+        }
+      } catch (e) { console.warn("Link validation bypassed"); }
+    }
+
     setTimeout(async () => {
       try {
         const ownerRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const d = await getDoc(ownerRef);
         const ownerProfile = d?.data();
 
-        // Bloqueio rigoroso se a cota estiver em zero
         if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && (ownerProfile?.smsCredits <= 0 || ownerProfile?.usageCount >= 60)) {
           setQuotaExceeded(true);
           return;
         }
 
-        // Deduz 1 crédito e aumenta o histórico de uso (Apenas contas não-ilimitadas)
         if (!ownerProfile?.isUnlimited) {
-          await updateDoc(ownerRef, { 
-            usageCount: increment(1),
-            smsCredits: increment(-1) 
-          });
-          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { 
-            usageCount: increment(1),
-            smsCredits: increment(-1) 
-          });
+          await updateDoc(ownerRef, { usageCount: increment(1), smsCredits: increment(-1) });
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1), smsCredits: increment(-1) });
         } else {
-          // Atualiza apenas a métrica de uso para utilizadores Master/Unlimited
           await updateDoc(ownerRef, { usageCount: increment(1) });
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId), { usageCount: increment(1) });
         }
@@ -417,14 +429,52 @@ export default function App() {
     setLoading(false);
   };
 
+  // --- LINK MANAGEMENT ---
   const handleGenerate = async () => {
     if (!user) { setIsLoginMode(false); setView('auth'); return; }
     if (!genTo) return;
     if (genMsg.length > MSG_LIMIT) return alert("Safety Protocol: Payload exceeds limits.");
     const isSafe = await runSafetyAudit(genMsg);
     if (!isSafe) return;
+    
+    const uniqueId = crypto.randomUUID().split('-')[0];
     const baseUrl = window.location.origin;
-    setGeneratedLink(`${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}`);
+    const shortLink = `${baseUrl}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}&lid=${uniqueId}`;
+    
+    setGeneratedLink(shortLink);
+
+    try {
+      await setDoc(doc(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), uniqueId), {
+        url: shortLink,
+        to: genTo,
+        msg: genMsg,
+        company: companyName || 'Verified Partner',
+        status: 'active',
+        created_at: serverTimestamp()
+      });
+    } catch (e) { console.error("Link history logging bypassed."); }
+  };
+
+  const toggleLinkStatus = async (id, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'canceled' : 'active';
+      await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id), { status: newStatus });
+    } catch (e) { console.error(e); }
+  };
+
+  const deleteLink = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
+    } catch (e) { console.error(e); }
+  };
+
+  const saveEditedLink = async () => {
+    if (!editingLink) return;
+    try {
+      const newUrl = `${window.location.origin}?t=${encodeURIComponent(editingLink.to)}&m=${encodeURIComponent(editMsg)}&o=${user.uid}&c=${encodeURIComponent(editingLink.company)}&lid=${editingLink.id}`;
+      await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', editingLink.id), { msg: editMsg, url: newUrl });
+      setEditingLink(null);
+    } catch (e) { console.error(e); }
   };
 
   const toggleUnlimited = async (targetUserId, currentStatus) => {
@@ -454,7 +504,7 @@ export default function App() {
         .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
         
         .btn-strategic { background: #FFFFFF; color: #000000; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; }
-        .btn-strategic:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); }
+        .btn-strategic:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
         
         /* Neon Premium Animations */
         .btn-neon-cyan { animation: neon-cyan 2s infinite alternate; background: #25F4EE !important; color: #000 !important; }
@@ -561,7 +611,6 @@ export default function App() {
                          </div>
                        )}
                     </div>
-                    {/* Botão Neon Cyan */}
                     <button onClick={handleGenerate} disabled={isSafetyAuditing || !!safetyViolation} className="btn-strategic btn-neon-cyan text-xs mt-4 italic font-black uppercase py-5 disabled:opacity-30 w-full shadow-2xl">
                        {isSafetyAuditing ? "SHA Safety Audit Active..." : "Generate Smart Link"} <ChevronRight size={18} />
                     </button>
@@ -666,7 +715,8 @@ export default function App() {
                     <div className="flex items-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="p-1 text-white/40 hover:text-white">-</button><span className="text-3xl font-black text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="p-1 text-white/40 hover:text-white">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE]">
-                    <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center gap-1"><Wallet size={10}/> SMS Credits</p>
+                    {/* TERMINOLOGIA ANTI-TELECOM: 60 Free Trial / Handshakes */}
+                    <p className="text-[9px] font-black text-white/30 uppercase mb-1 flex items-center justify-center gap-1"><Activity size={10}/> 60 Free Trial</p>
                     <p className="text-4xl font-black text-white italic">{userProfile?.isUnlimited ? '∞' : userProfile?.smsCredits || 0}</p>
                  </div>
               </div>
@@ -775,6 +825,33 @@ export default function App() {
                   </div>
                </div>
             )}
+
+            {/* MÓDULO NOVO: SMART LINKS MANAGEMENT (HISTÓRICO) */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
+              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
+                <div className="flex items-center gap-3 text-left font-black italic"><Globe size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Smart Links Management</h3></div>
+              </div>
+              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left font-black italic">
+                {myLinks.length > 0 ? myLinks.map(link => (
+                  <div key={link.id} className={`p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-white/[0.02] transition-colors ${link.status === 'canceled' ? 'opacity-50' : ''}`}>
+                    <div className="text-left font-black italic">
+                      <p className="font-black text-xl text-white uppercase italic">{link.company}</p>
+                      <p className="text-[12px] text-[#25F4EE] font-black">{link.to}</p>
+                      <p className="text-[10px] text-white/40 mt-2 truncate max-w-xs">{link.url}</p>
+                      <p className="text-[9px] text-white/30 uppercase mt-1">{link.created_at?.seconds ? new Date(link.created_at.seconds * 1000).toLocaleString() : 'Just now'}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[9px] px-3 py-1 rounded-full uppercase ${link.status === 'active' ? 'bg-[#25F4EE]/10 text-[#25F4EE]' : 'bg-[#FE2C55]/10 text-[#FE2C55]'}`}>
+                        {link.status}
+                      </span>
+                      <button onClick={() => toggleLinkStatus(link.id, link.status)} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white" title={link.status === 'active' ? 'Cancel Link' : 'Activate Link'}><RefreshCw size={14} /></button>
+                      <button onClick={() => {setEditingLink(link); setEditMsg(link.msg);}} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white" title="Edit Message"><Edit size={14} /></button>
+                      <button onClick={() => deleteLink(link.id)} className="p-2 bg-[#FE2C55]/10 rounded-lg hover:bg-[#FE2C55]/20 text-[#FE2C55]" title="Delete Link"><Trash size={14} /></button>
+                    </div>
+                  </div>
+                )) : <div className="p-20 text-center opacity-20 font-black italic"><Globe size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">No Active Links Found</p></div>}
+              </div>
+            </div>
             
             {/* VAULT SYNC (DESIGN APROVADO) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
@@ -789,6 +866,22 @@ export default function App() {
                     <div className="text-right text-[10px] text-white/30 font-black uppercase font-black italic"><p>{l.location}</p><p className="mt-1">{l.ip || 'Global Asset'}</p></div>
                   </div>
                 )) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Link Modal */}
+        {editingLink && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
+              <div className="lighthouse-neon-content p-8 sm:p-12 text-left">
+                 <h3 className="text-2xl font-black italic mb-6 uppercase tracking-tighter">Edit Smart Link</h3>
+                 <textarea value={editMsg} onChange={e=>setEditMsg(e.target.value)} className="input-premium w-full h-32 mb-6 text-sm" placeholder="Update your message..." />
+                 <div className="flex gap-4">
+                   <button onClick={saveEditedLink} className="flex-1 py-4 bg-[#25F4EE] text-black font-black italic uppercase text-[10px] rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform">Save Changes</button>
+                   <button onClick={() => setEditingLink(null)} className="flex-1 py-4 bg-white/5 font-black italic uppercase text-[10px] rounded-2xl hover:bg-white/10 transition-colors">Cancel</button>
+                 </div>
               </div>
             </div>
           </div>
