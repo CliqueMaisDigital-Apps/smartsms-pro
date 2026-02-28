@@ -112,10 +112,12 @@ export default function App() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
-  const [isDispatching, setIsDispatching] = useState(false); // <--- ESTADO DO MOTOR DE DELAY ADICIONADO
+  
+  // ---> NEW AI DELAY COMMANDER STATES <---
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [sendDelay, setSendDelay] = useState(30);
   
   const [connectedChips, setConnectedChips] = useState(1);
-  const [sendDelay, setSendDelay] = useState(30);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
 
@@ -217,7 +219,6 @@ export default function App() {
 
   // NATIVE AI CONTEXTUAL ENGINE (SUPER NLP SIMULATION)
   const superAIVariationEngine = (baseText, index, leadName) => {
-    // Precise Language Detection (Counting accurate markers)
     const ptMarkers = /\b(orçamento|cotação|gostaria|quero|trabalho|serviço|projeto|vocês|empresa|teste|olá|boa tarde|bom dia|para|com|como|fazer|preço)\b/gi;
     const enMarkers = /\b(quote|estimate|pricing|work|portfolio|projects|request|ask|hi|hello|hey|test|this|for|with)\b/gi;
     
@@ -256,7 +257,6 @@ export default function App() {
          const repIdx = (index * 11 + i * 7 + matchCount) % s.reps.length;
          let replacement = s.reps[repIdx];
          matchCount++;
-         // Preserve capitalization context organically
          if (match[0] === match[0].toUpperCase()) {
             replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
          }
@@ -266,7 +266,6 @@ export default function App() {
 
     let finalMessage = spun;
 
-    // Safe structural variation that preserves context without breaking natural language flow
     if (index % 2 !== 0 && !spun.endsWith('?')) {
         if (detectedLang === 'pt') {
             const ptClosings = [" Fico no aguardo.", " Aguardo retorno.", " Podemos conversar?", " Obrigado.", " Me avise."];
@@ -277,7 +276,6 @@ export default function App() {
         }
     }
 
-    // Stealth Carrier Bypass (Invisible Unicode Injector)
     const invisibleChars = ["\u200B", "\u200C", "\u200D", "\uFEFF"];
     const byteBypass = invisibleChars[index % invisibleChars.length].repeat((index % 4) + 1);
 
@@ -297,10 +295,8 @@ export default function App() {
          return;
       }
       
-      // Map leads and apply Contextual AI Engine
       const queue = logs.slice(0, limit).map((l, idx) => {
          const contextualMessage = superAIVariationEngine(aiObjective, idx, l.nome_cliente);
-         
          return { 
            id: l.id || Math.random().toString(),
            telefone_cliente: l.telefone_cliente, 
@@ -323,7 +319,7 @@ export default function App() {
     setStagedQueue(updatedQueue);
   };
 
-  // DISPATCH STAGED QUEUE TO FIREBASE (NATIVE AI DELAY COMMANDER)
+  // ---> NEW: DISPATCH STAGED QUEUE TO FIREBASE WITH AI DELAY COMMANDER <---
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
     
@@ -332,7 +328,6 @@ export default function App() {
        return;
     }
 
-    // TRAVA A UI E INICIA O MOTOR DE DELAY DA SUPER IA
     setIsDispatching(true);
 
     try {
@@ -341,12 +336,13 @@ export default function App() {
         await updateDoc(profileRef, { smsCredits: increment(-stagedQueue.length) });
       }
 
-      // Copia a fila para memória para garantir o envio na ordem das randomizações
+      // Copia a fila para memória para envio sequencial
       const queueCopy = [...stagedQueue];
 
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
         
+        // Push unitário para o Firebase
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
           telefone_cliente: task.telefone_cliente,
@@ -354,10 +350,10 @@ export default function App() {
           created_at: serverTimestamp()
         });
 
-        // FEEDBACK VISUAL: Remove o bloco enviado da tela um a um
+        // Feedback Visual: Remove a mensagem atual do ecrã para indicar sucesso
         setStagedQueue(prev => prev.slice(1));
 
-        // SUPER IA DELAY LOGIC: Aguarda o tempo selecionado antes de enviar o próximo (exceto no último)
+        // NATIVE AI DELAY LOGIC: Aguarda o tempo selecionado antes da próxima injeção
         if (i < queueCopy.length - 1) {
           await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
         }
@@ -778,7 +774,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
                 { label: "DISPATCHED SMS", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
-                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" }, // EMERALD GREEN UPDATE
+                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
                 { label: "ACTIVE CONTACTS", value: logs.length || 0, icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
@@ -895,7 +891,6 @@ export default function App() {
                         <p className="text-[9px] text-white/40 tracking-widest mt-2">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
-                    {/* HELP SETUP BUTTON */}
                     <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-5 py-3 rounded-xl text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 shrink-0">
                       <Info size={16}/> SETUP GUIDE & DOWNLOAD
                     </button>
@@ -929,18 +924,12 @@ export default function App() {
                         ))}
                      </div>
 
-                     {/* FIX: SETUP DE DELAY COM HARMONIA E CONTROLE DA IA */}
+                     {/* RODAPÉ DO STAGING: DISPATCH COM AVISO */}
                      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-2 bg-[#111] p-5 rounded-2xl border border-white/5 shadow-inner">
                         <div className="flex items-center gap-3 px-2">
                            <Clock size={20} className="text-[#25F4EE] animate-pulse" />
-                           <span className="text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5">DISPATCH DELAY:</span>
-                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#25F4EE] text-[12px] font-black outline-none cursor-pointer border-b border-[#25F4EE]/30 pb-1">
-                              <option value={5}>5 SECONDS</option>
-                              <option value={15}>15 SECONDS</option>
-                              <option value={30}>30 SECONDS</option>
-                              <option value={60}>1 MINUTE</option>
-                              <option value={120}>2 MINUTES</option>
-                           </select>
+                           <span className="text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5">DISPATCH PACING:</span>
+                           <span className="text-[#25F4EE] text-[12px] font-black">{sendDelay} SECONDS</span>
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                            <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
@@ -959,6 +948,22 @@ export default function App() {
                               <p className="text-[10px] text-[#FE2C55] tracking-widest font-black leading-tight">{aiWarning}</p>
                             </div>
                          )}
+
+                         {/* NEW: DELAY SETUP PLACED MAIN PANEL */}
+                         <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-2xl mb-2">
+                           <Clock size={20} className="text-[#25F4EE]" />
+                           <div className="flex-1">
+                             <p className="text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY SETTING</p>
+                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#25F4EE] text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                                <option value={5}>5 SECONDS (AGGRESSIVE)</option>
+                                <option value={15}>15 SECONDS (FAST)</option>
+                                <option value={30}>30 SECONDS (RECOMMENDED)</option>
+                                <option value={60}>1 MINUTE (SAFE)</option>
+                                <option value={120}>2 MINUTES (ULTRA SAFE)</option>
+                             </select>
+                           </div>
+                         </div>
+
                          <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[140px] resize-none font-sans font-medium !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
                          
                          <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
@@ -976,7 +981,7 @@ export default function App() {
                              </div>
                              <div className="text-amber-500 flex flex-col items-center gap-3">
                                <RefreshCw size={24} className="animate-spin" />
-                               <p className="text-[9px] tracking-widest animate-pulse font-bold">TRANSMITTING VIA SECURE P2P NODE...</p>
+                               <p className="text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P NODE..."}</p>
                              </div>
                              
                              <button onClick={handleClearQueue} disabled={loading} className="mt-8 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
@@ -1097,7 +1102,7 @@ export default function App() {
               </div>
               
               <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] w-full py-4 shadow-xl mb-4">
-                SIMULATE CONNECTION
+                CONFIRM NODE SYNC
               </button>
             </div>
           </div>
