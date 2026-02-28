@@ -54,12 +54,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, COLOQUE SEU UID AQUI
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, COLE O SEU UID AQUI
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
 
-// --- FAQ COMPONENT (Design Ultra Premium) ---
+// --- FAQ COMPONENT ---
 const FAQItem = ({ q, a }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -100,15 +100,25 @@ export default function App() {
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [sendDelay, setSendDelay] = useState(30);
 
-  // Generator
+  // Generator States
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
   const MSG_LIMIT = 300;
 
+  // Auth States
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [showPass, setShowPass] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   const isPro = userProfile?.tier === 'MASTER' || userProfile?.isSubscribed || userProfile?.isUnlimited || user?.uid === ADMIN_MASTER_ID;
 
-  // 1. FIREBASE INITIALIZATION
+  // 1. IDENTITY PROTECTION BOOTSTRAP (Visitors & Admin)
   useEffect(() => {
     const initAuth = async () => {
       if (!auth.currentUser) await signInAnonymously(auth).catch(()=>{});
@@ -145,7 +155,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. REDIRECTION ENGINE
+  // 2. REDIRECTION HANDSHAKE 
   useEffect(() => {
     if (!authResolved) return; 
     const params = new URLSearchParams(window.location.search);
@@ -156,24 +166,37 @@ export default function App() {
     }
   }, [authResolved]);
 
-  // 3. DATA SYNC
+  // 3. MASTER DATA SYNC (Leads via Public Tunnel)
   useEffect(() => {
     if (!user || user.isAnonymous || view !== 'dashboard') return;
     const unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
       if (docSnap.exists()) setUserProfile(docSnap.data());
     });
     const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const filtered = user.uid === ADMIN_MASTER_ID ? all : all.filter(l => l.ownerId === user.uid);
-      setLogs(filtered.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
+      const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const myData = user.uid === ADMIN_MASTER_ID ? allData : allData.filter(l => l.ownerId === user.uid);
+      setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
     });
     const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
       setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     });
     return () => { unsubProfile(); unsubLeads(); unsubLinks(); };
-  }, [user, view]);
+  }, [user, view, isVaultActive]);
 
-  // --- LOGIC ---
+  // 4. AUTOPILOT ENGINE 
+  useEffect(() => {
+    let timer;
+    if (isAutoSending && queueIndex < activeQueue.length) {
+      timer = setTimeout(() => {
+        triggerNextInQueue();
+      }, Math.max(sendDelay, 15) * 1000); 
+    } else if (queueIndex >= activeQueue.length) {
+      setIsAutoSending(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isAutoSending, queueIndex, activeQueue.length, sendDelay]);
+
+  // --- ENGINE LOGIC ---
   const handleProtocolHandshake = async (to, msg, ownerId, lid) => {
     setView('bridge');
     if(!ownerId) return;
@@ -190,8 +213,7 @@ export default function App() {
 
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', ownerId);
         const ownerProfile = (await getDoc(pubRef)).data();
-
-        if (ownerProfile?.smsCredits <= 0 && ownerProfile?.tier !== 'MASTER') {
+        if (!ownerProfile?.isSubscribed && !ownerProfile?.isUnlimited && ownerProfile?.smsCredits <= 0) {
           setQuotaExceeded(true);
           return;
         }
@@ -202,6 +224,8 @@ export default function App() {
         await setDoc(leadRef, {
           ownerId: ownerId,
           timestamp: serverTimestamp(),
+          created_at: serverTimestamp(),
+          destination: to,
           telefone_cliente: to,
           nome_cliente: "CAPTURED_LEAD",
           device: navigator.userAgent
@@ -227,18 +251,23 @@ export default function App() {
   const triggerNextInQueue = async () => {
     if (queueIndex >= activeQueue.length) return setIsAutoSending(false);
     const current = activeQueue[queueIndex];
-    if (!isPro) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', user.uid), { smsCredits: increment(-1) }).catch(()=>{});
+    if (!isPro) {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', user.uid), { smsCredits: increment(-1), usageCount: increment(1) }).catch(()=>{});
+    }
     setQueueIndex(prev => prev + 1);
-    window.location.href = `sms:${current.telefone_cliente}${/iPad|iPhone|iPod/.test(navigator.userAgent)?';':'?'}body=${encodeURIComponent(current.optimizedMsg)}`;
+    const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
+    window.location.href = `sms:${current.telefone_cliente}${sep}body=${encodeURIComponent(current.optimizedMsg)}`;
   };
 
   const handleGenerate = async () => {
-    if (!user || user.isAnonymous) { setView('auth'); return; }
+    if (!user || user.isAnonymous) { setIsLoginMode(false); setView('auth'); return; }
     if (!genTo) return;
-    const uid = crypto.randomUUID().split('-')[0];
-    const link = `${window.location.origin}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}&lid=${uid}`;
+    setLoading(true);
+    const uniqueId = crypto.randomUUID().split('-')[0];
+    const link = `${window.location.origin}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Partner')}&lid=${uniqueId}`;
     setGeneratedLink(link);
-    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', uid), { url: link, to: genTo, msg: genMsg, company: companyName || 'Verified Partner', status: 'active', created_at: serverTimestamp() });
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', uniqueId), { url: link, to: genTo, msg: genMsg, company: companyName || 'Verified Partner', status: 'active', created_at: serverTimestamp() });
+    setLoading(false);
   };
 
   const handleAuthSubmit = async (e) => {
@@ -248,7 +277,7 @@ export default function App() {
       if (isLoginMode) await signInWithEmailAndPassword(auth, email, password);
       else {
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const p = { fullName, phone, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
+        const p = { fullName, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'user_profiles', u.user.uid), p);
       }
@@ -257,20 +286,39 @@ export default function App() {
     setLoading(false);
   };
 
+  const PremiumLockedFooter = ({ featureName, benefit }) => (
+    <div className="mt-10 pt-10 border-t border-[#FE2C55]/30 flex flex-col items-center justify-center text-center gap-6 relative z-20 w-full font-black italic">
+      <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/40 px-6 py-2 rounded-full shadow-[0_0:15px_rgba(254,44,85,0.2)]">
+        <Lock size={14} className="text-[#FE2C55]" /><span className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest italic">PREMIUM PROTOCOL LOCKED</span>
+      </div>
+      <p className="text-xl sm:text-3xl text-[#FE2C55] font-black italic uppercase leading-tight drop-shadow-[0_0_15px_rgba(254,44,85,0.6)] text-center">ATTENTION: YOU ARE LEAVING MONEY ON THE TABLE.</p>
+      <div className="max-w-4xl mx-auto space-y-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest italic text-white/70 bg-black/40 p-6 rounded-3xl border border-white/5 text-center leading-relaxed">
+        <p><span className="text-[#25F4EE]">INTEREST:</span> Competitors use <span className="text-white">{featureName}</span> to {benefit}.</p>
+        <p><span className="text-amber-500">DESIRE:</span> Imagine scale your reach to thousands, and unmasking every single highly-qualified lead in your vault. Stop guessing and start converting.</p>
+      </div>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic btn-neon-cyan text-xs sm:text-sm w-full max-w-[500px] py-6 shadow-[0_0_40px_rgba(37,244,238,0.5)] animate-pulse mt-2"><Rocket size={20} className="mr-2"/> UPGRADE NOW & UNLOCK YOUR MACHINE</button>
+    </div>
+  );
+
   if (!authResolved) return <div className="min-h-screen bg-black flex items-center justify-center font-black italic text-[#25F4EE] animate-pulse text-2xl">RE-ESTABLISHING SECURE TERMINAL...</div>;
 
   return (
-    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden text-left font-black italic leading-none">
+    <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] antialiased flex flex-col relative overflow-x-hidden text-left font-black italic">
       <style>{`
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-        @keyframes neon-cyan { 0% { box-shadow: 0 0 10px rgba(37,244,238,0.2); } 100% { box-shadow: 0 0 30px rgba(37,244,238,0.6); } }
+        @keyframes neon-cyan { 0% { box-shadow: 0 0 10px rgba(37,244,238,0.2); } 100% { box-shadow: 0 0 20px rgba(37,244,238,0.6); } }
+        @keyframes neon-white { 0% { box-shadow: 0 0 10px rgba(255,255,255,0.2); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.6); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
         .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
-        .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
-        .btn-strategic:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(37,244,238,0.4); }
+        .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .btn-strategic:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
+        .btn-neon-cyan { animation: neon-cyan 2s infinite alternate; background: #25F4EE !important; color: #000 !important; }
+        .btn-neon-white { animation: neon-white 2s infinite alternate; background: #FFFFFF !important; color: #000 !important; }
         .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 12px; outline: none; font-weight: 900; font-style: italic; font-size: 14px; }
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
       {/* Nav */}
@@ -283,7 +331,7 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white/50 hover:text-white transition-all z-[110]">{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
       </nav>
 
-      {/* Menu Hambúrguer lateral (Restaurado) */}
+      {/* Menu lateral restaurado */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
@@ -332,10 +380,10 @@ export default function App() {
                 </div>
               )}
 
-              {/* Bloco Gerador Original (Restaurado com Detalhes) */}
+              {/* Bloco Gerador Original Restaurado */}
               <div className="lighthouse-neon-wrapper shadow-3xl">
                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left space-y-8">
-                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none">Smart Handshake Generator</h3></div>
+                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] font-black uppercase italic tracking-widest text-white/60 leading-none font-black italic">Smart Handshake Generator</h3></div>
                   
                   <div className="space-y-3">
                      <label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black block leading-none">
@@ -350,11 +398,13 @@ export default function App() {
                   </div>
 
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none">Pre-Written Message</label><span className="text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
-                     <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-medium leading-relaxed" placeholder="Draft your intelligent message payload here..." />
+                     <div className="flex justify-between items-center"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none">Pre-Written Message</label></div>
+                     <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-medium leading-relaxed font-black italic" placeholder="Draft your intelligent message payload here..." />
                   </div>
 
-                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-5 w-full shadow-2xl leading-none">Generate Smart Link <ChevronRight size={18} /></button>
+                  <button onClick={handleGenerate} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-5 w-full shadow-2xl leading-none">
+                     {loading ? "PROCESSING payload..." : "Generate Smart Link"} <ChevronRight size={18} />
+                  </button>
                 </div>
               </div>
 
@@ -374,11 +424,11 @@ export default function App() {
               {/* FAQ RESTAURADO COM AIDA ROBUSTO */}
               <div className="pt-20 pb-12 text-left font-black italic">
                  <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase text-white tracking-widest leading-none">Protocol FAQ</h3></div>
-                 <div className="space-y-2 text-left font-black italic">
-                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Carrier headers are formatted to recognition as organic traffic signatures globally. This attention to detail prevents immediate bot-detection and increases final delivery probability to the recipient's native inbox." />
-                    <FAQItem q="Is the data vault truly isolated from platform access?" a="Yes. Our Zero-Knowledge architecture ensures your lead metadata is only decryptable by your session identity. We provide Interest-based Desire to maintain total privacy and security of your database." />
-                    <FAQItem q="How does the system ensure global carrier compliance?" a="The protocol maintains strict heuristics for delay and payload scrambling. This Action prevents chip shadowbans and maintains the longevity of your hardware nodes while operating at high scale." />
-                    <FAQItem q="What is the real benefit of the advanced AI agent?" a="Our Agent synthesizes 40+ variations of your контекst automatically. This Interest-based strategy avoids message fingerprinting, ensuring your payload is always perceived as a unique organic conversation by network filters." />
+                 <div className="space-y-2 text-left font-black italic leading-tight">
+                    <FAQItem q="Why use a protocol link instead of a standard redirect?" a="Carrier headers are formatted to recognition as organic traffic signatures globally. This attention to detail prevents immediate bot-detection and increases final delivery probability to the recipient's native inbox by mirroring organic referral metadata." />
+                    <FAQItem q="Is the data vault truly isolated from platform access?" a="Yes. Our Zero-Knowledge architecture ensures your lead metadata is only decryptable by your session identity. We provide Interest-based Desire to maintain total privacy and security of your database, even our administrators cannot access your leads." />
+                    <FAQItem q="How does the system ensure global carrier compliance?" a="The protocol maintains strict heuristics for delay and payload scrambling. This Action prevents chip shadowbans and maintains the longevity of your hardware nodes while operating at high scale. We prioritize the Interest of the sender reputation." />
+                    <FAQItem q="What is the real benefit of the advanced AI agent?" a="Our Agent synthesizes 40+ variations of your контекst automatically. This Desire-based strategy avoids message fingerprinting, ensuring your payload is always perceived as a unique organic conversation by network filters, resulting in the highest conversion Action in the market." />
                  </div>
               </div>
 
@@ -392,58 +442,39 @@ export default function App() {
           </div>
         )}
 
-        {view === 'bridge' && (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center relative px-8 font-black italic">
-            <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-16 sm:p-24 flex flex-col items-center">
-                {quotaExceeded ? (
-                  <div className="animate-in fade-in zoom-in-95 duration-500 text-left w-full"><ShieldAlert size={100} className="text-[#FE2C55] animate-pulse mb-10 mx-auto" /><h2 className="text-3xl font-black italic uppercase text-white mb-6 leading-tight text-center">Protocol Limit Reached</h2><div className="p-10 bg-white/[0.03] border border-white/5 rounded-[2.5rem] mb-12 relative overflow-hidden group shadow-2xl text-center leading-none"><h3 className="text-2xl font-black italic text-white uppercase mb-4 leading-none">Upgrade Identity</h3><p className="text-[10px] text-white/40 uppercase mb-12 font-black italic leading-relaxed tracking-widest">Upgrade to Nexus Member level to bypass trial limits and unlock full lead unmasking.</p><button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs italic font-black uppercase py-5 leading-none">Unlock Full Access</button></div></div>
-                ) : (
-                  <><Shield size={120} className="text-[#25F4EE] animate-pulse drop-shadow-[0_0_30px_#25F4EE] mb-14" /><h2 className="text-4xl font-black italic uppercase text-white text-center text-glow-white tracking-widest mb-6 leading-none font-black italic">SECURITY HANDSHAKE</h2><div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden my-12 max-w-xs leading-none"><div className="h-full bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] w-full origin-left animate-[progress_3s_linear]"></div></div><p className="text-[12px] text-white/50 uppercase italic font-black tracking-[0.2em] text-center leading-none">Authorized Origin: {captureData?.company}</p></>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {view === 'dashboard' && (
           <div className="w-full max-w-7xl mx-auto py-10 px-6 font-black italic text-left">
-            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16 text-left font-black italic">
-              <div className="text-left font-black italic">
-                <h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff] leading-none">OPERATOR HUB</h2>
-                <div className="flex items-center gap-4 mt-4 text-left leading-none font-black italic">
-                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none">{userProfile?.tier} IDENTITY</span>
-                   {isPro && <span className="text-[10px] text-amber-500 uppercase tracking-widest animate-pulse leading-none italic font-black">● LIVE PROTOCOL ACTIVE</span>}
-                </div>
-              </div>
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-10 mb-16 text-left font-black italic leading-none">
+              <div><h2 className="text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_20px_#fff]">OPERATOR HUB</h2><div className="flex items-center gap-4 mt-4 text-left leading-none font-black italic"><span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none">{userProfile?.tier} IDENTITY</span></div></div>
+              <div className="flex-1 flex justify-end"><button onClick={() => setView('home')} className="btn-strategic !bg-white/10 !text-white border border-white/10 text-[10px] !w-fit px-6 py-3 mr-4 font-black italic"><Zap size={14} className="text-[#25F4EE]"/> LINK GENERATOR</button></div>
               <div className="flex items-center gap-4 flex-wrap leading-none">
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl leading-none">
                     <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest">Active Chips</p>
                     <div className="flex items-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev-1))} className="text-white/30 hover:text-white">-</button><span className="text-3xl font-black text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev+1)} className="text-white/30 hover:text-white">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-5 rounded-[2rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] text-center leading-none">
-                    <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest flex items-center justify-center gap-1 leading-none"><Wallet size={10}/> Quota</p>
+                    <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none"><Wallet size={10} className="inline mr-1"/> Quota</p>
                     <p className="text-4xl font-black text-white italic leading-none">{isPro ? '∞' : userProfile?.smsCredits || 0}</p>
                  </div>
               </div>
             </div>
 
             <div className="animate-in fade-in duration-700 space-y-10 font-black italic text-left leading-none">
-               {/* AI MODULE (AIDA Persuasion) */}
+               {/* AI MODULE */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
                   <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem] flex flex-col font-black italic">
                      <div className={`${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity' : ''}`}>
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10 text-left leading-none"><div className="flex items-center gap-4 text-left leading-none"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20 leading-none"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic font-black italic leading-none">AI Agent Command {!isPro && <Lock size={18} className="text-[#FE2C55]" />}</h3><p className="text-[10px] text-white/30 uppercase tracking-widest font-black italic leading-none mt-1">Multi-Scrambling Synthesis Protocol</p></div></div></div>
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10 text-left leading-none"><div className="flex items-center gap-4 text-left leading-none"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20 leading-none"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic font-black italic leading-none">AI Agent Command {!isPro && <Lock size={18} className="text-[#FE2C55]" />}</h3><p className="text-[10px] text-white/30 uppercase tracking-widest font-black italic leading-none mt-1">Multi-Scrambling Synthesis Engine</p></div></div></div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left font-black italic leading-none">
-                           <div className="space-y-6 text-left leading-none"><textarea disabled={!isPro} value={aiObjective} onChange={(e) => setAiObjective(e.target.value)} placeholder="Marketing campaign objective..." className="input-premium w-full h-[180px] text-sm leading-relaxed font-black italic" /><button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0} className="btn-strategic btn-neon-cyan text-xs py-5 w-full uppercase leading-none font-black italic">Synthesize Queue ({logs.length} Units)</button></div>
-                           <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl leading-none">{activeQueue.length > 0 ? (<div className="w-full leading-none"><div className="mb-8 leading-none"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[9px] text-white/20 mt-4 tracking-[0.4em] uppercase font-black">Autopilot Progress</p></div><button onClick={() => setIsAutoSending(!isAutoSending)} className={`w-full py-6 text-black rounded-[2rem] font-black uppercase text-[11px] leading-none ${isAutoSending ? 'bg-[#FE2C55]' : 'bg-[#25F4EE] animate-pulse'}`}>{isAutoSending ? "STOP AUTOPILOT" : "LAUNCH AUTOPILOT"}</button></div>) : (<div className="opacity-20 text-center leading-none"><ShieldAlert size={80} className="mx-auto mb-6 leading-none" /><p className="text-sm uppercase italic tracking-[0.5em] font-black italic leading-none">System Standby</p></div>)}</div>
+                           <div className="space-y-6 text-left leading-none"><textarea disabled={!isPro} value={aiObjective} onChange={(e) => setAiObjective(e.target.value)} placeholder="Marketing goal..." className="input-premium w-full h-[180px] text-sm leading-relaxed font-black italic" /><button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0} className="btn-strategic btn-neon-cyan text-xs py-5 w-full uppercase leading-none font-black italic">Synthesize Queue ({logs.length} Units)</button></div>
+                           <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl leading-none">{activeQueue.length > 0 ? (<div className="w-full leading-none"><div className="mb-8 leading-none"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p></div><button onClick={() => setIsAutoSending(!isAutoSending)} className={`w-full py-6 text-black rounded-[2rem] font-black uppercase text-[11px] leading-none ${isAutoSending ? 'bg-[#FE2C55]' : 'bg-[#25F4EE] animate-pulse'}`}>{isAutoSending ? "STOP AUTOPILOT" : "LAUNCH AUTOPILOT"}</button></div>) : (<div className="opacity-20 text-center leading-none"><ShieldAlert size={80} className="mx-auto mb-6 leading-none" /><p className="text-sm uppercase italic tracking-[0.5em] font-black italic leading-none">System Standby</p></div>)}</div>
                         </div>
                      </div>
                      {!isPro && <PremiumLockedFooter featureName="AI Agent" benefit="scale campaigns and scramble fingerprints automatically" />}
                   </div>
                </div>
 
-               {/* MARKETPLACE RESTAURADO (ALEX MASTER VIEW) */}
+               {/* MARKETPLACE */}
                <div id="marketplace-section" className="mb-16 mt-10 font-black italic text-left leading-none">
                   <div className="flex items-center gap-3 mb-10 text-left leading-none font-black italic"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase text-white font-black italic leading-none">MAXIMIZE YOUR ROI: UPGRADE TO PRO</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left font-black italic leading-none">
@@ -452,7 +483,7 @@ export default function App() {
                  </div>
                </div>
 
-               {/* VAULT (RESTORED & FUNCTIONAL) */}
+               {/* VAULT */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic flex flex-col font-black italic leading-none">
                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] leading-none font-black italic text-left"><div className="flex items-center gap-3 text-left leading-none font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic font-black italic leading-none font-black italic">Data Vault Explorer</h3></div><button onClick={() => setIsVaultActive(!isVaultActive)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] font-black transition-all leading-none font-black italic ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>{isVaultActive ? "DISCONNECT" : "SYNC LEAD VAULT"}</button></div>
                  <div className="min-h-[200px] max-h-[40vh] overflow-y-auto text-left font-black italic leading-none">
@@ -462,10 +493,10 @@ export default function App() {
                      return (
                         <div key={l.id} className="p-8 border-b border-white/5 flex justify-between items-center hover:bg-white/[0.02] leading-none font-black italic">
                            <div>
-                              <p className="font-black text-xl text-white uppercase italic flex items-center gap-2 font-black italic leading-none">{isP ? (l.nome_cliente || 'Captured Lead') : 'PROT*****EAD'}{!isP && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase leading-none font-black italic animate-pulse">Locked</span>}</p>
+                              <p className="font-black text-xl text-white uppercase italic flex items-center gap-2 font-black italic leading-none">{isP ? l.nome_cliente : 'PROT*****EAD'}{!isP && <span className="text-[8px] bg-[#FE2C55] text-white px-2 py-0.5 rounded-full uppercase leading-none font-black italic animate-pulse">Locked</span>}</p>
                               <p className="text-[12px] text-[#25F4EE] font-black leading-none mt-2 font-black italic">{mask(l.telefone_cliente)}</p>
                            </div>
-                           <div className="text-right text-[10px] text-white/30 uppercase font-black italic leading-none font-black italic"><p>{isP ? 'Verified Protocol Node' : 'LOCKED GEO'}</p></div>
+                           <div className="text-right text-[10px] text-white/30 uppercase font-black italic leading-none font-black italic"><p>{isP ? 'Verified Node' : 'LOCKED GEO'}</p></div>
                         </div>
                      );
                    }) : <div className="p-20 text-center opacity-20 font-black italic text-center leading-none"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] uppercase font-black italic tracking-widest text-center leading-none">Vault Standby</p></div>}
@@ -480,11 +511,11 @@ export default function App() {
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left font-black italic">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl text-left font-black italic">
               <div className="lighthouse-neon-content p-12 sm:p-16 relative font-black italic text-left">
-                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center font-black italic text-glow-white leading-none font-black italic">Identity Terminal</h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-4 font-black italic text-left">
-                  {!isLoginMode && (<><input required placeholder="Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs w-full font-black italic" /><input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs w-full font-black italic" /></>)}
-                  <input required type="email" placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-black italic" />
-                  <div className="relative font-black italic"><input required type={showPass ? "text" : "password"} placeholder="Security Key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-black italic" /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-4 text-white/30 leading-none"><Eye size={18}/></button></div>
+                <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center font-black italic text-glow-white leading-none font-black italic">{isLoginMode ? "Member Login" : "Join the Network"}</h2>
+                <form onSubmit={handleAuthSubmit} className="space-y-4 font-black italic text-left leading-none">
+                  {!isLoginMode && (<><input required placeholder="Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs w-full font-black italic leading-none" /><input required placeholder="+1 999 999 9999" value={phone} onChange={e=>setPhone(e.target.value)} className="input-premium text-xs w-full font-black italic leading-none" /></>)}
+                  <input required type="email" placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-black italic leading-none" />
+                  <div className="relative font-black italic leading-none"><input required type={showPass ? "text" : "password"} placeholder="Security Key" value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-black italic leading-none" /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-4 text-white/30 leading-none"><Eye size={18}/></button></div>
                   <button type="submit" disabled={loading} className="btn-strategic btn-neon-cyan text-[11px] mt-4 shadow-xl w-full uppercase leading-none font-black italic">Authorize Entry</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[10px] text-white/20 uppercase tracking-[0.4em] mt-10 text-center hover:text-white transition-all font-black italic uppercase leading-none font-black italic">{isLoginMode ? "CREATE NEW ACCOUNT? REGISTER" : "ALREADY A MEMBER? LOGIN HERE"}</button>
                 </form>
@@ -494,13 +525,13 @@ export default function App() {
         )}
       </div>
 
-      {/* FOOTER ESTRATÉGICO RESTAURADO (TOTALMENTE) */}
+      {/* FOOTER ESTRATÉGICO RESTAURADO */}
       <footer className="mt-auto pb-20 w-full space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left leading-none font-black italic">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] font-black uppercase italic tracking-widest text-white/30 font-black italic text-left leading-none">
           <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Legal</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Privacy</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">Terms</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none font-black italic"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">GDPR</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none font-black italic"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">EU Nodes</a></div>
-          <div className="flex flex-col gap-5 text-left font-black italic leading-none font-black italic"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Support</span><button onClick={() => setView('home')} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic">SMART SUPPORT <Bot size={14}/></button></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Compliance</span><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">CCPA</a><a href="#" className="hover:text-[#FE2C55] transition-colors font-black italic leading-none font-black italic">GDPR</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Network</span><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">U.S. Nodes</a><a href="#" className="hover:text-[#25F4EE] transition-colors font-black italic leading-none font-black italic">EU Nodes</a></div>
+          <div className="flex flex-col gap-5 text-left font-black italic leading-none"><span className="text-white/40 border-b border-white/5 pb-2 uppercase font-black italic leading-none font-black italic">Support</span><button onClick={() => setView('home')} className="hover:text-[#25F4EE] flex items-center gap-2 text-left uppercase font-black italic leading-none font-black italic">SMART SUPPORT <Bot size={14}/></button></div>
         </div>
         <p className="text-[11px] text-white/20 font-black tracking-[8px] uppercase italic text-center leading-none font-black italic mt-10 font-black italic text-center">© 2026 ClickMoreDigital | Security Protocol</p>
       </footer>
