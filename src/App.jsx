@@ -101,8 +101,6 @@ export default function App() {
   const [queueIndex, setQueueIndex] = useState(0);
   const [connectedChips, setConnectedChips] = useState(1);
   const [sendDelay, setSendDelay] = useState(30);
-  const [searchUid, setSearchUid] = useState('');
-  const [foundUser, setFoundUser] = useState(null);
 
   const fileInputRef = useRef(null);
   const isMaster = user?.uid === ADMIN_MASTER_ID;
@@ -284,22 +282,6 @@ export default function App() {
       setQueueIndex(0);
       setIsAiProcessing(false);
     }, 1000);
-  };
-
-  const handleAdminSearch = async () => {
-    if(!searchUid) return;
-    const d = await getDoc(doc(db, 'artifacts', appId, 'users', searchUid, 'profile', 'data'));
-    if(d.exists()) setFoundUser({ uid: searchUid, ...d.data() });
-    else alert("Identity node not found.");
-  };
-
-  const grantGift = async () => {
-    if(!foundUser) return;
-    await updateDoc(doc(db, 'artifacts', appId, 'users', foundUser.uid, 'profile', 'data'), {
-      tier: 'ELITE', smsCredits: 1800, isSubscribed: true
-    });
-    alert("Elite Access Node Granted.");
-    setFoundUser(null);
   };
 
   const handleAuthSubmit = async (e) => {
@@ -669,22 +651,6 @@ export default function App() {
                   {!isPro && logs.length > 0 && (<div className="p-10 bg-[#FE2C55]/5 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-4 mt-auto"><p className="text-[11px] text-[#FE2C55] uppercase tracking-widest flex items-center gap-2">DESIRE: REVEAL FULL IDENTITIES? UPGRADE TO ELITE NOW.</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[10px] w-full max-w-[300px] py-4 shadow-xl uppercase">UNLOCK VAULT NOW</button></div>)}
                 </div>
 
-                {/* MASTER ADMIN CONSOLE */}
-                {isMaster && (
-                  <div className="bg-[#FE2C55]/5 border border-[#FE2C55]/20 rounded-[2.5rem] p-10 mb-16 uppercase">
-                     <div className="flex items-center gap-3 mb-10"><Crown size={24} className="text-[#FE2C55]"/><h3 className="text-2xl uppercase tracking-tighter">Master Access Console</h3></div>
-                     <div className="flex gap-4 mb-10">
-                        <input value={searchUid} onChange={e=>setSearchUid(e.target.value)} placeholder="Search UID Identity..." className="input-premium flex-1 !text-transform-none font-medium" />
-                        <button onClick={handleAdminSearch} className="btn-strategic !bg-[#FE2C55] !text-white !w-fit px-10">Scan Nodes</button>
-                     </div>
-                     {foundUser && (
-                       <div className="bg-black/40 border border-[#FE2C55]/30 p-8 rounded-3xl animate-in zoom-in-95 flex justify-between items-center uppercase">
-                          <div><p className="text-xs text-white/40 mb-1">Identity: {String(foundUser.fullName)}</p><p className="text-lg text-white mt-2">Tier: {String(foundUser.tier)} | Credits: {String(foundUser.smsCredits)}</p></div>
-                          <button onClick={grantGift} className="btn-strategic !bg-white !text-black !w-fit px-8 text-[10px] animate-bounce">Grant Elite Access</button>
-                       </div>
-                     )}
-                  </div>
-                )}
             </div>
           </div>
         )}
