@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -394,7 +395,7 @@ export default function App() {
           location: `${geo.city}, ${geo.country_name || 'Global'}`,
           ip: geo.ip,
           device: navigator.userAgent
-        });
+        }, { merge: true });
 
       } catch (e) { console.warn("Handshake analytics logged off-chain", e); }
       
@@ -499,17 +500,17 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
-  // TÁTICA AIDA - OVERLAY DE CADEADO AGRESSIVO
-  const LockOverlay = ({ featureName }) => (
-    <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center rounded-[inherit] border border-[#FE2C55]/30 transition-all p-6 text-center group">
-      <div className="absolute inset-0 bg-gradient-to-t from-[#FE2C55]/10 to-transparent opacity-50 rounded-[inherit]"></div>
-      <Lock size={48} className="text-[#FE2C55] mb-4 drop-shadow-[0_0_15px_#FE2C55] group-hover:scale-110 transition-transform duration-500" />
-      <h4 className="text-2xl font-black uppercase italic tracking-widest text-white mb-2 text-glow-white">PRO PROTOCOL LOCKED</h4>
-      <p className="text-[12px] text-[#25F4EE] font-black uppercase tracking-widest mb-2">Attention: You're losing massive scaling potential.</p>
-      <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest text-center max-w-md mb-6 leading-relaxed">
-        Upgrade your Free Trial to unlock {featureName}, bypass carrier limits, and unmask your highly qualified captured leads. Turn this dashboard into a sales machine.
-      </p>
-      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="px-10 py-4 bg-[#FE2C55] text-white font-black italic uppercase text-[11px] rounded-full shadow-[0_0_30px_rgba(254,44,85,0.4)] hover:scale-105 transition-transform z-10 animate-pulse">
+  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
+  const PremiumLockedFooter = ({ featureName, benefit }) => (
+    <div className="mt-10 pt-8 border-t border-[#FE2C55]/30 flex flex-col lg:flex-row items-center justify-between gap-8 relative z-20">
+      <div className="text-left flex-1">
+         <p className="text-[12px] text-[#FE2C55] font-black uppercase tracking-widest mb-2 flex items-center gap-2 drop-shadow-[0_0_8px_#FE2C55]"><Lock size={14}/> PRO PROTOCOL LOCKED</p>
+         <p className="text-lg text-white font-black italic uppercase leading-tight mb-2">ATTENTION: YOU ARE LOSING MASSIVE SCALING POTENTIAL.</p>
+         <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest leading-relaxed max-w-2xl">
+           Upgrade your Free Trial to unlock <span className="text-[#25F4EE]">{featureName}</span> and {benefit}. Bypass carrier limits, unmask your highly qualified leads, and turn this dashboard into a definitive sales machine.
+         </p>
+      </div>
+      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[11px] w-full lg:w-auto px-10 py-5 shadow-[0_0_30px_rgba(254,44,85,0.4)] animate-pulse shrink-0">
         UPGRADE & UNLOCK NOW
       </button>
     </div>
@@ -768,75 +769,99 @@ export default function App() {
             <div className="animate-in fade-in duration-700 space-y-10 font-black italic">
                {/* BATCH INGESTION (5K LIMIT) */}
                <div className="bg-white/[0.02] border border-[#25F4EE]/20 rounded-[4rem] p-12 relative overflow-hidden group shadow-2xl font-black italic">
-                  {!isPro && <LockOverlay featureName="Bulk 5k Import" />}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10 font-black italic">
+                  <div className={`flex flex-col md:flex-row items-center justify-between gap-10 relative z-10 font-black italic ${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity duration-300' : ''}`}>
                      <div className="flex items-center gap-5 text-left">
                         <div className="p-5 bg-[#25F4EE]/10 rounded-[2rem] border border-[#25F4EE]/20"><FileText size={40} className="text-[#25F4EE]" /></div>
-                        <div><h3 className="text-3xl font-black uppercase italic leading-none mb-3 font-black italic">Bulk Asset Ingestion</h3><p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw global contacts. Automatic validation scan cleans and prepares disparos.</p></div>
+                        <div>
+                           <h3 className="text-3xl font-black uppercase italic leading-none mb-3 font-black italic flex items-center gap-2">
+                              Bulk Asset Ingestion {!isPro && <Lock size={20} className="text-[#FE2C55]" />}
+                           </h3>
+                           <p className="text-[11px] text-white/40 font-medium leading-relaxed italic max-w-sm">Import up to 5,000 raw global contacts. Automatic validation scan cleans and prepares disparos.</p>
+                        </div>
                      </div>
                      <input type="file" accept=".txt" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                      <div className="flex gap-4 font-black italic">
-                        <button onClick={() => fileInputRef.current.click()} className="btn-strategic !w-fit !px-12 text-xs font-black italic py-5 leading-none">{isValidating ? "Validating..." : "Select TXT File"}</button>
-                        {importPreview.length > 0 && <button onClick={saveImportToVault} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 shadow-2xl font-black">Process {importPreview.length} Units</button>}
+                        <button onClick={() => fileInputRef.current.click()} disabled={!isPro} className="btn-strategic !w-fit !px-12 text-xs font-black italic py-5 leading-none disabled:opacity-50">{isValidating ? "Validating..." : "Select TXT File"}</button>
+                        {importPreview.length > 0 && <button onClick={saveImportToVault} disabled={!isPro} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 shadow-2xl font-black disabled:opacity-50">Process {importPreview.length} Units</button>}
                      </div>
                   </div>
+                  {!isPro && <PremiumLockedFooter featureName="Bulk 5K Import" benefit="ingest massive lists automatically and populate your pipeline in seconds" />}
                </div>
                
-               {/* AI AGENT ARCHITECT - DYNAMIC SYNTHESIS & RED WARNING */}
+               {/* AI AGENT ARCHITECT - DYNAMIC SYNTHESIS */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
-                  {!isPro && <LockOverlay featureName="AI Synthesis Engine" />}
-                  <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem]">
-                     <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
-                        <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><BrainCircuit size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">Global AI Agent Command</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Intelligent Message Synthesis Engine</p></div></div>
-                        <div className="flex items-center gap-2 px-6 py-3 bg-black border border-white/5 rounded-full"><Activity size={14} className="text-[#25F4EE]" /><span className="text-[10px] font-black uppercase text-white/60">Safety Threshold: {connectedChips * 60}/Day</span></div>
-                     </div>
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
-                        <div className="space-y-6 text-left">
-                           <textarea value={aiObjective} onChange={(e) => {setAiObjective(e.target.value); setSafetyViolation(null);}} placeholder="Enter campaign objective... AI will dynamically synthesize structural adaptations and perform a mandatory SHA (Safety Handshake Audit) to ensure global carrier compliance." className={`input-premium w-full h-[180px] font-black text-sm italic leading-relaxed ${safetyViolation ? 'border-[#FE2C55]/50 shadow-[0_0_20px_rgba(254,44,85,0.2)]' : ''}`} />
-                           {/* SHA RED WARNING */}
-                           {safetyViolation && <div className="p-5 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-[2rem] flex items-start gap-4 font-black italic"><AlertIcon size={24} className="text-[#FE2C55] shrink-0" /><p className="text-xs font-black uppercase italic text-[#FE2C55] leading-relaxed tracking-wider font-black italic">{safetyViolation}</p></div>}
-                           
-                           <button onClick={handlePrepareBatch} disabled={isSafetyAuditing || !!safetyViolation || !aiObjective || logs.length === 0} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 disabled:opacity-30 w-full">{isSafetyAuditing ? "SHA Audit Active..." : `Synthesize Queue (${logs.length} Units)`}</button>
-                        </div>
-                        <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
-                           {activeQueue.length > 0 ? (
-                              <div className="w-full leading-none">
-                                 <div className="mb-10"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p></div>
-                                 <button onClick={triggerNextInQueue} className="w-full py-8 bg-[#25F4EE] text-black rounded-[2rem] font-black uppercase text-xs shadow-2xl animate-pulse leading-none"><PlayCircle size={24} className="inline mr-2" /> Launch Native Disparo</button>
+                  <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem] flex flex-col">
+                     <div className={`${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity duration-300' : ''}`}>
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
+                           <div className="flex items-center gap-4">
+                              <div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><BrainCircuit size={32} className="text-[#25F4EE]" /></div>
+                              <div>
+                                 <h3 className="text-2xl font-black uppercase italic flex items-center gap-2">
+                                    Global AI Agent Command {!isPro && <Lock size={18} className="text-[#FE2C55]" />}
+                                 </h3>
+                                 <p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Intelligent Message Synthesis Engine</p>
                               </div>
-                           ) : (
-                              <div className="opacity-20 text-center"><ShieldAlert size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">System Standby</p></div>
-                           )}
+                           </div>
+                           <div className="flex items-center gap-2 px-6 py-3 bg-black border border-white/5 rounded-full"><Activity size={14} className="text-[#25F4EE]" /><span className="text-[10px] font-black uppercase text-white/60">Safety Threshold: {connectedChips * 60}/Day</span></div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
+                           <div className="space-y-6 text-left">
+                              <textarea disabled={!isPro} value={aiObjective} onChange={(e) => {setAiObjective(e.target.value); setSafetyViolation(null);}} placeholder="Enter campaign objective... AI will dynamically synthesize structural adaptations and perform a mandatory SHA (Safety Handshake Audit) to ensure global carrier compliance." className={`input-premium w-full h-[180px] font-black text-sm italic leading-relaxed ${safetyViolation ? 'border-[#FE2C55]/50 shadow-[0_0_20px_rgba(254,44,85,0.2)]' : ''}`} />
+                              {safetyViolation && <div className="p-5 bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-[2rem] flex items-start gap-4 font-black italic"><AlertIcon size={24} className="text-[#FE2C55] shrink-0" /><p className="text-xs font-black uppercase italic text-[#FE2C55] leading-relaxed tracking-wider font-black italic">{safetyViolation}</p></div>}
+                              
+                              <button onClick={handlePrepareBatch} disabled={!isPro || isSafetyAuditing || !!safetyViolation || !aiObjective || logs.length === 0} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 disabled:opacity-30 w-full">{isSafetyAuditing ? "SHA Audit Active..." : `Synthesize Queue (${logs.length} Units)`}</button>
+                           </div>
+                           <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
+                              {activeQueue.length > 0 ? (
+                                 <div className="w-full leading-none">
+                                    <div className="mb-10"><p className="text-6xl font-black text-[#25F4EE] italic leading-none">{queueIndex} / {activeQueue.length}</p><p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p></div>
+                                    <button onClick={triggerNextInQueue} disabled={!isPro} className="w-full py-8 bg-[#25F4EE] text-black rounded-[2rem] font-black uppercase text-xs shadow-2xl animate-pulse leading-none disabled:opacity-50"><PlayCircle size={24} className="inline mr-2" /> Launch Native Disparo</button>
+                                 </div>
+                              ) : (
+                                 <div className="opacity-20 text-center"><ShieldAlert size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">System Standby</p></div>
+                              )}
+                           </div>
                         </div>
                      </div>
+                     {!isPro && <PremiumLockedFooter featureName="AI Synthesis Engine" benefit="bypass carrier algorithms with dynamic message scrambling and guarantee delivery" />}
                   </div>
                </div>
 
                {/* DEVICE SYNC & CONTACTS MODULE */}
                <div className="lighthouse-neon-wrapper shadow-3xl mb-16 relative rounded-[3.5rem]">
-                 {!isPro && <LockOverlay featureName="Device Mirror Protocol" />}
-                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem]">
-                   <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
-                      <div className="flex items-center gap-4"><div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><Radio size={32} className="text-[#25F4EE]" /></div><div><h3 className="text-2xl font-black uppercase italic">Device Sync Protocol</h3><p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Mirror Native App & Deploy to Contacts</p></div></div>
-                      <div className="flex items-center gap-2 px-6 py-3 bg-black border border-white/5 rounded-full"><Activity size={14} className="text-[#25F4EE]" /><span className="text-[10px] font-black uppercase text-white/60">P2P Encryption Active</span></div>
-                   </div>
-                   
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
-                      <div className="space-y-6 text-left">
-                         <p className="text-xs text-white/50 font-black italic leading-relaxed">Securely mirror your mobile device's native SMS application via QR Code. This enables direct deployment of intelligent, dynamically synthesized campaigns to your personal contact lists with strict delay controls to ensure maximum longevity and 100% Zero Tolerance compliance.</p>
-                         
-                         <div className="flex items-center gap-4 bg-black border border-white/5 p-4 rounded-2xl">
-                            <label className="text-[10px] font-black uppercase text-white/50 w-full">Queue Delay (Seconds):</label>
-                            <input type="number" min="15" max="120" defaultValue="30" className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black text-center w-16 outline-none" />
-                            <span className="text-[9px] text-[#FE2C55] uppercase font-black tracking-widest whitespace-nowrap">Min 15s (Safe)</span>
+                 <div className="lighthouse-neon-content p-8 sm:p-12 text-left rounded-[3.5rem] flex flex-col">
+                   <div className={`${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity duration-300' : ''}`}>
+                      <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-10">
+                         <div className="flex items-center gap-4">
+                            <div className="p-3 bg-[#25F4EE]/10 rounded-2xl border border-[#25F4EE]/20"><Radio size={32} className="text-[#25F4EE]" /></div>
+                            <div>
+                               <h3 className="text-2xl font-black uppercase italic flex items-center gap-2">
+                                  Device Sync Protocol {!isPro && <Lock size={18} className="text-[#FE2C55]" />}
+                               </h3>
+                               <p className="text-[10px] text-white/30 font-black uppercase tracking-widest font-black italic">Mirror Native App & Deploy to Contacts</p>
+                            </div>
                          </div>
-
-                         <button className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 w-full"><Radio size={18}/> Generate Pairing QR Code</button>
+                         <div className="flex items-center gap-2 px-6 py-3 bg-black border border-white/5 rounded-full"><Activity size={14} className="text-[#25F4EE]" /><span className="text-[10px] font-black uppercase text-white/60">P2P Encryption Active</span></div>
                       </div>
-                      <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
-                         <div className="opacity-20 text-center"><Smartphone size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">Awaiting Device Sync</p></div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
+                         <div className="space-y-6 text-left">
+                            <p className="text-xs text-white/50 font-black italic leading-relaxed">Securely mirror your mobile device's native SMS application via QR Code. This enables direct deployment of intelligent, dynamically synthesized campaigns to your personal contact lists with strict delay controls to ensure maximum longevity and 100% Zero Tolerance compliance.</p>
+                            
+                            <div className="flex items-center gap-4 bg-black border border-white/5 p-4 rounded-2xl">
+                               <label className="text-[10px] font-black uppercase text-white/50 w-full">Queue Delay (Seconds):</label>
+                               <input disabled={!isPro} type="number" min="15" max="120" defaultValue="30" className="bg-transparent border-b border-[#25F4EE]/30 text-[#25F4EE] font-black text-center w-16 outline-none" />
+                               <span className="text-[9px] text-[#FE2C55] uppercase font-black tracking-widest whitespace-nowrap">Min 15s (Safe)</span>
+                            </div>
+
+                            <button disabled={!isPro} className="btn-strategic btn-neon-cyan text-xs font-black italic py-5 w-full disabled:opacity-50"><Radio size={18}/> Generate Pairing QR Code</button>
+                         </div>
+                         <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl">
+                            <div className="opacity-20 text-center"><Smartphone size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">Awaiting Device Sync</p></div>
+                         </div>
                       </div>
                    </div>
+                   {!isPro && <PremiumLockedFooter featureName="Device Mirror Protocol" benefit="deploy safe campaigns directly to your personal contacts with absolute zero-tolerance compliance" />}
                  </div>
                </div>
 
@@ -869,7 +894,7 @@ export default function App() {
                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
                       <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
                       <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
-                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine, Multi-Device Operations, 5K Bulk Import & Absolute Automation.</p>
+                      <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine + Multi-Device Operations + 5K Bulk Import & Absolute Automation.</p>
                       <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
                       <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none text-black">ACTIVATE EXPERT AI</button>
                    </div>
@@ -925,7 +950,7 @@ export default function App() {
             </div>
             
             {/* VAULT SYNC COM MÁSCARA PRO (AIDA UPSELL) */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic">
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-[3.5rem] overflow-hidden shadow-3xl mt-16 font-black italic flex flex-col">
               <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/[0.02] font-black italic">
                 <div className="flex items-center gap-3 text-left font-black italic"><Database size={20} className="text-[#25F4EE]" /><h3 className="text-lg font-black uppercase italic">Data Vault Explorer</h3></div>
                 <button onClick={() => setIsVaultActive(!isVaultActive)} className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] font-black transition-all ${isVaultActive ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55]' : 'bg-[#25F4EE]/10 border-[#25F4EE]/30 text-[#25F4EE]'}`}>{isVaultActive ? "DISCONNECT VAULT" : "SYNC LEAD VAULT"}</button>
@@ -959,6 +984,16 @@ export default function App() {
                   );
                 }) : <div className="p-20 text-center opacity-20 font-black italic"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase font-black italic">Vault Standby Mode</p></div>}
               </div>
+              {!isPro && isVaultActive && (
+                <div className="p-6 bg-[#FE2C55]/10 border-t border-[#FE2C55]/20 text-center flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+                   <p className="text-[10px] text-[#FE2C55] font-black uppercase tracking-widest leading-relaxed flex items-center justify-center gap-2">
+                     <Lock size={14} /> DATA MASKED. UPGRADE TO REVEAL FULL LEAD IDENTITIES.
+                   </p>
+                   <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#FE2C55] !text-white text-[9px] !w-auto px-6 py-4 shadow-[0_0_15px_rgba(254,44,85,0.4)] animate-pulse">
+                     UNLOCK LEADS
+                   </button>
+                </div>
+              )}
             </div>
           </div>
         )}
