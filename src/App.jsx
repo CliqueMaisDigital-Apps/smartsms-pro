@@ -321,7 +321,7 @@ export default function App() {
     setStagedQueue(updatedQueue);
   };
 
-  // ---> NEW: DISPATCH STAGED QUEUE WITH REAL-TIME COUNTER & SANITIZATION <---
+  // ---> DISPATCH STAGED QUEUE WITH REAL-TIME COUNTER & SANITIZATION <---
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
     
@@ -423,17 +423,24 @@ export default function App() {
             name = parts[0].trim();
             phone = parts[1].trim();
           }
-          const safePhone = phone.replace(/\D/g, '');
-          if (!safePhone) continue;
-          const leadDocId = `${user.uid}_${safePhone}`;
+          
+          // EXTRAI APENAS NÚMEROS PARA GERAR ID SEGURO DO DOCUMENTO
+          const safeId = phone.replace(/\D/g, '');
+          if (!safeId) continue;
+          
+          // FILTRO SANITIZADOR REGEX NATIVO: LIMPA DESDE O INÍCIO (Mantém o '+' e dígitos)
+          const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
+          
+          const leadDocId = `${user.uid}_${safeId}`;
           const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
           batch.set(leadRef, {
             ownerId: user.uid,
             nome_cliente: name,
-            telefone_cliente: phone,
+            telefone_cliente: sanitizedPhone, // GRAVA LIMPO E VALIDADO
             timestamp: serverTimestamp(),
             device: 'Bulk Import TXT'
           }, { merge: true });
+          
           count++;
           totalImported++;
           if (count === 400) {
@@ -491,7 +498,6 @@ export default function App() {
         });
         setGenTo(''); setGenMsg('');
         
-        // Atualiza estatística rápida
         setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
         
         alert("PUSHED TO SECURE NODE!");
@@ -514,18 +520,25 @@ export default function App() {
     setLoading(true);
     try {
       const ownerId = captureData.ownerId;
-      const safePhone = captureForm.phone.replace(/\D/g, '');
-      const leadDocId = `${ownerId}_${safePhone}`;
+      // EXTRAI APENAS NÚMEROS PARA GERAR ID SEGURO DO DOCUMENTO
+      const safeId = captureForm.phone.replace(/\D/g, '');
+      
+      // FILTRO SANITIZADOR REGEX NATIVO: LIMPA A ENTRADA DO LEAD (Mantém o '+' e dígitos)
+      const sanitizedPhone = captureForm.phone.replace(/[^\d+]/g, ''); 
+      
+      const leadDocId = `${ownerId}_${safeId}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
+      
       await setDoc(leadRef, {
         ownerId,
         nome_cliente: String(captureForm.name),
-        telefone_cliente: String(captureForm.phone),
+        telefone_cliente: sanitizedPhone, // GRAVA LIMPO E VALIDADO NO BANCO
         timestamp: serverTimestamp(),
         device: navigator.userAgent
       }, { merge: true });
+      
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
