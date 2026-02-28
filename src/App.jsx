@@ -16,7 +16,9 @@ import {
   getDoc, 
   setDoc,
   updateDoc,
-  increment
+  increment,
+  query,
+  where
 } from 'firebase/firestore';
 import { 
   Zap, Lock, Globe, ChevronRight, Copy, Check, ExternalLink, Menu, X, 
@@ -25,7 +27,7 @@ import {
   UserCheck, UserMinus, Gift, Bot, Eye, EyeOff, BarChart3, ShieldCheck,
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, ShieldAlert as AlertIcon, FileText, UploadCloud, PlayCircle,
-  ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock
+  ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Scale as ScaleIcon, Clock
 } from 'lucide-react';
 
 // --- SECURE FIREBASE CONFIGURATION ---
@@ -42,10 +44,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2D"; 
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // Substituir pelo seu UID real
 
-// --- FAQ COMPONENT ---
+// --- FAQ COMPONENT (ELITE AIDA - NATIVE AMERICAN ENGLISH) ---
 const FAQItem = ({ q, a }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -60,7 +61,7 @@ const FAQItem = ({ q, a }) => {
 };
 
 export default function App() {
-  // 1. ALL STATES DEFINED AT TOP TO PREVENT REFERENCE ERRORS
+  // 1. ALL STATES AT TOP
   const [view, setView] = useState('home');
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -87,17 +88,17 @@ export default function App() {
   const [sendDelay, setSendDelay] = useState(30);
   const [isAutoSending, setIsAutoSending] = useState(false);
 
-  // Admin Controls
+  // Admin Master Control
   const [searchUid, setSearchUid] = useState('');
   const [foundUser, setFoundUser] = useState(null);
 
-  // Input States
+  // Generator/Auth States
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [fullNameInput, setFullNameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
@@ -106,7 +107,7 @@ export default function App() {
   const isPro = userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed || user?.uid === ADMIN_MASTER_ID;
   const MSG_LIMIT = 300;
 
-  // 2. IDENTITY BOOTSTRAP (Zero Anonymous Policy)
+  // 2. IDENTITY BOOTSTRAP (Zero Anonymous)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
@@ -141,7 +142,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 3. CAPTURE GATE LOGIC
+  // 3. CAPTURE ENGINE (Compliance Gate)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
@@ -151,22 +152,21 @@ export default function App() {
     }
   }, [view]);
 
-  // 4. SYNC DATA (Ensuring instant loading)
+  // 4. SYNC
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const myData = user.uid === ADMIN_MASTER_ID ? all : all.filter(l => l.ownerId === user.uid);
       setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-    }, (err) => console.log("Leads sync standby."));
-
+    });
     const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
       setMyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     });
     return () => { unsubLeads(); unsubLinks(); };
   }, [user, view]);
 
-  // 5. AUTOMATION DELAY ENGINE
+  // 5. AUTOMATION DELAY
   useEffect(() => {
     let timer;
     if (isAutoSending && queueIndex < activeQueue.length) {
@@ -183,19 +183,9 @@ export default function App() {
   }, [isAutoSending, queueIndex]);
 
   // --- ENGINE HANDLERS ---
-  const validateAIContent = (text) => {
-    setAiObjective(text);
-    const forbidden = /(hack|scam|fraud|phishing|hate|racism|kill|murder|porn|malware|virus|golpe|ódio|ofensiv|bulling|discrimin|political)/i;
-    if (forbidden.test(text)) {
-      setAiWarning("SECURITY ALERT: Policy Violation. Prohibited content detected.");
-    } else {
-      setAiWarning('');
-    }
-  };
-
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
-    setView('bridge');
+    setLoading(true);
     try {
       const ownerId = captureData.ownerId;
       const safeId = captureForm.phone.replace(/\D/g, '');
@@ -203,6 +193,7 @@ export default function App() {
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadId);
       const leadSnap = await getDoc(leadRef);
 
+      // Record Lead if doesn't exist
       if (!leadSnap.exists()) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const ownerProfSnap = await getDoc(pubRef);
@@ -210,8 +201,10 @@ export default function App() {
            const ownerProf = ownerProfSnap.data();
            if (ownerProf.tier !== 'MASTER' && ownerProf.smsCredits <= 0) {
              setQuotaExceeded(true);
+             setLoading(false);
              return;
            }
+           // DEDUCT TRIAL COOTA
            await updateDoc(pubRef, { smsCredits: increment(-1) });
         }
         await setDoc(leadRef, {
@@ -219,14 +212,28 @@ export default function App() {
           nome_cliente: String(captureForm.name),
           telefone_cliente: String(captureForm.phone),
           timestamp: serverTimestamp(),
+          created_at: serverTimestamp(),
           device: navigator.userAgent
         });
       }
+
+      setView('bridge');
       setTimeout(() => {
         const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? ';' : '?';
         window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-      }, 2000);
-    } catch (e) {}
+      }, 1500);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const validateAIContent = (text) => {
+    setAiObjective(text);
+    const forbidden = /(hack|scam|fraud|phishing|hate|racism|kill|murder|porn|fake\s*news|malware|virus|golpe|ódio|ofensiv|bulling|discrimin|political)/i;
+    if (forbidden.test(text)) {
+      setAiWarning("SECURITY ALERT: Zero Tolerance Policy Violation. Unacceptable vocabulary detected.");
+    } else {
+      setAiWarning('');
+    }
   };
 
   const handlePrepareBatch = () => {
@@ -260,7 +267,7 @@ export default function App() {
       if (isLoginMode) await signInWithEmailAndPassword(auth, email, password);
       else {
         const u = await createUserWithEmailAndPassword(auth, email, password);
-        const p = { fullName, phone: phoneInput, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
+        const p = { fullName: fullNameInput, phone: phoneInput, email, tier: 'FREE_TRIAL', smsCredits: 60, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', u.user.uid, 'profile', 'data'), p);
       }
       setView('dashboard');
@@ -280,8 +287,8 @@ export default function App() {
         .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
         .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
         .btn-strategic:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(37,244,238,0.4); }
-        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 14px; font-weight: 500; font-style: normal; text-transform: none !important; }
-        .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.8); }
+        .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.05); color: white; width: 100%; padding: 1rem 1.25rem; border-radius: 16px; outline: none; font-size: 14px; font-weight: 500; font-style: normal; text-transform: none !important; }
+        .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.5); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
@@ -291,9 +298,10 @@ export default function App() {
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="bg-white/10 p-1.5 rounded-lg border border-white/10 shadow-lg shadow-white/5"><Zap size={20} className="text-white fill-white" /></div>
           <span className="text-lg font-black italic tracking-tighter uppercase text-white leading-none mt-1">SMART SMS PRO</span>
+          {isPro && user?.uid === ADMIN_MASTER_ID && <span className="bg-[#FE2C55] text-white text-[8px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse tracking-widest uppercase italic leading-none">MASTER</span>}
         </div>
 
-        {/* Desktop Header Menu (Highlighted & Robust) */}
+        {/* Desktop Header Menu */}
         <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase italic tracking-widest leading-none">
            {!user ? (
              <>
@@ -304,7 +312,7 @@ export default function App() {
              <>
                <button onClick={() => setView('dashboard')} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><LayoutDashboard size={14}/> Hub</button>
                <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={14}/> Support</button>
-               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all">Logout</button>
+               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all uppercase">Logout</button>
              </>
            )}
         </div>
@@ -312,7 +320,7 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[110] leading-none">{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Menu Hambúrguer (Mobile) */}
       {isMenuOpen && (
         <>
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[140]" onClick={() => setIsMenuOpen(false)} />
@@ -323,11 +331,11 @@ export default function App() {
             </div>
             <div className="flex flex-col gap-10 flex-1 text-left leading-none font-black italic">
               {!user ? (
-                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left leading-none font-black italic uppercase"><UserPlus size={20} /> Identity Login</button>
+                <button onClick={() => {setView('auth'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left leading-none font-black italic uppercase"><UserPlus size={20} /> Member Access</button>
               ) : (
                 <>
                   <div className="mb-6 p-6 bg-white/5 rounded-3xl border border-white/10 text-left leading-none">
-                     <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none">Active Identity</p>
+                     <p className="text-[9px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none">Status: {String(userProfile?.tier || 'FREE')}</p>
                      <p className="text-sm font-black text-[#25F4EE] truncate uppercase leading-none italic">{String(userProfile?.fullName || 'Operator')}</p>
                   </div>
                   <button onClick={() => {setView('dashboard'); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left font-black italic uppercase"><LayoutDashboard size={20} /> Operator Hub</button>
@@ -346,24 +354,24 @@ export default function App() {
         </>
       )}
 
-      {/* Content Container */}
+      {/* Main Container */}
       <div className="pt-28 flex-1 pb-10 relative leading-none">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
-        {/* --- COMPLIANCE GATE --- */}
+        {/* --- COMPLIANCE GATE (Capture) --- */}
         {view === 'capture' && (
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center relative px-8 font-black italic leading-none animate-in fade-in duration-500">
             <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-3xl">
-              <div className="lighthouse-neon-content p-12 sm:p-20 flex flex-col items-center">
-                <ShieldCheck size={64} className="text-[#25F4EE] mb-8" />
+              <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
+                <ShieldCheck size={64} className="text-[#25F4EE] mb-8 animate-pulse" />
                 <h2 className="text-3xl font-black italic mb-4 uppercase tracking-tighter text-white">Security Validation</h2>
-                <p className="text-[11px] text-white/50 uppercase font-black tracking-widest leading-relaxed mb-10 text-center">
+                <p className="text-[11px] text-white/50 uppercase font-black tracking-widest leading-relaxed mb-10 text-center px-4">
                   Protocol Identity Check. Please verify your credentials to ensure global anti-spam compliance before accessing the host node.
                 </p>
-                <div className="w-full space-y-5 text-left">
-                  <input required placeholder="Full Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
-                  <input required type="tel" placeholder="Mobile Number Verification" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
+                <div className="w-full space-y-5 text-left px-4">
+                  <input required placeholder="Full Legal Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
+                  <input required type="tel" placeholder="Mobile Identity Number" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-sm w-full font-medium italic !bg-black/50" />
                   <button onClick={handleProtocolHandshake} className="btn-strategic !bg-[#25F4EE] !text-black text-xs italic font-black uppercase py-5 w-full shadow-2xl mt-6">Confirm & Access <ChevronRight size={16}/></button>
                 </div>
                 <div className="flex items-center gap-2 mt-10 opacity-40">
@@ -397,7 +405,7 @@ export default function App() {
                   </div>
                   <div className="space-y-3 leading-none">
                      <label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black block leading-none italic font-black">Host Identity</label>
-                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full leading-none !text-transform-none" placeholder="Host / Company Name" />
+                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-bold text-sm text-white/50 w-full leading-none !text-transform-none" placeholder="Your Identity or Organization" />
                   </div>
                   <div className="space-y-3 leading-none">
                      <div className="flex justify-between items-center leading-none uppercase"><label className="text-[10px] uppercase text-white/40 ml-1 tracking-widest font-black leading-none italic font-black">Payload</label><span className="text-[9px] text-white/20 font-black italic leading-none">{genMsg.length}/{MSG_LIMIT}</span></div>
@@ -420,14 +428,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* FAQ ELITE AIDA (NATIVE AMERICAN ENGLISH) */}
+              {/* FAQ ELITE AIDA (US ENGLISH) */}
               <div className="pt-20 pb-12 text-left font-black italic leading-none uppercase">
                  <div className="flex items-center gap-3 mb-12 text-left leading-none uppercase"><HelpCircle size={28} className="text-[#FE2C55]" /><h3 className="text-3xl font-black uppercase text-white tracking-widest leading-none font-black italic uppercase">Protocol FAQ</h3></div>
                  <div className="space-y-2 text-left font-black italic leading-tight uppercase">
-                    <FAQItem q="Why utilize our exclusive protocol instead of standard market routing?" a="Standard market redirects often trigger automated network heuristics instantly. Our proprietary protocol dynamically formats carrier headers to mirror organic traffic signatures globally, significantly enhancing final delivery rates while strictly adhering to global compliance acts." />
+                    <FAQItem q="Why utilize our exclusive protocol instead of standard market routing?" a="Standard market redirects trigger automated network heuristics instantly. Our proprietary protocol dynamically formats headers to mirror organic traffic signatures globally, significantly enhancing final delivery rates while strictly adhering to global compliance acts." />
                     <FAQItem q="Is the cryptographic vault fully impenetrable and compliant?" a="Absolutely. Operating under a robust Zero-Knowledge architecture, lead metadata remains exclusively encrypted within your session context. We maintain rigorous alignment with international data protection protocols (GDPR/LGPD), ensuring total enterprise privacy." />
                     <FAQItem q="How does the system ensure long-term standing protection?" a="Our ecosystem employs an intelligent pacing engine that meticulously manages dispatch intervals. This infrastructure prevents carrier threshold flags, ensuring sustainable high-volume operations while maintaining pristine standing globally across network nodes." />
-                    <FAQItem q="What is the strategic advantage of Advanced AI Synthesis?" a="Our proprietary framework dynamically optimizes payload contexts in real-time. By utilizing advanced frameworks, it ensures each dispatch maintains a unique organic fingerprint, maximizing user engagement while operating fully within compliance." />
+                    <FAQItem q="What is the strategic advantage of Advanced AI Synthesis?" a="Our proprietary framework dynamically optimizes payload contexts in real-time. By utilizing advanced linguistic models, it ensures each dispatch maintains a unique organic fingerprint, maximizing engagement while operating fully within compliance." />
                  </div>
               </div>
 
@@ -447,14 +455,14 @@ export default function App() {
               <div className="text-left font-black italic leading-none uppercase">
                 <h2 className="text-5xl md:text-6xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] leading-none uppercase text-white">OPERATOR HUB</h2>
                 <div className="flex items-center gap-3 mt-4 text-left leading-none font-black italic uppercase">
-                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-3 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none uppercase">{String(userProfile?.tier || 'FREE')} IDENTITY</span>
+                   <span className="bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] px-4 py-1.5 rounded-full uppercase border border-[#25F4EE]/20 tracking-widest font-black italic leading-none uppercase">{String(userProfile?.tier || 'FREE')} IDENTITY</span>
                    {isPro && <span className="text-[9px] text-amber-500 uppercase tracking-widest animate-pulse leading-none font-black italic uppercase">● LIVE PROTOCOL ACTIVE</span>}
                 </div>
               </div>
-              <div className="flex-1 flex justify-end leading-none uppercase"><button onClick={() => setView('home')} className="btn-strategic !bg-white/10 !text-white border border-white/10 text-[10px] !w-fit px-6 py-3 mr-4 font-black italic uppercase leading-none uppercase"><Zap size={14} className="text-[#25F4EE]"/> Link Generator</button></div>
+              <div className="flex-1 flex justify-end leading-none uppercase"><button onClick={() => setView('home')} className="btn-strategic !bg-white/10 !text-white border border-white/10 text-[10px] !w-fit px-6 py-3 mr-4 font-black italic uppercase leading-none uppercase"><Zap size={14} className="text-[#25F4EE]"/> LINK GENERATOR</button></div>
               <div className="flex items-center gap-4 flex-wrap leading-none font-black italic uppercase text-center">
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 py-3 rounded-[1.5rem] text-center shadow-3xl leading-none uppercase">
-                    <p className="text-[8px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none uppercase">Active Chips</p>
+                    <p className="text-[8px] font-black text-white/30 uppercase mb-2 italic tracking-widest leading-none uppercase">Active Nodes</p>
                     <div className="flex items-center gap-2 leading-none font-black italic uppercase leading-none"><button onClick={() => setConnectedChips(prev => Math.max(1, prev-1))} className="text-white/30 hover:text-white leading-none">-</button><span className="text-xl font-black text-[#25F4EE] leading-none uppercase">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev+1)} className="text-white/30 hover:text-white leading-none">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 py-3 rounded-[1.5rem] text-center shadow-3xl border-b-2 border-b-[#25F4EE] text-center leading-none uppercase">
@@ -467,9 +475,9 @@ export default function App() {
             <div className="space-y-10">
                {/* IMPORT BLOCK */}
                <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 mb-8 font-black italic leading-none text-left uppercase">
-                  <div className={`flex items-center gap-5 w-full relative z-10 font-black italic leading-none uppercase ${!isPro ? 'opacity-50 pointer-events-none select-none transition-opacity' : ''}`}>
+                  <div className={`flex items-center gap-5 w-full relative z-10 font-black italic leading-none uppercase ${!isPro ? 'opacity-30' : ''}`}>
                      <div className="p-4 bg-white/5 rounded-2xl border border-white/10 leading-none uppercase"><FileText size={32} className="text-[#25F4EE]" /></div>
-                     <div><h3 className="text-2xl font-black uppercase italic leading-none font-black italic leading-none uppercase text-white tracking-tight">BULK ASSET INGESTION {!isPro && <Lock size={20} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[10px] text-white/40 font-bold italic tracking-widest mt-2 leading-none uppercase font-black italic uppercase tracking-tighter">IMPORT UP TO 5,000 GLOBAL UNITS SIMULTANEOUSLY.</p></div>
+                     <div><h3 className="text-2xl font-black uppercase italic leading-none font-black italic leading-none uppercase text-white tracking-tight">BULK ASSET INGESTION {!isPro && <Lock size={20} className="text-[#FE2C55] inline ml-2" />}</h3><p className="text-[10px] text-white/40 font-bold italic tracking-widest mt-2 leading-none uppercase font-black italic uppercase tracking-tighter">IMPORT UP TO 5,000 GLOBAL UNITS IN SECONDS.</p></div>
                   </div>
                   <button className="bg-[#25F4EE] text-black text-[11px] px-12 py-5 rounded-2xl font-black uppercase italic shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform relative z-10 disabled:opacity-50">Select Secure Source</button>
                   <input type="file" accept=".txt" ref={fileInputRef} className="hidden" />
@@ -602,7 +610,7 @@ export default function App() {
               <div className="lighthouse-neon-content p-12 sm:p-20 relative font-black italic text-left leading-none font-black italic uppercase">
                 <h2 className="text-3xl font-black italic mt-8 mb-12 uppercase text-white text-center font-black italic text-glow-white leading-none font-black italic uppercase tracking-tighter leading-none font-black italic font-black italic uppercase uppercase">Secure Member Access</h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-6 font-black italic text-left leading-none font-black italic font-black italic uppercase">
-                  {!isLoginMode && (<><input required placeholder="Operator Name" value={fullName} onChange={e=>setFullName(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /><input required placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /></>)}
+                  {!isLoginMode && (<><input required placeholder="Operator Name" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /><input required placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" /></>)}
                   <input required type="email" placeholder="Email identity..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" />
                   <div className="relative font-black italic leading-none font-black italic leading-none font-black italic font-black italic uppercase">
                     <input required type={showPass ? "text" : "password"} placeholder="Security key..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-medium italic !text-transform-none" />
