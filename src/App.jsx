@@ -216,13 +216,19 @@ export default function App() {
 
   // NATIVE AI CONTEXTUAL ENGINE (SUPER NLP SIMULATION)
   const superAIVariationEngine = (baseText, index, leadName) => {
-    const isPT = /\b(o|a|um|uma|para|com|este|esta|orçamento|teste|tarde|bom|dia|gostaria|quero|vocês|empresa|trabalho)\b/i.test(baseText);
+    // Precise Language Detection (Counting accurate markers)
+    const ptMarkers = /\b(orçamento|cotação|gostaria|quero|trabalho|serviço|projeto|vocês|empresa|teste|olá|boa tarde|bom dia|para|com|como|fazer|preço)\b/gi;
+    const enMarkers = /\b(quote|estimate|pricing|work|portfolio|projects|request|ask|hi|hello|hey|test|this|for|with)\b/gi;
+    
+    const ptMatch = (baseText.match(ptMarkers) || []).length;
+    const enMatch = (baseText.match(enMarkers) || []).length;
+    const detectedLang = ptMatch > enMatch ? 'pt' : 'en';
 
     const synonymsPT = [
-      { rx: /\b(gostaria de|queria|quero)\b/gi, reps: ["gostaria de", "queria", "tenho interesse em", "estou buscando", "poderia", "preciso de"] },
-      { rx: /\b(um orçamento|orçamento|cotação)\b/gi, reps: ["um orçamento", "uma cotação", "uma estimativa", "saber os valores", "uma base de preço", "os custos"] },
-      { rx: /\b(trabalho|serviço|projeto|fotos)\b/gi, reps: ["trabalho", "serviço", "projeto", "portfólio", "perfil", "resultado"] },
-      { rx: /\b(vi|encontrei|achei|descobri)\b/gi, reps: ["vi", "encontrei", "achei", "descobri", "pesquisei e achei", "me deparei com"] },
+      { rx: /\b(gostaria de|queria|quero)\b/gi, reps: ["gostaria de", "queria", "tenho interesse em", "estou buscando", "preciso de"] },
+      { rx: /\b(um orçamento|orçamento|uma cotação|cotação)\b/gi, reps: ["um orçamento", "uma cotação", "uma estimativa", "saber os valores", "uma base de preço", "os custos"] },
+      { rx: /\b(trabalho|serviço|projeto|fotos|perfil)\b/gi, reps: ["trabalho", "serviço", "projeto", "portfólio", "perfil", "resultado"] },
+      { rx: /\b(vi|encontrei|achei|descobri)\b/gi, reps: ["vi", "encontrei", "achei", "descobri", "me deparei com"] },
       { rx: /\b(empresa|vocês|sua empresa)\b/gi, reps: ["empresa", "equipe", "vocês", "seu perfil", "seu negócio"] },
       { rx: /\b(teste)\b/gi, reps: ["teste", "ensaio", "validação", "experimento"] },
       { rx: /\b(bom dia|boa tarde|boa noite|olá|oi|ei)\b/gi, reps: ["Olá", "Oi", "Tudo bem?", "Saudações", "Opa", "Ei"] },
@@ -237,18 +243,19 @@ export default function App() {
       { rx: /\b(request|ask for|get)\b/gi, reps: ["request", "ask for", "get", "receive", "inquire about"] },
       { rx: /\b(hi|hello|hey|greetings)\b/gi, reps: ["Hi", "Hello", "Hey", "Greetings", "Good day", "Hi there"] },
       { rx: /\b(test)\b/gi, reps: ["test", "trial", "validation", "check"] },
-      { rx: /\b(google)\b/gi, reps: ["Google", "Google Search", "Google Maps", "online search"] }
+      { rx: /\b(google|google search)\b/gi, reps: ["Google", "Google Search", "Google Maps", "online search"] }
     ];
 
+    const syns = detectedLang === 'pt' ? synonymsPT : synonymsEN;
     let spun = baseText;
-    const syns = isPT ? synonymsPT : synonymsEN;
     
     syns.forEach((s, i) => {
       let matchCount = 0;
       spun = spun.replace(s.rx, (match) => {
-         const repIdx = (index * 13 + i * 7 + matchCount) % s.reps.length;
+         const repIdx = (index * 11 + i * 7 + matchCount) % s.reps.length;
          let replacement = s.reps[repIdx];
          matchCount++;
+         // Preserve capitalization context organically
          if (match[0] === match[0].toUpperCase()) {
             replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
          }
@@ -256,37 +263,20 @@ export default function App() {
       });
     });
 
-    const ptClosings = [" Fico no aguardo.", " Aguardo retorno.", " Podemos conversar?", " Me avise.", " Obrigado.", " Qual o próximo passo?", ""];
-    const enClosings = [" Looking forward to hearing from you.", " Awaiting your reply.", " Can we chat?", " Let me know.", " Thanks.", " What's the next step?", ""];
-    
-    const ptOpenings = ["Tudo bem? ", "Com licença, ", "Opa! ", "Olá! ", "Oi! ", ""];
-    const enOpenings = ["Hope you're well! ", "Excuse me, ", "Hey there! ", "Hi! ", "Hello! ", ""];
-
-    const closing = isPT ? ptClosings[index % ptClosings.length] : enClosings[index % enClosings.length];
-    const opening = isPT ? ptOpenings[(index * 3) % ptOpenings.length] : enOpenings[(index * 3) % enOpenings.length];
-
     let finalMessage = spun;
 
-    if (index > 0) {
-        const structType = index % 7;
-        const cleanRegex = isPT ? /^(Olá|Oi|Tudo bem|Opa|Ei|Bom dia|Boa tarde|Boa noite)[!,.\s]*/i : /^(Hi|Hello|Hey|Greetings|Good day)[!,.\s]*/i;
-        const cleanSpun = spun.replace(cleanRegex, '');
-        const lowerSpun = cleanSpun ? cleanSpun.charAt(0).toLowerCase() + cleanSpun.slice(1) : '';
-
-        switch(structType) {
-            case 0: finalMessage = `${opening}${lowerSpun || spun}`; break;
-            case 1: finalMessage = `${spun}${closing}`; break;
-            case 2: finalMessage = `${opening}${lowerSpun || spun}${closing}`; break;
-            case 3: finalMessage = `${spun.replace(/[.!?,;]+$/, '')}...${closing}`; break;
-            case 4: 
-              const safeName = leadName && leadName !== 'Valued Customer' ? leadName.split(' ')[0] : (isPT ? "pessoal" : "there");
-              finalMessage = `${isPT ? 'Oi' : 'Hi'} ${safeName}, ${lowerSpun || spun}`;
-              break;
-            case 5: finalMessage = `${spun}`; break; 
-            case 6: finalMessage = `${opening}${spun.replace(/[.!?,;]+$/, '')}?${closing}`; break; 
+    // Safe structural variation that preserves context without breaking natural language flow
+    if (index % 2 !== 0 && !spun.endsWith('?')) {
+        if (detectedLang === 'pt') {
+            const ptClosings = [" Fico no aguardo.", " Aguardo retorno.", " Podemos conversar?", " Obrigado.", " Me avise."];
+            finalMessage = `${spun}${ptClosings[(index) % ptClosings.length]}`;
+        } else {
+            const enClosings = [" Looking forward to hearing from you.", " Awaiting your reply.", " Can we chat?", " Thanks.", " Let me know."];
+            finalMessage = `${spun}${enClosings[(index) % enClosings.length]}`;
         }
     }
 
+    // Stealth Carrier Bypass (Invisible Unicode Injector)
     const invisibleChars = ["\u200B", "\u200C", "\u200D", "\uFEFF"];
     const byteBypass = invisibleChars[index % invisibleChars.length].repeat((index % 4) + 1);
 
@@ -787,7 +777,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
                 { label: "DISPATCHED SMS", value: isMaster ? "∞" : (logs.length || 0), icon: Send, color: "text-[#25F4EE]" },
-                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#FE2C55]" },
+                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" }, // EMERALD GREEN UPDATE
                 { label: "ACTIVE CONTACTS", value: logs.length || 0, icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
@@ -937,10 +927,11 @@ export default function App() {
                         ))}
                      </div>
 
-                     <div className="flex gap-4">
-                        <button onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-4 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors">CANCEL</button>
-                        <button onClick={dispatchToNode} className="flex-1 bg-amber-500 text-black font-black text-[11px] py-4 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.01] transition-transform flex items-center justify-center gap-2">
-                           <Send size={18} /> CONFIRM & DISPATCH TO NODE
+                     {/* FIX: BUTTON SIZE & ALIGNMENT HARMONY */}
+                     <div className="flex flex-col md:flex-row justify-end items-center gap-4 mt-2">
+                        <button onClick={() => {setStagedQueue([]); setIsReviewMode(false);}} className="px-8 py-3 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto">CANCEL</button>
+                        <button onClick={dispatchToNode} className="px-10 py-3 bg-amber-500 text-black font-black text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full md:w-auto">
+                           <Send size={16} /> CONFIRM & DISPATCH
                         </button>
                      </div>
                    </div>
