@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  signInAnonymously,
   signInWithCustomToken,
   sendPasswordResetEmail
 } from 'firebase/auth';
@@ -51,7 +52,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- MASTER ADMIN ACCESS ---
-const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2"; // <--- ALEX, COLE O SEU UID AQUI PARA ACESSO TOTAL
+const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2D"; // <--- ALEX, COLE O SEU UID AQUI PARA ACESSO TOTAL
 
 const STRIPE_NEXUS_LINK = "https://buy.stripe.com/nexus_access"; 
 const STRIPE_EXPERT_LINK = "https://buy.stripe.com/expert_agent";
@@ -102,9 +103,11 @@ export default function App() {
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [sendDelay, setSendDelay] = useState(30);
 
-  // Device Sync States
+  // Device Sync States (AGORA COM COMUNICAÇÃO EM TEMPO REAL)
   const [syncQR, setSyncQR] = useState('');
   const [isGeneratingSync, setIsGeneratingSync] = useState(false);
+  const [isDeviceSynced, setIsDeviceSynced] = useState(false);
+  const [syncedDeviceName, setSyncedDeviceName] = useState('');
 
   // Bulk Ingestion
   const fileInputRef = useRef(null);
@@ -130,12 +133,15 @@ export default function App() {
 
   const isPro = userProfile?.isSubscribed || userProfile?.isUnlimited || user?.uid === ADMIN_MASTER_ID;
 
-  // SYSTEM INITIALIZATION & AUTH
+  // SYSTEM INITIALIZATION & AUTH (Com Injeção Anónima Silenciosa para Visitantes)
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          // Necessário silenciosamente para visitantes conseguirem escrever o Lead no Firestore.
+          if (!auth.currentUser) await signInAnonymously(auth);
         }
       } catch (err) {
         console.warn("Standard Auth Mode Active.");
@@ -145,7 +151,7 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
+      if (u && !u.isAnonymous) { // Apenas cria perfil se não for o visitante do link
         try {
           const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
           const d = await getDoc(docRef);
@@ -175,7 +181,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // GATILHO DE URL 
+  // GATILHO DE URL (Comunicação de Links)
   useEffect(() => {
     if (!authResolved) return; 
 
@@ -200,9 +206,9 @@ export default function App() {
 
   // DATA SYNCHRONIZATION
   useEffect(() => {
-    if (!user || view !== 'dashboard') return;
+    if (!user || user.isAnonymous || view !== 'dashboard') return;
     
-    let unsubUsers, unsubLeads, unsubLinks, unsubProfile;
+    let unsubUsers, unsubLeads, unsubLinks, unsubProfile, unsubSync;
     try {
       unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (docSnap) => {
         if (docSnap.exists()) {
@@ -225,12 +231,22 @@ export default function App() {
         }, (err) => console.warn("List hidden pending permissions."));
       }
 
-      if (isVaultActive) {
+      // O Agente de IA precisa dos leads sempre carregados se for PRO ou ADMIN
+      if (userProfile?.isSubscribed || userProfile?.isUnlimited || user.uid === ADMIN_MASTER_ID) {
         unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'leads'), (snap) => {
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           setLogs(data.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
         }, (err) => console.warn("Vault locked pending sync."));
       }
+
+      // NOVO: Ouvinte do Espelhamento de Telemóvel
+      unsubSync = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'sync', 'device'), (docSnap) => {
+         if (docSnap.exists() && docSnap.data().connected) {
+             setIsDeviceSynced(true);
+             setSyncedDeviceName(docSnap.data().device || 'Mobile Device');
+         }
+      });
+
     } catch(e) {}
     
     return () => { 
@@ -238,16 +254,17 @@ export default function App() {
       if(unsubLeads) unsubLeads(); 
       if(unsubLinks) unsubLinks();
       if(unsubProfile) unsubProfile();
+      if(unsubSync) unsubSync();
     };
-  }, [user, view, isVaultActive]);
+  }, [user, view, userProfile?.isSubscribed, userProfile?.isUnlimited]);
 
-  // AUTOPILOT ENGINE LOOP (NOVO)
+  // AUTOPILOT ENGINE LOOP 
   useEffect(() => {
     let timer;
     if (isAutoSending && queueIndex < activeQueue.length) {
       timer = setTimeout(() => {
         triggerNextInQueue();
-      }, Math.max(sendDelay, 15) * 1000); // Força um mínimo de 15s no Autopilot
+      }, Math.max(sendDelay, 15) * 1000); 
     } else if (queueIndex >= activeQueue.length) {
       setIsAutoSending(false);
     }
@@ -318,7 +335,7 @@ export default function App() {
       setActiveQueue(newQueue);
       setQueueIndex(0);
       setIsAiProcessing(false);
-      setIsAutoSending(false); // Reseta o piloto automático
+      setIsAutoSending(false); 
     }, 1500);
   };
 
@@ -485,7 +502,7 @@ export default function App() {
 
   // --- LINK MANAGEMENT ---
   const handleGenerate = async () => {
-    if (!user) { setIsLoginMode(false); setView('auth'); return; }
+    if (!user || user.isAnonymous) { setIsLoginMode(false); setView('auth'); return; }
     if (!genTo) return;
     if (genMsg.length > MSG_LIMIT) return alert("Safety Protocol: Payload exceeds limits.");
     const isSafe = await runSafetyAudit(genMsg);
@@ -563,6 +580,14 @@ export default function App() {
                }
             }
          }
+         
+         // AVISA AO COMPUTADOR QUE O DISPOSITIVO ESTÁ SINCRONIZADO
+         await setDoc(doc(db, 'artifacts', appId, 'users', captureData.uid, 'sync', 'device'), {
+            connected: true,
+            device: /Android/i.test(navigator.userAgent) ? 'Android Device' : /iPhone/i.test(navigator.userAgent) ? 'iPhone' : 'Mobile Device',
+            updatedAt: serverTimestamp()
+         });
+
          setLoading(false);
          alert(`Protocol Success: ${contacts.length} units securely mirrored to your Data Vault.`);
       }
@@ -592,6 +617,7 @@ export default function App() {
     } catch (e) { console.warn("Toggle bypass"); }
   };
 
+  // TÁTICA AIDA - FOOTER DE CADEADO AGRESSIVO EMBAIXO DAS FUNÇÕES
   const PremiumLockedFooter = ({ featureName, benefit }) => (
     <div className="mt-10 pt-10 border-t border-[#FE2C55]/20 flex flex-col items-center justify-center text-center gap-5 relative z-20 w-full font-black italic">
       <div className="inline-flex items-center justify-center gap-2 bg-[#FE2C55]/10 border border-[#FE2C55]/30 px-5 py-2 rounded-full mb-1">
@@ -666,7 +692,7 @@ export default function App() {
               <button onClick={() => setIsMenuOpen(false)} className="text-white/40 hover:text-white"><X size={24} /></button>
             </div>
             <div className="flex flex-col gap-10 flex-1 text-left">
-              {!user ? (
+              {!user || user.isAnonymous ? (
                 <>
                   <button onClick={() => {setView('auth'); setIsLoginMode(false); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-[#25F4EE] hover:text-white transition-colors text-left"><UserPlus size={20} /> JOIN THE NETWORK</button>
                   <button onClick={() => {setView('auth'); setIsLoginMode(true); setIsMenuOpen(false)}} className="flex items-center gap-4 text-sm font-black uppercase italic tracking-widest text-white hover:text-[#25F4EE] transition-colors text-left"><Lock size={20} /> MEMBER LOGIN</button>
@@ -710,7 +736,7 @@ export default function App() {
             <main className="space-y-8 pb-20 text-left">
               
               {/* Botão de Acesso Rápido ao Dashboard (APENAS PARA LOGADOS) - No Topo */}
-              {user && (
+              {user && !user.isAnonymous && (
                 <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-500">
                   <button 
                     onClick={() => setView('dashboard')} 
@@ -785,8 +811,8 @@ export default function App() {
                  </div>
               </div>
 
-              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME (Apenas Deslogados) */}
-              {!user && (
+              {/* BOTÕES DE VENDAS ESTRATÉGICOS FIXOS NO FUNDO DA HOME (Apenas Deslogados/Anónimos) */}
+              {(!user || user.isAnonymous) && (
                 <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-500 pb-10">
                   <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic btn-neon-white text-xs w-full max-w-[420px] group italic font-black uppercase py-6 leading-none">
                      <Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES
@@ -933,7 +959,7 @@ export default function App() {
                                        <p className="text-[11px] font-black text-white/30 uppercase mt-4 tracking-[0.4em]">Intelligent Rotation Active</p>
                                     </div>
                                     
-                                    {/* MÓDULO AUTOPILOT NOVO COM DELAY (Apenas para utilizadores Premium) */}
+                                    {/* MÓDULO AUTOPILOT NOVO COM DELAY */}
                                     <div className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/10 p-4 rounded-2xl mb-6">
                                        <label className="text-[10px] font-black uppercase text-white/50">Auto-Delay:</label>
                                        <div className="flex items-center gap-2">
@@ -999,12 +1025,18 @@ export default function App() {
                             </button>
                          </div>
                          <div className="bg-black border border-white/5 rounded-[3.5rem] p-10 flex flex-col justify-center items-center text-center shadow-2xl min-h-[250px]">
-                            {syncQR ? (
+                            {syncQR && !isDeviceSynced ? (
                                <div className="animate-in zoom-in duration-500 flex flex-col items-center">
                                  <div className="bg-white p-5 rounded-3xl mb-6 shadow-[0_0_30px_rgba(37,244,238,0.4)]">
                                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(syncQR)}&color=000000`} alt="Device Sync QR" className="w-40 h-40"/>
                                  </div>
                                  <p className="text-[11px] text-[#25F4EE] font-black uppercase tracking-[0.3em] animate-pulse">Scan with Native Camera</p>
+                               </div>
+                            ) : isDeviceSynced ? (
+                               <div className="animate-in zoom-in duration-500">
+                                  <Smartphone size={80} className="mx-auto mb-6 text-[#25F4EE] drop-shadow-[0_0_20px_#25F4EE]" />
+                                  <p className="text-xl font-black uppercase tracking-[0.2em] text-white">DEVICE CONNECTED</p>
+                                  <p className="text-[10px] text-[#25F4EE] font-black mt-2 uppercase">{syncedDeviceName}</p>
                                </div>
                             ) : (
                                <div className="opacity-20 text-center"><Smartphone size={80} className="mx-auto mb-6" /><p className="text-sm font-black uppercase tracking-[0.5em] text-center">Awaiting Device Sync</p></div>
@@ -1029,24 +1061,30 @@ export default function App() {
                </div>
             </div>
 
-            {/* UPGRADE / MARKETPLACE (VISÍVEL PARA QUEM NÃO É PRO - TÁTICA AIDA) */}
-            {(!isPro) && (
+            {/* UPGRADE / MARKETPLACE (APARECE PARA TODOS NO MODO MASTER, SE NÃO APARECE SÓ PARA FREE TRIAL) */}
+            {(!isPro || user?.uid === ADMIN_MASTER_ID) && (
               <div id="marketplace-section" className="mb-16 animate-in fade-in zoom-in-95 duration-700 mt-10">
-                 <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">MAXIMIZE YOUR ROI: UPGRADE TO PRO</h3></div>
+                 <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]" /><h3 className="text-2xl font-black uppercase italic tracking-widest text-white">{user?.uid === ADMIN_MASTER_ID ? "MASTER PROTOCOLS VIEW" : "MAXIMIZE YOUR ROI: UPGRADE TO PRO"}</h3></div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20 text-left">
                    <div className="bg-white/5 border border-[#25F4EE]/30 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl">
                       <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Globe size={100} /></div>
                       <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Nexus Access</h3>
                       <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">Premium Attribution Mapping, Unlimited Handshakes & Full Lead Unmasking.</p>
-                      <p className="text-5xl font-black text-white italic mb-12 leading-none">$9.00<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                      <p className="text-5xl font-black text-white italic mb-12 leading-none">
+                        {user?.uid === ADMIN_MASTER_ID ? '∞' : '$9.00'}
+                        <span className="text-sm text-white/30 tracking-normal uppercase ml-1"> {user?.uid === ADMIN_MASTER_ID ? '/ UNLIMITED' : '/ mo'}</span>
+                      </p>
                       <button onClick={() => window.open(STRIPE_NEXUS_LINK, '_blank')} className="btn-strategic btn-neon-white text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none">UPGRADE TO NEXUS</button>
                    </div>
                    <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-[0_0_60px_rgba(37,244,238,0.2)]">
                       <div className="absolute top-0 right-0 p-8 text-[#25F4EE] opacity-20 animate-pulse"><BrainCircuit size={100} /></div>
                       <h3 className="text-4xl font-black italic text-white uppercase mb-4 text-glow-white leading-none">Expert Agent</h3>
                       <p className="text-white/40 text-[11px] uppercase italic font-black mb-10 tracking-widest leading-relaxed max-w-xs">AI Synthesis Engine + Multi-Device Operations + 5K Bulk Import & Absolute Automation.</p>
-                      <p className="text-5xl font-black text-white italic mb-12 leading-none">$19.90<span className="text-sm text-white/30 tracking-normal uppercase ml-1"> / mo</span></p>
+                      <p className="text-5xl font-black text-white italic mb-12 leading-none">
+                        {user?.uid === ADMIN_MASTER_ID ? '∞' : '$19.90'}
+                        <span className="text-sm text-white/30 tracking-normal uppercase ml-1"> {user?.uid === ADMIN_MASTER_ID ? '/ UNLIMITED' : '/ mo'}</span>
+                      </p>
                       <button onClick={() => window.open(STRIPE_EXPERT_LINK, '_blank')} className="btn-strategic btn-neon-cyan text-xs w-full italic uppercase font-black py-5 shadow-2xl leading-none text-black">ACTIVATE EXPERT AI</button>
                    </div>
                 </div>
