@@ -747,7 +747,29 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- AI GEMINI CHAT HANDLER (AIDA EXPERT & LEAD CAPTURE - HIGHLY COGNITIVE & INTERACTIVE) ---
+  // --- EXPONENTIAL BACKOFF FETCH UTILITY (INSTANT RETURN ON FATAL ERROR) ---
+  const fetchWithBackoff = async (url, options, retries = 3) => {
+    let delay = 500;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+           if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+               console.error(`Gemini Fast-Fail: ${response.status} Client Error`);
+               throw new Error(`Client Error ${response.status}`);
+           }
+           throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (err) {
+        if (err.message.includes("Client Error") || i === retries - 1) throw err;
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2; 
+      }
+    }
+  };
+
+  // --- AI GEMINI CHAT HANDLER (AIDA EXPERT & LEAD CAPTURE - SECURE API INTEGRATION) ---
   const handleSendChat = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -759,14 +781,18 @@ export default function App() {
     // ZERO TOLERANCE SCANNER IN CHAT INPUT
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
     if (forbidden.test(newMsg.text)) {
-        await new Promise(resolve => setTimeout(resolve, 500)); 
+        await new Promise(resolve => setTimeout(resolve, 500)); // Fast fail
         setChatMessages(prev => [...prev, { role: 'model', text: "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED." }]);
         setIsChatLoading(false);
         return;
     }
 
+    // HUMANIZED TYPING DELAY: Extended for realistic Premium feel (1.2s to 2s)
+    await new Promise(resolve => setTimeout(resolve, 1200 + Math.random() * 800));
+
     try {
-        const apiKey = ""; 
+        // ACTUAL GEMINI API KEY INJECTED AS REQUESTED
+        const apiKey = "AIzaSyAL79ADJKAYYCSOcjdSZXXqUlZp3n7N6_k"; 
         
         const systemPrompt = `You are NEXUS AI SMART, the elite Sales and Support Agent for SMART SMS PRO.
         CRITICAL DIRECTIVES:
@@ -775,8 +801,8 @@ export default function App() {
         3. EXPERTISE: Master of SMART SMS PRO usability (Free to Pro), SMS Marketing, Sales Funnels, and the AIDA Framework (Attention, Interest, Desire, Action). Maximize conversion rates with ultra-intelligent, humanized responses. Speak with a premium vibe but use simple, popular words so laymen easily understand (e.g., instead of 'cryptographic bypass', say 'secure direct connection').
         4. FIRST INTERACTION PROTOCOL: On the very first message from the user, warmly introduce yourself as NEXUS AI SMART, briefly explain that SMART SMS PRO helps them send messages that actually reach their customers without being blocked, and IMMEDIATELY request their Name and Phone Number using exactly the format "Ex: +1 999 999 9999" to personalize their secure session.
         5. LEAD CAPTURE TRIGGER: As soon as the user provides their name and phone, gracefully acknowledge it. THEN, append this exact hidden syntax at the very end of your response: ||LEAD:Name,Phone||
-           Example: "Perfect, John! Let's elevate your strategy." ||LEAD:John Doe,+15559999999||
-        6. INTERACTIVE ROUTING FUNNEL (NO DEAD ENDS): NEVER leave the user in a vacuum. ALWAYS end your responses by asking an engaging question or offering a logical path with 3 numbered options to guide them. Example:
+           Example: "Nice to meet you, John! Let's boost your sales." ||LEAD:John Doe,+15559999999||
+        6. INTERACTIVE ROUTING FUNNEL (NO DEAD ENDS): NEVER leave the user in a vacuum. ALWAYS end your responses by offering a logical path with 3 numbered options to guide them. Example:
            1️⃣ Understand our Anti-Block Technology
            2️⃣ Explore 'SMS QUOTA' packages
            3️⃣ Get Advanced Conversion Tips
@@ -805,42 +831,17 @@ export default function App() {
             validContents.shift(); 
         }
 
-        let delay = 1000;
-        let aiTextRaw = null;
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        const data = await fetchWithBackoff(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: validContents,
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            })
+        });
         
-        // Exponential backoff implementation
-        for (let i = 0; i < 5; i++) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: validContents,
-                        systemInstruction: { parts: [{ text: systemPrompt }] }
-                    })
-                });
-                
-                if (!response.ok) {
-                   if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-                       throw new Error(`Client Error ${response.status}`);
-                   }
-                   throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                aiTextRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                break;
-            } catch (err) {
-                if (err.message.includes("Client Error") || i === 4) throw err;
-                await new Promise(res => setTimeout(res, delay));
-                delay *= 2;
-            }
-        }
-
-        if (!aiTextRaw) {
-            aiTextRaw = "Comunicação interrompida. Por favor, certifique-se de que a sua chave Gemini API está configurada no código.";
-        }
-
+        const aiTextRaw = data.candidates?.[0]?.content?.parts?.[0]?.text || "System re-calibrating. Processing data...";
         let displayAiText = aiTextRaw;
         
         // INTERCEPT AND CAPTURE SECRET LEAD TAG
@@ -855,7 +856,7 @@ export default function App() {
 
         setChatMessages(prev => [...prev, { role: 'model', text: displayAiText }]);
     } catch (error) {
-        setChatMessages(prev => [...prev, { role: 'model', text: "Signal lost. If running locally, please insert your Gemini API Key in the code." }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: "Signal lost. Connection to AI Gateway failed." }]);
     }
     setIsChatLoading(false);
   };
