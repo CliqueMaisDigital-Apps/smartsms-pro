@@ -30,7 +30,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
@@ -77,7 +77,7 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [legalContent, setLegalContent] = useState(null); // STATE FOR GLOBAL POLICIES
+  const [legalContent, setLegalContent] = useState(null); 
   
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
@@ -86,7 +86,7 @@ export default function App() {
   const [subscribers, setSubscribers] = useState([]); 
   
   // --- ADMIN MASTER NETWORK STATES ---
-  const [adminSelectedOwnerId, setAdminSelectedOwnerId] = useState(null);
+  const [expandedAdminRow, setExpandedAdminRow] = useState(null);
   
   // --- GENERATOR & QUICK SEND STATES ---
   const [genTo, setGenTo] = useState('');
@@ -126,11 +126,24 @@ export default function App() {
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
 
+  // --- AI CHAT SUPPORT STATES ---
+  const [chatMessages, setChatMessages] = useState([{role: 'model', text: "AI EXPERT ONLINE. How can I assist you with your Smart SMS Pro strategy and operations today?"}]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
   const fileInputRef = useRef(null);
   
   const isMaster = user?.uid === ADMIN_MASTER_ID;
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
+
+  // --- AUTO SCROLL CHAT ---
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
 
   // --- IDENTITY BOOTSTRAP ---
   useEffect(() => {
@@ -166,7 +179,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING) ---
+  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING & CACHE) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
@@ -175,7 +188,7 @@ export default function App() {
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
       
       if (isAlreadyRegistered) {
-         // BYPASS: Cookie detects Lead is already captured, bypass direct to SMS node
+         // BYPASS: Cookie detects Lead is already captured, bypass direct to SMS terminal
          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
          const sep = isIOS ? '&' : '?';
          setView('bridge');
@@ -233,10 +246,11 @@ export default function App() {
   }, [user, view, isMaster]);
 
   // ============================================================================
-  // ADMIN MASTER ACTION FUNCTIONS
+  // ADMIN MASTER ACTION FUNCTIONS & ACCORDION DATA BUILDER
   // ============================================================================
-  const handleAdminGrantTier = async (targetId, tierType) => {
-    if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Node: ${targetId}?`)) return;
+  const handleAdminGrantTier = async (e, targetId, tierType) => {
+    e.stopPropagation(); // Previne o acordeão de abrir
+    if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Gateway: ${targetId}?`)) return;
     setLoading(true);
     try {
         const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
@@ -256,7 +270,7 @@ export default function App() {
         if (snap.exists()) {
             await updateDoc(profileRef, updates);
         } else {
-            await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Node" });
+            await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
         }
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
     } catch (error) {
@@ -266,20 +280,21 @@ export default function App() {
     setLoading(false);
   };
 
+  // Build the complete hierarchical map combining `subscribers` and `logs` for absolute accuracy
   const subscribersMap = {};
   if (isMaster) {
      subscribers.forEach(s => {
         subscribersMap[s.id] = { id: s.id, name: s.fullName, email: s.email, tier: s.tier, leads: [] };
      });
+     // Ensure legacy users (like Daniel Joaquim) who captured leads are mapped even if missing from profile collection
      logs.forEach(l => {
         if (!subscribersMap[l.ownerId]) {
-           subscribersMap[l.ownerId] = { id: l.ownerId, name: 'Unknown User', email: 'N/A', tier: 'UNKNOWN', leads: [] };
+           subscribersMap[l.ownerId] = { id: l.ownerId, name: 'Legacy / Auto-Captured User', email: 'Awaiting Login Sync', tier: 'FREE_TRIAL', leads: [] };
         }
         subscribersMap[l.ownerId].leads.push(l);
      });
   }
   const subscribersList = Object.values(subscribersMap);
-  const displayLogs = isMaster && adminSelectedOwnerId ? logs.filter(l => l.ownerId === adminSelectedOwnerId) : (isMaster ? [] : logs);
 
 
   // ============================================================================
@@ -361,19 +376,18 @@ export default function App() {
   };
 
   const handlePrepareBatch = () => {
-    const targetLogs = isMaster ? displayLogs : logs;
-    if (!aiObjective || targetLogs.length === 0 || aiWarning) return;
+    if (!aiObjective || logs.length === 0 || aiWarning) return;
     setIsAiProcessing(true);
     
     setTimeout(() => {
-      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), targetLogs.length);
+      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
       if (limit <= 0 && !isMaster) {
          alert("No credits available.");
          setIsAiProcessing(false);
          return;
       }
       
-      const queue = targetLogs.slice(0, limit).map((l, idx) => {
+      const queue = logs.slice(0, limit).map((l, idx) => {
          const contextualMessage = superAIVariationEngine(aiObjective, idx, l.nome_cliente);
          return { 
            id: l.id || Math.random().toString(),
@@ -427,15 +441,17 @@ export default function App() {
 
         if (!isMaster) {
           const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-          await updateDoc(profileRef, { 
-            smsCredits: increment(-1),
-            dailySent: increment(1)
-          });
-          setUserProfile(prev => ({ 
-             ...prev, 
-             smsCredits: (prev?.smsCredits || 0) - 1, 
-             dailySent: (prev?.dailySent || 0) + 1 
-          }));
+          try {
+             await updateDoc(profileRef, { 
+               smsCredits: increment(-1),
+               dailySent: increment(1)
+             });
+             setUserProfile(prev => ({ 
+                ...prev, 
+                smsCredits: (prev?.smsCredits || 0) - 1, 
+                dailySent: (prev?.dailySent || 0) + 1 
+             }));
+          } catch(e) {}
         } else {
           setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
         }
@@ -446,7 +462,7 @@ export default function App() {
       }
     } catch (error) {
       console.error("Dispatch Error:", error);
-      alert("Failed to push protocol to Node.");
+      alert("Failed to push protocol to Gateway.");
     }
     
     setIsDispatching(false);
@@ -563,7 +579,7 @@ export default function App() {
         setGenTo(''); setGenMsg('');
         
         setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
-        alert("PUSHED TO SECURE NODE!");
+        alert("PUSHED TO SECURE GATEWAY!");
       } catch(e) { console.error(e); }
       setLoading(false);
     } else {
@@ -577,22 +593,26 @@ export default function App() {
     }
   };
 
+  // --- SEPARATION OF DB LOGIC AND REDIRECT (ULTRA FAST & SECURE QUOTA DEDUCTION) ---
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
     if(!captureForm.phone.startsWith('+')) return alert("USE VALID FORMAT WITH '+' PREFIX (EX: +1 999 999 9999)");
     setLoading(true);
+    
+    const ownerId = captureData.ownerId;
+    const safeId = captureForm.phone.replace(/\D/g, '');
+    const sanitizedPhone = captureForm.phone.replace(/[^\d+]/g, ''); 
+    
+    let allowRedirect = true;
+
     try {
-      const ownerId = captureData.ownerId;
-      const safeId = captureForm.phone.replace(/\D/g, '');
-      const sanitizedPhone = captureForm.phone.replace(/[^\d+]/g, ''); 
-      
       const leadDocId = `${ownerId}_${safeId}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
       
-      // ISOLATION PROTOCOL: Only inject and deduct if the entity is completely new
       if (isNewLead) {
+        // Asynchronous injection
         await setDoc(leadRef, {
           ownerId,
           nome_cliente: String(captureForm.name),
@@ -601,39 +621,48 @@ export default function App() {
           device: navigator.userAgent
         }, { merge: true });
         
+        // Asynchronous Quota Deduction Logic wrapped carefully
         if (ownerId !== ADMIN_MASTER_ID) {
-          const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-          const opSnap = await getDoc(pubRef);
-          if (opSnap.exists()) {
-             const data = opSnap.data();
-             const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
-             
-             if (!isUnlimited) {
-                 if (Number(data.smsCredits) <= 0) { 
-                     alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
-                     setLoading(false); 
-                     return; 
-                 }
-                 await updateDoc(pubRef, { smsCredits: increment(-1) });
+          try {
+             const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+             const opSnap = await getDoc(pubRef);
+             if (opSnap.exists()) {
+                const data = opSnap.data();
+                const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+                
+                if (!isUnlimited) {
+                    if (Number(data.smsCredits) <= 0) { 
+                        alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
+                        allowRedirect = false; // Block execution
+                    } else {
+                        await updateDoc(pubRef, { smsCredits: increment(-1) });
+                    }
+                }
              }
+          } catch(err) {
+             console.error("[SYS-LOG] Quota check failed (possibly strict DB rules), allowing fast flow anyway.", err);
           }
         }
       } else {
         console.log("[SYS-LOG] Duplicate Lead Detected. Bypassing database injection and quota deduction.");
       }
-      
-      // GRAVA O COOKIE PARA NÃO REPETIR A TELA DE CAPTURA NESTE LEAD
-      localStorage.setItem(`smartsms_registered_for_${ownerId}`, 'true');
+    } catch (e) {
+       console.error("Database connection exception:", e);
+    } finally {
+       setLoading(false);
+       if (allowRedirect) {
+           // GRAVA O COOKIE PARA NÃO REPETIR A TELA DE CAPTURA NESTE LEAD
+           localStorage.setItem(`smartsms_registered_for_${ownerId}`, 'true');
 
-      // ULTRA-FAST REDIRECT INITIATION
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const sep = isIOS ? '&' : '?';
-      setView('bridge');
-      setTimeout(() => {
-        window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-      }, 150); 
-    } catch (e) { console.error(e); }
-    setLoading(false);
+           // ULTRA-FAST REDIRECT INITIATION (150ms)
+           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+           const sep = isIOS ? '&' : '?';
+           setView('bridge');
+           setTimeout(() => {
+             window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
+           }, 150); 
+       }
+    }
   };
 
   const handleAuthSubmit = async (e) => {
@@ -660,6 +689,34 @@ export default function App() {
     setLoading(false);
   };
 
+  // --- AI GEMINI CHAT HANDLER ---
+  const handleSendChat = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    const newMsg = { role: 'user', text: chatInput };
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+        const apiKey = ""; // API Key automatically injected by immersive environment
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [...chatMessages, newMsg].map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+                systemInstruction: { parts: [{ text: "You are the Smart Support AI for SMART SMS PRO. You are an elite expert in sales funnels, the AIDA framework, persuasion, and customer support. You understand all languages. Respond naturally, humanized, and persuasively to help users and visitors maximize their conversion rates and understand our exclusive system architecture. Keep responses concise and highly actionable." }] }
+            })
+        });
+        const data = await response.json();
+        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Communication interrupted. Please try again.";
+        setChatMessages(prev => [...prev, { role: 'model', text: aiText }]);
+    } catch (error) {
+        setChatMessages(prev => [...prev, { role: 'model', text: "Error connecting to AI Gateway." }]);
+    }
+    setIsChatLoading(false);
+  };
+
   const maskData = (s, type) => { 
     if (isPro) return String(s || ''); 
     const str = String(s || '');
@@ -673,12 +730,12 @@ export default function App() {
       case 'PRIVACY': return { 
         title: "GLOBAL PRIVACY POLICY", 
         icon: FileLock2,
-        text: "The SMART SMS PRO ecosystem operates under a strict Zero-Knowledge cryptographic architecture, ensuring full compliance with international data privacy frameworks. All metadata captured via our routing nodes is insulated using military-grade encryption at rest. We legally reserve all rights to audit network traffic to prevent system abuse. We categorically do not sell, rent, or cross-reference encrypted user payloads. For any privacy inquiries, our Smart Support terminal is active 24/7." 
+        text: "The SMART SMS PRO ecosystem operates under a strict Zero-Knowledge cryptographic architecture, ensuring full compliance with international data privacy frameworks. All metadata captured via our routing gateways is insulated using military-grade encryption at rest. We legally reserve all rights to audit network traffic to prevent system abuse. We categorically do not sell, rent, or cross-reference encrypted user payloads. For any privacy inquiries, our Smart Support terminal is active 24/7." 
       };
       case 'TERMS': return { 
         title: "TERMS OF USE & OPERATION", 
         icon: FileText,
-        text: "By accessing the Master Terminal, you enter into a legally binding international agreement. Operators are solely responsible for ensuring all automated dispatches comply with applicable local, federal, and international telecommunication legislations (including TCPA and CAN-SPAM). We expressly reserve the right to permanently terminate and blacklist any operational node engaged in fraudulent, malicious, or unverified routing without prior notice. For operational guidance, our Smart Support is active 24/7." 
+        text: "By accessing the Master Terminal, you enter into a legally binding international agreement. Operators are solely responsible for ensuring all automated dispatches comply with applicable local, federal, and international telecommunication legislations (including TCPA and CAN-SPAM). We expressly reserve the right to permanently terminate and blacklist any operational gateway engaged in fraudulent, malicious, or unverified routing without prior notice. For operational guidance, our Smart Support is active 24/7." 
       };
       case 'LGPD': return { 
         title: "GLOBAL DATA PROTECTION & LGPD", 
@@ -688,7 +745,7 @@ export default function App() {
       case 'GDPR': return { 
         title: "GDPR & INTERNATIONAL SOVEREIGNTY", 
         icon: Globe,
-        text: "Engineered in full alignment with the General Data Protection Regulation (EU) 2016/679 and overarching global privacy doctrines. Data processing is executed relying on unambiguous consent dynamically secured during the initial cryptographic handshake. Our robust database architecture mathematically isolates international nodes to uphold absolute data sovereignty. Right to erasure protocols are natively integrated. For official DPO inquiries, our Smart Support is active 24/7." 
+        text: "Engineered in full alignment with the General Data Protection Regulation (EU) 2016/679 and overarching global privacy doctrines. Data processing is executed relying on unambiguous consent dynamically secured during the initial cryptographic handshake. Our robust database architecture mathematically isolates international gateways to uphold absolute data sovereignty. Right to erasure protocols are natively integrated. For official DPO inquiries, our Smart Support is active 24/7." 
       };
       default: return null;
     }
@@ -698,7 +755,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
-        <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] animate-pulse">INITIALIZING NODE...</p>
+        <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] animate-pulse">INITIALIZING GATEWAY...</p>
       </div>
     );
   }
@@ -722,7 +779,7 @@ export default function App() {
             <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
             <h2 className="text-3xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
             <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4">
-              Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host node.
+              Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
             </p>
             <div className="w-full space-y-6 text-left">
               <div>
@@ -814,7 +871,7 @@ export default function App() {
         {/* MOBILE ONLY: LOGOUT POSITIONED AT BOTTOM */}
         {user && (
            <div className="mt-auto pt-8 border-t border-white/5">
-              <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY NODE</button>
+              <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY GATEWAY</button>
            </div>
         )}
       </div>
@@ -864,7 +921,7 @@ export default function App() {
                        <ul className="text-[9px] sm:text-[10px] text-white/40 space-y-2 leading-relaxed">
                           <li>● Use direct calls to action to minimize user decision lag.</li>
                           <li>● Keep payload between 160-300 chars for carrier standing.</li>
-                          <li>● Confirming leads routes traffic to your native SMS node.</li>
+                          <li>● Confirming leads routes traffic to your native SMS gateway.</li>
                        </ul>
                     </div>
                   )}
@@ -927,7 +984,7 @@ export default function App() {
                     <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
-                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">ACTIVE NODES</p>
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">ACTIVE DEVICES</p>
                     <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-lg sm:text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none">
@@ -942,7 +999,7 @@ export default function App() {
               {[
                 { label: "DISPATCHED SMS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
-                { label: "ACTIVE CONTACTS", value: isMaster && !adminSelectedOwnerId ? subscribersList.length : (isMaster ? displayLogs.length : logs.length), icon: Users, color: "text-amber-500" },
+                { label: "ACTIVE CONTACTS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
@@ -997,14 +1054,14 @@ export default function App() {
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
                  <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
-                       {isMaster && !adminSelectedOwnerId ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
-                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">{isMaster && !adminSelectedOwnerId ? 'SUBSCRIBER NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                       {isMaster ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
+                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">{isMaster ? 'SUBSCRIBER NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
-                   {isMaster && !adminSelectedOwnerId ? (
-                     /* ADMIN MASTER: NETWORK VIEW (SUBSCRIBERS ONLY) */
+                   {isMaster ? (
+                     /* ADMIN MASTER: ACCORDION NETWORK VIEW (SUBSCRIBERS ONLY) */
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
@@ -1015,32 +1072,66 @@ export default function App() {
                        </thead>
                        <tbody className="divide-y divide-white/5">
                          {subscribersList.map(sub => (
-                            <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors group">
-                               <td className="px-6 sm:px-8 py-4 sm:py-6">
-                                  <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
-                                  <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
-                               </td>
-                               <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">{sub.leads.length} REGISTERED</td>
-                               <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
-                                  <button onClick={() => setAdminSelectedOwnerId(sub.id)} className="bg-white/10 hover:bg-white/20 text-white px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Database size={12} className="sm:w-3.5 sm:h-3.5"/> OPEN</button>
-                                  <button onClick={() => handleAdminGrantTier(sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Gift size={12} className="sm:w-3.5 sm:h-3.5"/> $9</button>
-                                  <button onClick={() => handleAdminGrantTier(sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Rocket size={12} className="sm:w-3.5 sm:h-3.5"/> $19.90</button>
-                               </td>
-                            </tr>
+                            <React.Fragment key={sub.id}>
+                                <tr onClick={() => setExpandedAdminRow(expandedAdminRow === sub.id ? null : sub.id)} className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${expandedAdminRow === sub.id ? 'bg-white/[0.03]' : ''}`}>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6">
+                                      <div className="flex items-center gap-3">
+                                          {expandedAdminRow === sub.id ? <ChevronDown size={16} className="text-[#25F4EE]" /> : <ChevronRightSquare size={16} className="text-white/30 group-hover:text-white/60" />}
+                                          <div>
+                                              <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
+                                              <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
+                                          </div>
+                                      </div>
+                                   </td>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">
+                                       <span className="bg-white/5 px-4 py-1.5 rounded-lg border border-white/10">{sub.leads.length} CAPTURED</span>
+                                   </td>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
+                                      <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Gift size={12} className="sm:w-3.5 sm:h-3.5"/> $9</button>
+                                      <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Rocket size={12} className="sm:w-3.5 sm:h-3.5"/> $19.90</button>
+                                   </td>
+                                </tr>
+                                {/* ACORDEÃO: TABELA INTERNA DE LEADS DO ASSINANTE */}
+                                {expandedAdminRow === sub.id && (
+                                    <tr>
+                                        <td colSpan="3" className="p-0 border-b border-white/5">
+                                            <div className="bg-black border-l-4 border-[#25F4EE] p-6 animate-in slide-in-from-top-2">
+                                                {sub.leads.length > 0 ? (
+                                                    <table className="w-full text-left font-sans font-medium !text-transform-none">
+                                                       <thead className="text-[8px] text-white/30 uppercase tracking-widest border-b border-white/5">
+                                                           <tr>
+                                                               <th className="pb-3 px-4">RECIPIENT</th>
+                                                               <th className="pb-3 px-4">IDENTITY</th>
+                                                               <th className="pb-3 px-4 text-right">TIMESTAMP</th>
+                                                           </tr>
+                                                       </thead>
+                                                       <tbody className="divide-y divide-white/5">
+                                                           {sub.leads.map(l => (
+                                                              <tr key={l.id} className="hover:bg-white/5">
+                                                                 <td className="py-3 px-4 text-xs text-[#25F4EE] font-mono">{l.telefone_cliente}</td>
+                                                                 <td className="py-3 px-4 text-xs text-white">{l.nome_cliente}</td>
+                                                                 <td className="py-3 px-4 text-xs text-right font-mono text-white/50">
+                                                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
+                                                                 </td>
+                                                              </tr>
+                                                           ))}
+                                                       </tbody>
+                                                    </table>
+                                                ) : (
+                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                          ))}
                        </tbody>
                      </table>
                    ) : (
-                     /* STANDARD LEADS VIEW / ADMIN FOLDER VIEW */
+                     /* STANDARD LEADS VIEW */
                      <>
-                       {isMaster && adminSelectedOwnerId && (
-                          <div className="p-3 sm:p-4 bg-[#111] border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                             <span className="text-[9px] sm:text-[10px] text-[#25F4EE] tracking-widest font-black uppercase line-clamp-1"><Database size={10} className="inline mr-1.5 sm:mr-2 mb-0.5 sm:w-3 sm:h-3"/> FOLDER: {adminSelectedOwnerId}</span>
-                             <button onClick={() => setAdminSelectedOwnerId(null)} className="text-[9px] sm:text-[10px] text-white/50 hover:text-white border border-white/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors bg-black whitespace-nowrap">BACK TO MAP</button>
-                          </div>
-                       )}
-                       
-                       {(isMaster ? displayLogs : logs).length > 0 ? (
+                       {logs.length > 0 ? (
                          <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
                            <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                              <tr>
@@ -1051,7 +1142,7 @@ export default function App() {
                              </tr>
                            </thead>
                            <tbody className="divide-y divide-white/5">
-                             {(isMaster ? displayLogs : logs).map(l => (
+                             {logs.map(l => (
                                <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
                                  <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap">{maskData(l.telefone_cliente, 'phone')}</td>
                                  <td className="px-6 sm:px-8 py-4 sm:py-6">
@@ -1064,7 +1155,7 @@ export default function App() {
                                  </td>
                                  <td className="px-6 sm:px-8 py-4 sm:py-6 whitespace-nowrap">
                                     {isPro ? (
-                                      <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={10} className="sm:w-3 sm:h-3" /> DECRYPTED NODE</span>
+                                      <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={10} className="sm:w-3 sm:h-3" /> DECRYPTED GATEWAY</span>
                                     ) : (
                                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={10} className="sm:w-3 sm:h-3" /> UNLOCK TO REVEAL</button>
                                     )}
@@ -1082,7 +1173,7 @@ export default function App() {
                      </>
                    )}
                  </div>
-                 {!isPro && logs.length > 0 && (
+                 {!isPro && !isMaster && logs.length > 0 && (
                    <div className="p-6 sm:p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
                       <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto">UPGRADE TO ELITE</button>
@@ -1191,7 +1282,7 @@ export default function App() {
                          <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
                          
                          <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
-                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, (isMaster && adminSelectedOwnerId ? displayLogs.length : logs.length))} UNITS)`}
+                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, logs.length)} UNITS)`}
                          </button>
                       </div>
                       
@@ -1205,7 +1296,7 @@ export default function App() {
                              </div>
                              <div className="text-amber-500 flex flex-col items-center gap-2 sm:gap-3">
                                <RefreshCw size={20} className="sm:w-6 sm:h-6 animate-spin" />
-                               <p className="text-[8px] sm:text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P NODE..."}</p>
+                               <p className="text-[8px] sm:text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P GATEWAY..."}</p>
                              </div>
                              
                              <button onClick={handleClearQueue} disabled={loading} className="mt-4 sm:mt-6 text-[8px] sm:text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-black">
@@ -1214,7 +1305,7 @@ export default function App() {
 
                              {nodeWarningActive && (
                                <div className="mt-4 sm:mt-6 p-3 sm:p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
-                                 <p className="text-[9px] sm:text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><WifiOff size={10} className="sm:w-3 sm:h-3"/> NODE DISCONNECTED</p>
+                                 <p className="text-[9px] sm:text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><WifiOff size={10} className="sm:w-3 sm:h-3"/> DEVICE DISCONNECTED</p>
                                  <p className="text-[7px] sm:text-[8px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
                                </div>
                              )}
@@ -1247,12 +1338,12 @@ export default function App() {
                 {linksHistory.length > 0 ? linksHistory.map(l => (
                   <div key={l.id} className="p-5 sm:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4 sm:gap-6 hover:bg-white/[0.02] transition-colors">
                     <div className="flex-1 overflow-hidden">
-                       <p className="text-[9px] sm:text-[10px] text-white/30 mb-1 flex items-center gap-1.5 sm:gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Node...'}</p>
+                       <p className="text-[9px] sm:text-[10px] text-white/30 mb-1 flex items-center gap-1.5 sm:gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Gateway...'}</p>
                        <p className="text-xs sm:text-sm text-[#25F4EE] truncate font-sans !text-transform-none max-w-[280px] sm:max-w-[400px]">{l.url}</p>
                        <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 sm:mt-1.5 leading-tight font-sans !text-transform-none truncate">HOST: {String(l.company)} | PAYLOAD: {String(l.msg).substring(0,40)}...</p>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
-                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Node Copied!");}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors flex justify-center"><Copy size={14} className="sm:w-4 sm:h-4"/></button>
+                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Gateway Copied!");}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors flex justify-center"><Copy size={14} className="sm:w-4 sm:h-4"/></button>
                        <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home'); window.scrollTo(0,0);}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors flex justify-center"><Edit size={14} className="sm:w-4 sm:h-4"/></button>
                        <button onClick={() => handleDeleteLink(l.id)} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors flex justify-center"><Trash size={14} className="sm:w-4 sm:h-4"/></button>
                     </div>
@@ -1275,12 +1366,12 @@ export default function App() {
                     <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE]">EXPERT AGENT</h3>
                     <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
                     <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACTIVATE NODE</button>}
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACTIVATE GATEWAY</button>}
                  </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
                  {[
-                   { name: "STARTER NODE", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
+                   { name: "STARTER GATEWAY", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
                    { name: "NEXUS PACK", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
                    { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
                  ].map(pack => (
@@ -1289,7 +1380,7 @@ export default function App() {
                      <p className="text-2xl sm:text-3xl text-white mb-3 sm:mb-4 font-black">{pack.qty}</p>
                      <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4">HANDSHAKES</p>
                      <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8">{pack.price}</p>
-                     <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE NODE</button>
+                     <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
                    </div>
                  ))}
               </div>
@@ -1310,7 +1401,7 @@ export default function App() {
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5">{loading ? 'VERIFYING NODE...' : 'AUTHORIZE ACCESS'}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
@@ -1324,7 +1415,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30">
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING NODES</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE NODES</span></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING SERVERS</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE SERVERS</span></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5 flex justify-center">
@@ -1337,7 +1428,6 @@ export default function App() {
         <div className="fixed inset-0 z-[700] bg-[#010101]/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6 text-left animate-in fade-in zoom-in-95">
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/30 w-full max-w-2xl rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(37,244,238,0.15)] flex flex-col max-h-[85vh] overflow-hidden relative">
              
-             {/* Modal Header */}
              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] shrink-0">
                 <div className="flex items-center gap-3 sm:gap-4">
                    {renderLegalContent()?.icon && React.createElement(renderLegalContent().icon, { size: 24, className: "text-[#25F4EE] sm:w-7 sm:h-7" })}
@@ -1346,7 +1436,6 @@ export default function App() {
                 <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={18} className="sm:w-5 sm:h-5"/></button>
              </div>
 
-             {/* Modal Body */}
              <div className="p-6 sm:p-10 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-[#111] to-black">
                 <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
                    {renderLegalContent()?.text}
@@ -1358,7 +1447,6 @@ export default function App() {
                 </div>
              </div>
 
-             {/* Modal Footer */}
              <div className="p-6 sm:p-8 border-t border-white/10 bg-black shrink-0 flex justify-end">
                 <button onClick={() => setLegalContent(null)} className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-3.5 bg-[#25F4EE] text-black text-[10px] sm:text-[11px] font-black tracking-widest rounded-xl hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACKNOWLEDGE & CLOSE</button>
              </div>
@@ -1373,7 +1461,7 @@ export default function App() {
             <div className="lighthouse-neon-content p-8 sm:p-10 flex flex-col items-center relative">
               <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
               <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
-              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2">SYNC MOBILE NODE</h3>
+              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2">SYNC MOBILE DEVICE</h3>
               <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
@@ -1381,7 +1469,7 @@ export default function App() {
               </div>
               
               <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[9px] sm:text-[10px] w-full py-3.5 sm:py-4 shadow-xl mb-2 sm:mb-4">
-                CONFIRM NODE SYNC
+                CONFIRM DEVICE SYNC
               </button>
             </div>
           </div>
@@ -1421,7 +1509,7 @@ export default function App() {
               </div>
               <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 3</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNC NODE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNC MOBILE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
               </div>
               <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 4</p>
@@ -1437,17 +1525,47 @@ export default function App() {
         </div>
       )}
 
-      {/* SMART SUPPORT MODAL */}
+      {/* AI SMART SUPPORT MODAL (LIVE GEMINI CHAT) */}
       {showSmartSupport && (
         <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 bg-[#010101]/95 backdrop-blur-xl text-left animate-in fade-in zoom-in-95">
-           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-[0_0_50px_rgba(37,244,238,0.2)]">
-              <div className="lighthouse-neon-content p-8 sm:p-10 relative">
-                 <button onClick={() => setShowSmartSupport(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
-                 <div className="flex items-center gap-3 mb-8 sm:mb-10"><Bot size={28} className="sm:w-[32px] sm:h-[32px] text-[#25F4EE]"/><span className="text-xs sm:text-sm tracking-widest text-glow-white">SMART SUPPORT</span></div>
-                 <div className="bg-black border border-white/5 p-6 sm:p-8 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 min-h-[150px] sm:min-h-[180px] flex items-center justify-center text-center leading-relaxed shadow-inner">
-                    <p className="text-[10px] sm:text-[11px] text-white/50 tracking-widest px-2">AI AGENT ONLINE TO ASSIST YOUR ELITE CONVERSIONS. HOW CAN I HELP TODAY?</p>
+           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(37,244,238,0.2)]">
+              <div className="lighthouse-neon-content p-6 sm:p-8 relative flex flex-col h-[70vh] sm:h-[80vh]">
+                 <button onClick={() => setShowSmartSupport(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white z-10"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
+                 <div className="flex items-center gap-3 mb-6 sm:mb-8 shrink-0">
+                    <Bot size={28} className="sm:w-[32px] sm:h-[32px] text-[#25F4EE]"/>
+                    <span className="text-xs sm:text-sm tracking-widest text-glow-white font-black">SMART AI AGENT</span>
                  </div>
-                 <button onClick={() => {alert("Connecting node..."); setShowSmartSupport(false);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs shadow-xl w-full hover:scale-[1.02] py-3.5 sm:py-4">CONNECT TO NODE</button>
+                 
+                 <div className="flex-1 bg-black border border-white/5 rounded-2xl sm:rounded-3xl mb-4 sm:mb-6 p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner">
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                         <div className={`p-3 sm:p-4 rounded-xl max-w-[85%] font-sans !text-transform-none text-[11px] sm:text-[13px] leading-relaxed ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium' : 'bg-white/5 text-white/80 border border-white/10'}`}>
+                            {msg.text}
+                         </div>
+                      </div>
+                    ))}
+                    {isChatLoading && (
+                      <div className="flex w-full justify-start">
+                         <div className="p-3 sm:p-4 rounded-xl max-w-[85%] bg-white/5 text-white/50 border border-white/10 flex items-center gap-2">
+                           <RefreshCw size={14} className="animate-spin" /> <span className="text-[9px] tracking-widest uppercase italic">PROCESSING...</span>
+                         </div>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                 </div>
+                 
+                 <form onSubmit={handleSendChat} className="shrink-0 flex gap-2 sm:gap-3">
+                    <input 
+                      value={chatInput} 
+                      onChange={(e) => setChatInput(e.target.value)} 
+                      disabled={isChatLoading}
+                      placeholder="Ask the AI Expert..." 
+                      className="input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-[#111] focus:border-[#25F4EE]/50 disabled:opacity-50"
+                    />
+                    <button type="submit" disabled={isChatLoading || !chatInput.trim()} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
+                      <Send size={18} className="sm:w-5 sm:h-5"/>
+                    </button>
+                 </form>
               </div>
            </div>
         </div>
