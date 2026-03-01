@@ -753,24 +753,27 @@ export default function App() {
   const nexusSmartAIEngine = (historyContext, inputString) => {
       const text = String(inputString).toLowerCase();
       
+      // Combine current text with full history to lock the language context accurately across the session
+      const fullHistoryText = historyContext.map(m => m.text).join(' ').toLowerCase() + " " + text;
+      
       // Zero Tolerance Pre-Scanner for AI Chat
       const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
       if (forbidden.test(text)) {
           return "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED.";
       }
 
-      // Language Detection Engine (Top 10 USA + PT-BR)
+      // Advanced Persistent Language Detection Engine (Top USA + PT-BR)
       let lang = 'en'; // Default
-      if (/\b(oi|olá|ola|opa|bom dia|boa tarde|ajuda|sim|não|nao|quero|como)\b/i.test(text)) lang = 'pt';
-      else if (/\b(hola|buenos|ayuda|si|no|quiero|gracias)\b/i.test(text)) lang = 'es';
-      else if (/\b(bonjour|salut|aide|oui|non|merci)\b/i.test(text)) lang = 'fr';
-      else if (/\b(hallo|guten|hilfe|ja|nein|danke)\b/i.test(text)) lang = 'de';
-      else if (/\b(ni hao|你好|xiexie|谢谢)\b/i.test(text)) lang = 'zh';
-      else if (/\b(chao|xin chao|giup|cảm ơn)\b/i.test(text)) lang = 'vi';
-      else if (/\b(kamusta|tulong|salamat)\b/i.test(text)) lang = 'tl'; // Tagalog
-      else if (/\b(mrhba|مرحبا|shukran|شكرا)\b/i.test(text)) lang = 'ar';
-      else if (/\b(annyeong|안녕하세요|kamsahamnida|감사합니다)\b/i.test(text)) lang = 'ko';
-      else if (/\b(privet|привет|pomoshch|помощь|spasibo|спасибо)\b/i.test(text)) lang = 'ru';
+      if (/\b(oi|olá|ola|opa|bom dia|boa tarde|ajuda|sim|não|nao|quero|como|português|br)\b/i.test(fullHistoryText)) lang = 'pt';
+      else if (/\b(hola|buenos|ayuda|si|no|quiero|gracias)\b/i.test(fullHistoryText)) lang = 'es';
+      else if (/\b(bonjour|salut|aide|oui|non|merci)\b/i.test(fullHistoryText)) lang = 'fr';
+      else if (/\b(hallo|guten|hilfe|ja|nein|danke)\b/i.test(fullHistoryText)) lang = 'de';
+      else if (/\b(ni hao|你好|xiexie|谢谢)\b/i.test(fullHistoryText)) lang = 'zh';
+      else if (/\b(chao|xin chao|giup|cảm ơn)\b/i.test(fullHistoryText)) lang = 'vi';
+      else if (/\b(kamusta|tulong|salamat)\b/i.test(fullHistoryText)) lang = 'tl'; // Tagalog
+      else if (/\b(mrhba|مرحبا|shukran|شكرا)\b/i.test(fullHistoryText)) lang = 'ar';
+      else if (/\b(annyeong|안녕하세요|kamsahamnida|감사합니다)\b/i.test(fullHistoryText)) lang = 'ko';
+      else if (/\b(privet|привет|pomoshch|помощь|spasibo|спасибо)\b/i.test(fullHistoryText)) lang = 'ru';
 
       // Lead Extraction Regex (International formats +1 999 999 9999)
       const phoneRegex = /(\+?\d{1,3}[-.\s]?\(?\d{2,3}\)?[-.\s]?\d{3,4}[-.\s]?\d{4,5})/;
@@ -790,30 +793,38 @@ export default function App() {
               }
           }
 
-          // AIDA: Interest & Desire (Post-Capture)
+          // AIDA: Interest & Desire + Interactive Routing Funnel (Post-Capture)
           const responses = {
-              'pt': `Excelente, ${extractedName}. O seu terminal criptográfico está estabelecido. Estratégia de Elite: No plano Free Trial, você consome o seu 'SALDO QUOTA REDIRECT' a cada clique. Para dominar o mercado, automatizar envios em massa e ativar o nosso Spintax furtivo, o próximo passo é desbloquear pacotes de 'SMS QUOTA'. É o motor que escala o seu ROI. Que tipo de campanha deseja lançar hoje? ||LEAD:${extractedName},${phoneMatch}||`,
-              'en': `Excellent, ${extractedName}. Your cryptographic terminal is established. Elite Strategy: On the Free Trial, you consume 'SALDO QUOTA REDIRECT' per click. To dominate your market, automate mass sending, and unlock our stealth Spintax, your next step is acquiring 'SMS QUOTA' packs. It's the engine that scales your ROI. What kind of campaign are we launching today? ||LEAD:${extractedName},${phoneMatch}||`,
-              'es': `Excelente, ${extractedName}. Su terminal criptográfico está establecido. Estrategia de Élite: En el plan Free Trial, usted consume 'SALDO QUOTA REDIRECT' por cada clic. Para dominar su mercado, automatizar envíos masivos y desbloquear nuestro Spintax furtivo, el siguiente paso es adquirir paquetes de 'SMS QUOTA'. Es el motor que escala su ROI. ¿Qué campaña desea lanzar hoy? ||LEAD:${extractedName},${phoneMatch}||`
+              'pt': `Excelente, ${extractedName}! O seu terminal seguro está autenticado. \n\nEstratégia de Elite: No plano Free Trial, você consome 'SALDO QUOTA REDIRECT' a cada clique. Para dominar o mercado e escalar automações em massa, você precisa adquirir pacotes de 'SMS QUOTA'.\n\nComo posso guiar sua operação hoje? Escolha uma rota:\n1️⃣ Entender nossa tecnologia Anti-Bloqueio\n2️⃣ Explorar pacotes SMS QUOTA\n3️⃣ Receber Dicas Avançadas de Conversão ||LEAD:${extractedName},${phoneMatch}||`,
+              'en': `Excellent, ${extractedName}! Your secure terminal is authenticated. \n\nElite Strategy: On the Free Trial, you consume 'SALDO QUOTA REDIRECT' per click. To dominate your market and scale mass automations, acquiring 'SMS QUOTA' packs is essential.\n\nHow can I guide your operation today? Choose a logical path:\n1️⃣ Understand our Anti-Block Technology\n2️⃣ Explore SMS QUOTA packages\n3️⃣ Get Advanced Conversion Tips ||LEAD:${extractedName},${phoneMatch}||`,
+              'es': `¡Excelente, ${extractedName}! Su terminal seguro está autenticado. \n\nEstrategia de Élite: En el Free Trial, usted consume 'SALDO QUOTA REDIRECT' por clic. Para dominar el mercado y escalar automatizaciones masivas, necesita paquetes de 'SMS QUOTA'.\n\n¿Cómo puedo guiar su operación hoy? Elija una ruta:\n1️⃣ Entender nuestra tecnología Anti-Bloqueo\n2️⃣ Explorar paquetes SMS QUOTA\n3️⃣ Recibir Tips de Conversión Avanzados ||LEAD:${extractedName},${phoneMatch}||`
           };
           return responses[lang] || responses['en'];
       }
 
-      // Keyword-based AIDA Funnel Rules (Action focused)
-      if (text.includes('quota') || text.includes('saldo') || text.includes('free') || text.includes('trial') || text.includes('comprar') || text.includes('buy') || text.includes('price') || text.includes('preço')) {
+      // Intelligent Keyword Routing - Technology/Functionality
+      if (text.includes('1') || text.includes('tecnologia') || text.includes('technology') || text.includes('anti') || text.includes('funciona') || text.includes('work')) {
+         const responses = {
+              'pt': "Nossa infraestrutura cria um 'bypass' furtivo direto para o SMS nativo do destinatário. Isso impede bloqueios de operadoras e garante taxas de entrega absurdamente altas (próximas a 100%). \n\nDeseja configurar sua primeira Carga Útil (Payload) ou quer verificar os planos de 'SMS QUOTA' na Upgrade Station para começar a enviar?",
+              'en': "Our infrastructure creates a stealth bypass directly to the recipient's native SMS application. This prevents carrier filtering and guarantees incredibly high delivery rates (near 100%). \n\nWould you like to draft your first Payload, or check the 'SMS QUOTA' plans in the Upgrade Station to begin dispatching?"
+         };
+         return responses[lang] || responses['en'];
+      }
+
+      // Intelligent Keyword Routing - Quotas & Pricing
+      if (text.includes('2') || text.includes('quota') || text.includes('saldo') || text.includes('free') || text.includes('trial') || text.includes('comprar') || text.includes('buy') || text.includes('price') || text.includes('preço') || text.includes('plan')) {
           const responses = {
-              'pt': "A matemática da conversão não falha: o 'SALDO QUOTA REDIRECT' é a sua proteção inicial no Free Trial. Quando atinge o limite, o fluxo pausa para proteger a rede. Adquirir pacotes 'SMS QUOTA' liberta o potencial total do seu funil e permite envios ilimitados da IA. É a ação definitiva para o sucesso. Vamos ativar o seu pacote PRO na nossa 'Upgrade Station' agora?",
-              'en': "The conversion math never fails: 'SALDO QUOTA REDIRECT' is your initial shield on the Free Trial. Once reached, the flow pauses to protect the network. Acquiring 'SMS QUOTA' packs unleashes your funnel's total potential and enables unlimited AI dispatches. It's the ultimate action for success. Shall we activate your PRO pack in our 'Upgrade Station' now?",
-              'es': "La matemática de conversión no falla: el 'SALDO QUOTA REDIRECT' es su escudo inicial en el Free Trial. Al límite, el flujo se pausa para proteger la red. Adquirir paquetes de 'SMS QUOTA' libera el potencial total de su embudo y permite envíos ilimitados. Es la acción definitiva para el éxito. ¿Activamos su paquete PRO en la 'Upgrade Station' ahora?"
+              'pt': "O 'SALDO QUOTA REDIRECT' protege seus primeiros passos no Free Trial. Mas para escalar, a Upgrade Station tem os motores certos: o 'NEXUS PACK' ou o 'ELITE OPERATOR' liberam as travas da rede e ativam nossa Super IA de Spintax. É a sua Ação definitiva de conversão. \n\nVamos ativar o seu pacote agora ou quer dicas de marketing para sua campanha?",
+              'en': "The 'SALDO QUOTA REDIRECT' protects your initial steps in the Free Trial. But to truly scale, the Upgrade Station holds the real engines: the 'NEXUS PACK' or 'ELITE OPERATOR' remove network limiters and unlock our Super AI Spintax. \n\nShall we activate your package now, or do you want marketing tips for your campaign?"
           };
           return responses[lang] || responses['en'];
       }
 
-      if (text.includes('mkt') || text.includes('marketing') || text.includes('campanha') || text.includes('campaign') || text.includes('dica') || text.includes('tip') || text.includes('estrategia') || text.includes('strategy')) {
+      // Intelligent Keyword Routing - Marketing Tips
+      if (text.includes('3') || text.includes('mkt') || text.includes('marketing') || text.includes('campanha') || text.includes('campaign') || text.includes('dica') || text.includes('tip') || text.includes('estrategia') || text.includes('strategy')) {
            const responses = {
-              'pt': "No SMS Marketing, a técnica AIDA (Atenção, Interesse, Desejo, Ação) é letal. Use gatilhos mentais curtos e links magnéticos. O nosso sistema faz o bypass furtivo para a operadora nativa do Lead, garantindo quase 100% de entrega. Apenas garanta que possui 'SMS QUOTA' suficiente para a explosão de tráfego. Deseja ajuda para criar o texto da sua Carga Útil (Payload)?",
-              'en': "In SMS Marketing, the AIDA framework (Attention, Interest, Desire, Action) is lethal. Use short psychological triggers and magnetic links. Our system executes a stealth bypass to the Lead's native carrier, ensuring near 100% delivery. Just ensure you have enough 'SMS QUOTA' for the traffic explosion. Do you need help crafting your Payload text?",
-              'es': "En SMS Marketing, la técnica AIDA es letal. Use gatillos mentales cortos y enlaces magnéticos. Nuestro sistema hace el bypass furtivo a la operadora nativa del Lead, asegurando casi 100% de entrega. Solo asegúrese de tener 'SMS QUOTA' suficiente para la explosión de tráfico. ¿Necesita ayuda para crear su Carga Útil (Payload)?"
+              'pt': "A Regra de Ouro no SMS é o modelo AIDA: chame a Atenção no começo, crie Interesse rápido, provoque Desejo e termine com uma Ação clara (o seu link seguro gerado por nós). \n\nCom uma Carga Útil matadora e 'SMS QUOTA' suficiente, suas vendas decolam. Já sabe qual será sua oferta ou precisa de ajuda com o painel?",
+              'en': "The Golden Rule in SMS is the AIDA model: capture Attention immediately, generate Interest, spark Desire, and close with clear Action (your secure generated link). \n\nWith a killer Payload and sufficient 'SMS QUOTA', your sales will skyrocket. Do you know your offer yet, or need help navigating the dashboard?"
           };
           return responses[lang] || responses['en'];
       }
@@ -821,18 +832,18 @@ export default function App() {
       // First interaction / Greetings / AIDA: Attention
       if (historyContext.length === 0 || text.match(/\b(oi|olá|ola|opa|hey|hi|hello|hola|bonjour|hallo|ni hao|chao|kamusta|mrhba|annyeong|privet)\b/i)) {
           const responses = {
-              'pt': "NEXUS AI SMART ONLINE. Olá! Eu sou o seu Agente Especialista de Alta Conversão. Para iniciarmos o seu protocolo e libertar o poder da nossa rede, por favor, insira o seu Nome e Número de Telefone válido (Ex: +1 999 999 9999).",
-              'en': "NEXUS AI SMART ONLINE. Hello! I am your Elite Conversion Specialist Agent. To initialize your protocol and unleash the power of our network, please enter your Name and a valid Phone Number (Ex: +1 999 999 9999).",
-              'es': "NEXUS AI SMART ONLINE. ¡Hola! Soy su Agente Especialista de Alta Conversión. Para inicializar su protocolo y liberar el poder de nuestra red, por favor ingrese su Nombre y Número de Teléfono válido (Ej: +1 999 999 9999)."
+              'pt': "NEXUS AI SMART ONLINE. Olá! Eu sou o seu Agente Especialista de Alta Conversão. \n\nPara personalizarmos seu atendimento com excelência e iniciarmos seu protocolo, por favor, me informe o seu Nome e Número de Telefone (Ex: +1 999 999 9999).",
+              'en': "NEXUS AI SMART ONLINE. Hello! I am your Elite Conversion Specialist Agent. \n\nTo personalize your session with excellence and initialize your protocol, please provide your Name and a valid Phone Number (Ex: +1 999 999 9999).",
+              'es': "NEXUS AI SMART ONLINE. ¡Hola! Soy su Agente Especialista de Alta Conversión. \n\nPara personalizar su atención y comenzar, por favor ingrese su Nombre y Número de Teléfono válido (Ej: +1 999 999 9999)."
           };
           return responses[lang] || responses['en'];
       }
 
-      // Fallback
+      // Fallback (Keeps the user engaged with clear logic)
       const responses = {
-          'pt': "Compreendo a sua estratégia. No entanto, para eu processar a resposta técnica exata e blindar a sua sessão, preciso validar a sua identidade. Qual é o seu Nome e Número de Telefone (Ex: +1 999 999 9999)?",
-          'en': "I understand your strategy. However, for me to process the exact technical response and secure your session, I must validate your identity. What is your Name and Phone Number (Ex: +1 999 999 9999)?",
-          'es': "Entiendo su estrategia. Sin embargo, para procesar la respuesta técnica exacta y asegurar su sesión, necesito validar su identidad. ¿Cuál es su Nombre y Número de Teléfono (Ej: +1 999 999 9999)?"
+          'pt': "Compreendido. Para garantirmos fluidez e eu conseguir auditar seu painel perfeitamente, preciso validar seu acesso. Qual é o seu Nome e Número de Telefone com DDD (Ex: +1 999 999 9999)? \n\n*(Ou digite 'ajuda' para ver as opções da plataforma)*",
+          'en': "Understood. To ensure absolute fluidity and accurately audit your dashboard, I must validate your access. What is your Name and full Phone Number (Ex: +1 999 999 9999)? \n\n*(Or type 'help' to see platform options)*",
+          'es': "Entendido. Para garantizar fluidez y poder auditar su panel, necesito validar su acceso. ¿Cuál es su Nombre y Número de Teléfono (Ej: +1 999 999 9999)? \n\n*(O escriba 'ayuda' para ver opciones)*"
       };
       return responses[lang] || responses['en'];
   };
@@ -1737,7 +1748,7 @@ export default function App() {
 
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[12px] sm:text-[14px] leading-relaxed tracking-wide hyphens-auto break-words shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-semibold rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[12px] sm:text-[14px] leading-relaxed tracking-wide break-words shadow-lg whitespace-pre-wrap ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-semibold rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
                       </div>
