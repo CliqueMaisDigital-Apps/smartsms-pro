@@ -139,6 +139,24 @@ export default function App() {
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
+  // --- SHIELD PROTOCOL: ANTI-COPY & SOURCE PROTECTION ---
+  useEffect(() => {
+    const handleContextMenu = (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+    };
+    const handleKeyDown = (e) => {
+       if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && ['U','S','P'].includes(e.key))) {
+           e.preventDefault();
+       }
+    };
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+       document.removeEventListener('contextmenu', handleContextMenu);
+       document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // --- AUTO SCROLL CHAT (FIXED DELAY FOR RELIABILITY) ---
   useEffect(() => {
     if (showSmartSupport && chatEndRef.current) {
@@ -748,14 +766,19 @@ export default function App() {
         4. FIRST INTERACTION GOAL: Warmly ask for their Name and Phone number (WhatsApp/Mobile) to personalize their support.
         5. LEAD CAPTURE TRIGGER: The moment the user provides their name and phone, you must acknowledge it gracefully in the language they are speaking. HOWEVER, YOU MUST append exactly this string at the very end of your response: ||LEAD:Name,Phone||
            Example: Sure John! I'll assist you now. ||LEAD:John Doe,+15559999999||
-        6. SELLING THE SAAS: Emphasize that Free Trial users consume 'SALDO QUOTA REDIRECT' for each link click. PRO users who wish to automate mass sending need to acquire 'SMS QUOTA' packs. Highlight the high ROI and stealth architecture of the Gateway.
+        6. SELLING THE SAAS: Emphasize that Free Trial users consume 'SALDO QUOTA REDIRECT' for each link click. PRO users who wish to automate mass sending need to acquire 'SMS QUOTA' packs. Highlight the high ROI and stealth architecture of the Terminal.
         Maintain a highly humanized, persuasive, and concise tone.`;
+
+        // GEMINI API FIX: Filter out the hardcoded 'model' initial message to prevent 400 Bad Request Payload errors
+        const payloadContents = [...chatMessages, newMsg]
+            .filter((m, idx) => !(idx === 0 && m.role === 'model'))
+            .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [...chatMessages, newMsg].map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+                contents: payloadContents,
                 systemInstruction: { parts: [{ text: systemPrompt }] }
             })
         });
@@ -871,6 +894,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
+        /* SHIELD PROTOCOL: PREVENT TEXT SELECTION */
+        body { user-select: none; -webkit-user-select: none; }
+        input, textarea { user-select: text; -webkit-user-select: text; }
+
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
@@ -1604,8 +1631,7 @@ export default function App() {
       {/* AI SMART SUPPORT MODAL (LIVE GEMINI CHAT - FIXED RESPONSIVE STRUCTURE) */}
       {showSmartSupport && (
         <div className="fixed inset-0 z-[900] flex items-center justify-center p-4 sm:p-6 bg-[#010101]/95 backdrop-blur-xl animate-in fade-in zoom-in-95">
-           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(37,244,238,0.2)]">
-              <div className="lighthouse-neon-content flex flex-col h-[75vh] max-h-[700px] w-full overflow-hidden relative">
+           <div className="w-full max-w-lg bg-[#0a0a0a] border border-[#25F4EE]/30 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(37,244,238,0.2)] flex flex-col overflow-hidden relative h-[80vh] max-h-[750px]">
                  
                  {/* Chat Header (Fixed) */}
                  <div className="p-5 sm:p-6 border-b border-white/10 shrink-0 flex justify-between items-center bg-[#111]">
@@ -1617,7 +1643,7 @@ export default function App() {
                  </div>
                  
                  {/* Chat Body (Scrollable) */}
-                 <div className="flex-1 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner">
+                 <div className="flex-1 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner relative">
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                          <div className={`p-3 sm:p-4 rounded-xl max-w-[85%] font-sans !text-transform-none text-[11px] sm:text-[13px] leading-relaxed ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium' : 'bg-white/5 text-white/80 border border-white/10'}`}>
@@ -1632,7 +1658,7 @@ export default function App() {
                          </div>
                       </div>
                     )}
-                    <div ref={chatEndRef} className="h-1 shrink-0" />
+                    <div ref={chatEndRef} className="h-4 shrink-0" />
                  </div>
                  
                  {/* Chat Footer / Input (Fixed) */}
@@ -1651,7 +1677,6 @@ export default function App() {
                      </form>
                  </div>
 
-              </div>
            </div>
         </div>
       )}
