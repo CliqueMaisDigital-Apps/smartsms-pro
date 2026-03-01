@@ -494,9 +494,9 @@ export default function App() {
                dailySent: increment(1)
              });
              setUserProfile(prev => ({ 
-                ...prev, 
-                smsCredits: (prev?.smsCredits || 0) - 1, 
-                dailySent: (prev?.dailySent || 0) + 1 
+                 ...prev, 
+                 smsCredits: (prev?.smsCredits || 0) - 1, 
+                 dailySent: (prev?.dailySent || 0) + 1 
              }));
           } catch(e) {}
         } else {
@@ -750,22 +750,27 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- EXPONENTIAL BACKOFF FETCH UTILITY (INSTANT RETURN ON FATAL ERROR) ---
+  // --- EXPONENTIAL BACKOFF FETCH UTILITY (ENHANCED ERROR DIAGNOSTICS) ---
   const fetchWithBackoff = async (url, options, retries = 3) => {
     let delay = 500;
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url, options);
         if (!response.ok) {
+           // Capture actual Google API Error for debugging
+           const errorData = await response.json().catch(() => ({}));
+           const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+           
            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-               console.error(`Gemini Fast-Fail: ${response.status} Client Error`);
-               throw new Error(`Client Error ${response.status}`);
+               console.error(`Gemini Fast-Fail: ${response.status} Client Error - ${errorMsg}`);
+               throw new Error(`API ERROR ${response.status}: ${errorMsg}`);
            }
-           throw new Error(`HTTP error! status: ${response.status}`);
+           throw new Error(`Server Error: ${errorMsg}`);
         }
         return await response.json();
       } catch (err) {
-        if (err.message.includes("Client Error") || i === retries - 1) throw err;
+        // If it's a fatal 400/403 error, throw immediately to display to the user
+        if (err.message.includes("API ERROR") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
       }
@@ -784,7 +789,7 @@ export default function App() {
     // ZERO TOLERANCE SCANNER IN CHAT INPUT
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
     if (forbidden.test(newMsg.text)) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Fast fail
+        await new Promise(resolve => setTimeout(resolve, 500)); 
         setChatMessages(prev => [...prev, { role: 'model', text: "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED." }]);
         setIsChatLoading(false);
         return;
@@ -900,7 +905,8 @@ Never incite, insinuate, or teach how to circumvent, deceive, or lie about any s
         setChatMessages(prev => [...prev, { role: 'model', text: displayAiText }]);
     } catch (error) {
         console.error("Gemini API Connection Error:", error);
-        setChatMessages(prev => [...prev, { role: 'model', text: "Signal lost. Connection to AI Gateway failed." }]);
+        // NEW BEHAVIOR: Output the exact API Error directly to the chat bubble since F12 is blocked
+        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: ${error.message}. Please verify API Key Domain Restrictions, Billing setup, or CORS policies in Google Cloud.` }]);
     }
     setIsChatLoading(false);
   };
@@ -995,7 +1001,7 @@ Never incite, insinuate, or teach how to circumvent, deceive, or lie about any s
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
-        /* SHIELD PROTOCOL: ANTI-COPY ACTIVE. Text selection is strictly BLOCKED. Right-Click Translation is ALLOWED. */
+        /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
         body { user-select: none; -webkit-user-select: none; }
         input, textarea { user-select: text; -webkit-user-select: text; }
 
