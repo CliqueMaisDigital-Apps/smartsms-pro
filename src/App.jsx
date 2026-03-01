@@ -130,7 +130,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([{role: 'model', text: "AI EXPERT ONLINE. How can I assist you with your Smart SMS Pro strategy and operations today?"}]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); // Flag to ensure we only capture once per session
+  const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
   const chatEndRef = useRef(null);
 
   const fileInputRef = useRef(null);
@@ -139,12 +139,14 @@ export default function App() {
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
-  // --- AUTO SCROLL CHAT ---
+  // --- AUTO SCROLL CHAT (FIXED DELAY FOR RELIABILITY) ---
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (showSmartSupport && chatEndRef.current) {
+       setTimeout(() => {
+          chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+       }, 100);
     }
-  }, [chatMessages]);
+  }, [chatMessages, showSmartSupport]);
 
   // --- IDENTITY BOOTSTRAP ---
   useEffect(() => {
@@ -287,11 +289,12 @@ export default function App() {
      subscribers.forEach(s => {
         subscribersMap[s.id] = { id: s.id, name: s.fullName, email: s.email, tier: s.tier, leads: [] };
      });
-     // Ensure legacy users (like Daniel Joaquim) AND Chat Bot Leads are mapped even if missing from profile collection
+     
+     // FIXED: Ensures legacy users (who captured leads before subscribing properly) are securely mapped
      logs.forEach(l => {
         if (!subscribersMap[l.ownerId]) {
-           let folderName = 'Legacy / Auto-Captured User';
-           let folderEmail = 'Awaiting Login Sync';
+           let folderName = `GATEWAY ID: ${l.ownerId.substring(0,8)}...`;
+           let folderEmail = 'Legacy / Auto-Captured';
            let folderTier = 'FREE_TRIAL';
            
            // Highlight Special AI Chat Leads Folder
@@ -300,13 +303,18 @@ export default function App() {
                folderEmail = 'Captured via Intelligent AI Conversation';
                folderTier = 'AI_AGENT';
            }
+           if (l.ownerId === ADMIN_MASTER_ID) {
+               folderName = 'MASTER ADMIN';
+               folderEmail = 'System Core';
+               folderTier = 'MASTER';
+           }
            
            subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, email: folderEmail, tier: folderTier, leads: [] };
         }
         subscribersMap[l.ownerId].leads.push(l);
      });
   }
-  const subscribersList = Object.values(subscribersMap);
+  const subscribersList = Object.values(subscribersMap).sort((a,b) => b.leads.length - a.leads.length); // Sorts heavily populated folders to top
 
 
   // ============================================================================
@@ -730,7 +738,7 @@ export default function App() {
     setIsChatLoading(true);
 
     try {
-        const apiKey = ""; // Runtime Key
+        const apiKey = ""; // Runtime Key auto injected
         
         const systemPrompt = `You are the Smart Support AI Agent for SMART SMS PRO.
         CRITICAL RULES:
@@ -1593,18 +1601,23 @@ export default function App() {
         </div>
       )}
 
-      {/* AI SMART SUPPORT MODAL (LIVE GEMINI CHAT) */}
+      {/* AI SMART SUPPORT MODAL (LIVE GEMINI CHAT - FIXED RESPONSIVE STRUCTURE) */}
       {showSmartSupport && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 bg-[#010101]/95 backdrop-blur-xl text-left animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-[900] flex items-center justify-center p-4 sm:p-6 bg-[#010101]/95 backdrop-blur-xl animate-in fade-in zoom-in-95">
            <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(37,244,238,0.2)]">
-              <div className="lighthouse-neon-content p-6 sm:p-8 relative flex flex-col h-[70vh] sm:h-[80vh]">
-                 <button onClick={() => setShowSmartSupport(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white z-10"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
-                 <div className="flex items-center gap-3 mb-6 sm:mb-8 shrink-0">
-                    <Bot size={28} className="sm:w-[32px] sm:h-[32px] text-[#25F4EE]"/>
-                    <span className="text-xs sm:text-sm tracking-widest text-glow-white font-black">SMART AI AGENT</span>
+              <div className="lighthouse-neon-content flex flex-col h-[75vh] max-h-[700px] w-full overflow-hidden relative">
+                 
+                 {/* Chat Header (Fixed) */}
+                 <div className="p-5 sm:p-6 border-b border-white/10 shrink-0 flex justify-between items-center bg-[#111]">
+                     <div className="flex items-center gap-3">
+                        <Bot size={24} className="sm:w-[28px] sm:h-[28px] text-[#25F4EE]"/>
+                        <span className="text-xs sm:text-sm tracking-widest text-glow-white font-black">SMART AI AGENT</span>
+                     </div>
+                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
                  </div>
                  
-                 <div className="flex-1 bg-black border border-white/5 rounded-2xl sm:rounded-3xl mb-4 sm:mb-6 p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner">
+                 {/* Chat Body (Scrollable) */}
+                 <div className="flex-1 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner">
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                          <div className={`p-3 sm:p-4 rounded-xl max-w-[85%] font-sans !text-transform-none text-[11px] sm:text-[13px] leading-relaxed ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium' : 'bg-white/5 text-white/80 border border-white/10'}`}>
@@ -1619,21 +1632,25 @@ export default function App() {
                          </div>
                       </div>
                     )}
-                    <div ref={chatEndRef} />
+                    <div ref={chatEndRef} className="h-1 shrink-0" />
                  </div>
                  
-                 <form onSubmit={handleSendChat} className="shrink-0 flex gap-2 sm:gap-3">
-                    <input 
-                      value={chatInput} 
-                      onChange={(e) => setChatInput(e.target.value)} 
-                      disabled={isChatLoading}
-                      placeholder="Ask the AI Expert..." 
-                      className="input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-[#111] focus:border-[#25F4EE]/50 disabled:opacity-50"
-                    />
-                    <button type="submit" disabled={isChatLoading || !chatInput.trim()} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
-                      <Send size={18} className="sm:w-5 sm:h-5"/>
-                    </button>
-                 </form>
+                 {/* Chat Footer / Input (Fixed) */}
+                 <div className="p-4 sm:p-5 border-t border-white/10 bg-[#111] shrink-0">
+                     <form onSubmit={handleSendChat} className="flex gap-2 sm:gap-3">
+                        <input 
+                          value={chatInput} 
+                          onChange={(e) => setChatInput(e.target.value)} 
+                          disabled={isChatLoading}
+                          placeholder="Ask the AI Expert..." 
+                          className="input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black focus:border-[#25F4EE]/50 disabled:opacity-50"
+                        />
+                        <button type="submit" disabled={isChatLoading || !chatInput.trim()} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)] flex items-center justify-center shrink-0">
+                          <Send size={18} className="sm:w-5 sm:h-5"/>
+                        </button>
+                     </form>
+                 </div>
+
               </div>
            </div>
         </div>
