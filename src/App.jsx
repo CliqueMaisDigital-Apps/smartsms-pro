@@ -30,7 +30,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
@@ -77,12 +77,13 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [legalContent, setLegalContent] = useState(null); // STATE FOR GLOBAL POLICIES
   
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
   const [smsQueueCount, setSmsQueueCount] = useState(0); 
-  const [subscribers, setSubscribers] = useState([]); // ADDED: Admin Master Subscriber List
+  const [subscribers, setSubscribers] = useState([]); 
   
   // --- ADMIN MASTER NETWORK STATES ---
   const [adminSelectedOwnerId, setAdminSelectedOwnerId] = useState(null);
@@ -128,7 +129,6 @@ export default function App() {
   const fileInputRef = useRef(null);
   
   const isMaster = user?.uid === ADMIN_MASTER_ID;
-  // PRO Validation updated with new tiers
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
@@ -145,7 +145,6 @@ export default function App() {
             const d = await getDoc(docRef);
             if (d.exists()) {
               setUserProfile(d.data());
-              // Auto-sync User to Public Subscribers for Admin Master Map
               setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true });
             } else {
               const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
@@ -167,7 +166,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- CAPTURE PORTAL SENSOR ---
+  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
@@ -197,7 +196,6 @@ export default function App() {
       collection(db, 'artifacts', appId, 'public', 'data', 'leads'), 
       (snap) => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // Admin Master gets ALL leads to map the network folders
         const myData = isMaster ? all : all.filter(l => l.ownerId === user.uid);
         setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
       },
@@ -250,7 +248,7 @@ export default function App() {
         } else if (tierType === 'PRO_SUBSCRIPTION_19_USD') {
             updates.tier = 'PRO_SUBSCRIPTION_19_USD';
             updates.automationStatus = 'ACTIVE';
-            updates.smsCredits = increment(800); // Bônus Gatilho de 800 envios
+            updates.smsCredits = increment(800);
             updates.isSubscribed = true;
         }
         
@@ -268,7 +266,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Group explicitly from Subscribers List, ensuring no Lead mix-up
   const subscribersMap = {};
   if (isMaster) {
      subscribers.forEach(s => {
@@ -364,9 +361,7 @@ export default function App() {
   };
 
   const handlePrepareBatch = () => {
-    // Para Admin, gera batch baseado na pasta que está a visualizar ou alerta
     const targetLogs = isMaster ? displayLogs : logs;
-    
     if (!aiObjective || targetLogs.length === 0 || aiWarning) return;
     setIsAiProcessing(true);
     
@@ -606,7 +601,6 @@ export default function App() {
           device: navigator.userAgent
         }, { merge: true });
         
-        // REGRA DE REDIRECIONAMENTO E COTA DE QUOTA REFINADA (Apenas deduz Lead Válido Novo)
         if (ownerId !== ADMIN_MASTER_ID) {
           const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
           const opSnap = await getDoc(pubRef);
@@ -637,7 +631,7 @@ export default function App() {
       setView('bridge');
       setTimeout(() => {
         window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-      }, 150); // ULTRA-FAST ROUTING (Reduzido de 1000ms para 150ms)
+      }, 150); 
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -666,13 +660,38 @@ export default function App() {
     setLoading(false);
   };
 
-  // MASCARAMENTO INSTIGANTE E TECNOLÓGICO PARA CONTAS FREE TRIAL
   const maskData = (s, type) => { 
     if (isPro) return String(s || ''); 
     const str = String(s || '');
-    // Revela os primeiros 3 caracteres do nome e os primeiros 6 do telefone (DDI + 2 digitos)
     if (type === 'name') return str.substring(0, 3) + '*** [ENCRYPTED]'; 
     return str.substring(0, 6) + '*** [VAULT]'; 
+  };
+
+  // --- RENDER LEGAL CONTENT FOR MODAL ---
+  const renderLegalContent = () => {
+    switch(legalContent) {
+      case 'PRIVACY': return { 
+        title: "GLOBAL PRIVACY POLICY", 
+        icon: FileLock2,
+        text: "The SMART SMS PRO ecosystem operates under a strict Zero-Knowledge cryptographic architecture, ensuring full compliance with international data privacy frameworks. All metadata captured via our routing nodes is insulated using military-grade encryption at rest. We legally reserve all rights to audit network traffic to prevent system abuse. We categorically do not sell, rent, or cross-reference encrypted user payloads. For any privacy inquiries, our Smart Support terminal is active 24/7." 
+      };
+      case 'TERMS': return { 
+        title: "TERMS OF USE & OPERATION", 
+        icon: FileText,
+        text: "By accessing the Master Terminal, you enter into a legally binding international agreement. Operators are solely responsible for ensuring all automated dispatches comply with applicable local, federal, and international telecommunication legislations (including TCPA and CAN-SPAM). We expressly reserve the right to permanently terminate and blacklist any operational node engaged in fraudulent, malicious, or unverified routing without prior notice. For operational guidance, our Smart Support is active 24/7." 
+      };
+      case 'LGPD': return { 
+        title: "GLOBAL DATA PROTECTION & LGPD", 
+        icon: LawScale,
+        text: "Designed in strict adherence to the Brazilian General Data Protection Law (LGPD - Law No. 13,709/2018) while fulfilling broader international data protection mandates. Our terminal captures identity and contact vectors exclusively through explicit, voluntary affirmative action. This guarantees undeniable prior consent before any routing initialization. Data subjects retain absolute rights to request immediate data erasure from the encrypted vault. Compliance assistance is available via our 24/7 Smart Support." 
+      };
+      case 'GDPR': return { 
+        title: "GDPR & INTERNATIONAL SOVEREIGNTY", 
+        icon: Globe,
+        text: "Engineered in full alignment with the General Data Protection Regulation (EU) 2016/679 and overarching global privacy doctrines. Data processing is executed relying on unambiguous consent dynamically secured during the initial cryptographic handshake. Our robust database architecture mathematically isolates international nodes to uphold absolute data sovereignty. Right to erasure protocols are natively integrated. For official DPO inquiries, our Smart Support is active 24/7." 
+      };
+      default: return null;
+    }
   };
 
   if (!authResolved) {
@@ -747,14 +766,15 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
-      {/* --- TOP NAV --- */}
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[100] px-6 flex justify-between items-center">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+      {/* --- TOP NAV (Z-INDEX SUPERIOR PARA MANTER FLUIDEZ SOBRE O MENU MOBILE) --- */}
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[200] px-6 flex justify-between items-center transition-all">
+        <div className="flex items-center gap-3 cursor-pointer relative z-[210]" onClick={() => { setView('home'); setIsMenuOpen(false); }}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
           <span className="text-lg font-black tracking-tighter text-white mt-1">SMART SMS PRO</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest">
+        {/* DESKTOP NAV */}
+        <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest relative z-[210]">
            {!user ? (
              <>
                <button onClick={() => { setIsLoginMode(true); setView('auth'); }} className={`transition-colors border-b-2 pb-1 ${view === 'auth' && isLoginMode ? 'border-[#25F4EE] text-[#25F4EE]' : 'border-transparent hover:text-[#25F4EE]'}`}>SECURE MEMBER PORTAL</button>
@@ -769,13 +789,38 @@ export default function App() {
            )}
         </div>
 
-        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[110]">
+        {/* MOBILE MENU TOGGLE */}
+        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[210] relative">
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </nav>
 
+      {/* --- OMNI-MENU MOBILE (ULTRA RESPONSIVE & DYNAMIC GAVETA FLUIDA) --- */}
+      <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
+        <div className="flex flex-col gap-4 flex-1 mt-4">
+          {!user ? (
+            <>
+              <button onClick={() => { setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className={`p-5 rounded-2xl border ${view === 'auth' && isLoginMode ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE]' : 'bg-white/5 border-white/10 text-white hover:border-[#25F4EE]/50'} text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full`}><Lock size={18}/> SECURE MEMBER PORTAL</button>
+              <button onClick={() => { setIsLoginMode(false); setView('auth'); setIsMenuOpen(false); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black shadow-[0_0_30px_rgba(37,244,238,0.4)] flex items-center justify-center gap-3 w-full"><Rocket size={18}/> JOIN NETWORK & START</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { setView('dashboard'); setIsMenuOpen(false); }} className={`p-5 rounded-2xl border ${view === 'dashboard' ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE]' : 'bg-white/5 border-white/10 text-white hover:border-[#25F4EE]/50'} text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full`}><LayoutDashboard size={18}/> ACCESS OPERATOR HUB</button>
+              <button onClick={() => { setShowSmartSupport(true); setIsMenuOpen(false); }} className="p-5 rounded-2xl border bg-white/5 border-white/10 text-white hover:border-[#25F4EE]/50 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full"><Bot size={18}/> SMART AI SUPPORT</button>
+            </>
+          )}
+        </div>
+        
+        {/* MOBILE ONLY: LOGOUT POSITIONED AT BOTTOM */}
+        {user && (
+           <div className="mt-auto pt-8 border-t border-white/5">
+              <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY NODE</button>
+           </div>
+        )}
+      </div>
+
       {/* --- CONTENT HUB --- */}
-      <div className="pt-28 flex-1 pb-10 relative">
+      <div className="pt-28 flex-1 pb-10 relative z-[100]">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
 
@@ -783,30 +828,30 @@ export default function App() {
         {view === 'home' && (
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-300">
             <header className="mb-14 text-center flex flex-col items-center">
-              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
-              <p className="text-[10px] text-white/40 font-bold tracking-[0.4em] text-center">HIGH-END REDIRECTION PROTOCOL - 60 FREE HANDSHAKES</p>
+              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl sm:text-4xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
+              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4">HIGH-END REDIRECTION PROTOCOL - 60 FREE HANDSHAKES</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
               {user && (
                 <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-300">
-                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] shadow-[0_0_30px_#25F4EE]"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
+                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full max-w-[420px] shadow-[0_0_30px_#25F4EE]"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
                 </div>
               )}
 
-              <div className="lighthouse-neon-wrapper shadow-3xl">
-                <div className="lighthouse-neon-content p-8 sm:p-12 text-left space-y-8">
-                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[11px] tracking-widest text-white/60">SMART HANDSHAKE GENERATOR</h3></div>
+              <div className="lighthouse-neon-wrapper shadow-3xl mx-2 sm:mx-0">
+                <div className="lighthouse-neon-content p-6 sm:p-12 text-left space-y-8">
+                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[10px] sm:text-[11px] tracking-widest text-white/60">SMART HANDSHAKE GENERATOR</h3></div>
                   <div className="space-y-3">
-                     <label className="text-[10px] text-white/40 ml-1 tracking-widest block">DESTINATION <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">DESTINATION <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
                      <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium text-white font-sans font-medium" placeholder="+1 999 999 9999" />
                   </div>
                   <div className="space-y-3">
-                     <label className="text-[10px] text-white/40 ml-1 tracking-widest block">HOST IDENTITY</label>
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">HOST IDENTITY</label>
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm text-white/50 w-full font-sans font-medium !text-transform-none" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[10px] text-white/40 ml-1 tracking-widest block">PAYLOAD CONTENT</label><span className="text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">PAYLOAD CONTENT</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm leading-relaxed pr-12 font-sans font-medium !text-transform-none" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
@@ -815,8 +860,8 @@ export default function App() {
                   
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
-                       <h5 className="text-[11px] text-[#25F4EE] mb-3">PERFORMANCE INSTRUCTIONS:</h5>
-                       <ul className="text-[10px] text-white/40 space-y-2 leading-relaxed">
+                       <h5 className="text-[10px] sm:text-[11px] text-[#25F4EE] mb-3">PERFORMANCE INSTRUCTIONS:</h5>
+                       <ul className="text-[9px] sm:text-[10px] text-white/40 space-y-2 leading-relaxed">
                           <li>● Use direct calls to action to minimize user decision lag.</li>
                           <li>● Keep payload between 160-300 chars for carrier standing.</li>
                           <li>● Confirming leads routes traffic to your native SMS node.</li>
@@ -824,34 +869,34 @@ export default function App() {
                     </div>
                   )}
 
-                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-xs py-5 w-full shadow-2xl">
+                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs py-5 w-full shadow-2xl">
                     GENERATE SMART LINK <ChevronRight size={18} />
                   </button>
                 </div>
               </div>
 
               {generatedLink && (
-                <div className="animate-in zoom-in-95 duration-300 space-y-6">
-                  <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[40px] p-10 text-center shadow-2xl">
-                    <div className="bg-white p-6 rounded-3xl inline-block mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} className="w-32 h-32" alt="QR Code"/></div>
-                    <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none" />
-                    <div className="grid grid-cols-2 gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[10px] mt-2 text-white/50 tracking-widest text-center">QUICK COPY</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={24} className="text-white/40" /><span className="text-[10px] mt-1 text-white/50 tracking-widest text-center">LIVE TEST</span></button>
+                <div className="animate-in zoom-in-95 duration-300 space-y-6 px-2 sm:px-0">
+                  <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[2.5rem] p-8 sm:p-10 text-center shadow-2xl">
+                    <div className="bg-white p-5 sm:p-6 rounded-3xl inline-block mb-8 sm:mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} className="w-28 h-28 sm:w-32 sm:h-32" alt="QR Code"/></div>
+                    <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] sm:text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none truncate" />
+                    <div className="grid grid-cols-2 gap-4 sm:gap-6 w-full">
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] sm:text-[10px] mt-2 text-white/50 tracking-widest text-center">QUICK COPY</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] sm:text-[10px] mt-1 text-white/50 tracking-widest text-center">LIVE TEST</span></button>
                     </div>
                   </div>
                 </div>
               )}
 
               {!user && (
-                <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center">
-                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-xs w-full max-w-[420px] group py-6 shadow-xl"><Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES</button>
-                  <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] group py-6 shadow-[0_0_20px_#25F4EE]"><Star size={24} className="animate-pulse" /> UPGRADE TO ELITE MEMBER</button>
+                <div className="flex flex-col items-center gap-4 sm:gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0">
+                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE HANDSHAKES</button>
+                  <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={20} className="animate-pulse sm:w-6 sm:h-6" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
               )}
 
-              <div className="pt-20 pb-12 text-left">
-                 <div className="flex items-center gap-3 mb-12"><HelpCircle size={28} className="text-[#FE2C55]"/><h3 className="text-3xl text-white tracking-widest">PROTOCOL FAQ</h3></div>
+              <div className="pt-20 pb-12 text-left px-4 sm:px-0">
+                 <div className="flex items-center gap-3 mb-10 sm:mb-12"><HelpCircle size={24} className="text-[#FE2C55] sm:w-7 sm:h-7"/><h3 className="text-2xl sm:text-3xl text-white tracking-widest">PROTOCOL FAQ</h3></div>
                  <div className="space-y-2 text-left leading-tight">
                     <FAQItem q="Why utilize our exclusive protocol instead of standard market routing?" a="Standard market redirects often trigger automated carrier heuristics instantly. Our proprietary protocol dynamically formats headers to mirror organic traffic signatures globally, significantly enhancing final delivery rates." />
                     <FAQItem q="Is the cryptographic vault fully impenetrable and compliant?" a="Absolutely. Operating under a robust Zero-Knowledge architecture, lead metadata remains exclusively encrypted within your session context. We maintain rigorous alignment with international protection protocols (GDPR/LGPD)." />
@@ -865,83 +910,83 @@ export default function App() {
 
         {/* ==================== DASHBOARD ==================== */}
         {view === 'dashboard' && (
-          <div className="w-full max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-300">
+          <div className="w-full max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 animate-in fade-in duration-300">
             
-            <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 mb-12 text-left">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 mb-10 sm:mb-12 text-left">
               <div>
-                <h2 className="text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
-                <div className="flex items-center gap-3 mt-4">
-                   <span className={`text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                <h2 className="text-4xl sm:text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
+                <div className="flex flex-wrap items-center gap-3 mt-4">
+                   <span className={`text-[9px] sm:text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'bg-white/5 border-white/10 text-white/40'}`}>
                       {isMaster ? <span className="flex items-center gap-2"><Crown size={12} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
                    </span>
-                   {isPro && <span className="text-[9px] text-amber-500 tracking-widest animate-pulse">● LIVE PROTOCOL ACTIVE</span>}
+                   {isPro && <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest animate-pulse">● LIVE PROTOCOL ACTIVE</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-4 flex-wrap text-center">
-                 <button onClick={() => setView('home')} className="flex items-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[10px] text-[#25F4EE]">
+              <div className="flex items-stretch gap-3 sm:gap-4 flex-wrap text-center">
+                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[9px] sm:text-[10px] text-[#25F4EE] flex">
                     <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
-                 <div className="bg-[#0a0a0a] border border-white/10 px-8 py-3 rounded-[1.5rem] shadow-3xl">
-                    <p className="text-[8px] text-white/30 mb-2 tracking-widest">ACTIVE NODES</p>
-                    <div className="flex items-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white">-</button><span className="text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white">+</button></div>
+                 <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">ACTIVE NODES</p>
+                    <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-lg sm:text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
                  </div>
-                 <div className="bg-[#0a0a0a] border border-white/10 px-8 py-3 rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE]">
-                    <p className="text-[8px] text-white/30 mb-2 tracking-widest">SMS QUOTA</p>
-                    <p className="text-2xl text-white">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
+                 <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none">
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">SMS QUOTA</p>
+                    <p className="text-xl sm:text-2xl text-white">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
                  </div>
               </div>
             </div>
 
             {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
               {[
                 { label: "DISPATCHED SMS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
                 { label: "ACTIVE CONTACTS", value: isMaster && !adminSelectedOwnerId ? subscribersList.length : (isMaster ? displayLogs.length : logs.length), icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
-                <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
-                  <div className={`bg-white/5 p-4 rounded-2xl border border-white/5 ${stat.color}`}>
-                    <stat.icon size={24} />
+                <div key={idx} className="bg-[#0a0a0a] p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
+                  <div className={`bg-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 ${stat.color}`}>
+                    <stat.icon size={20} className="sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <p className="text-[9px] text-white/40 tracking-widest mb-1">{stat.label}</p>
-                    <h3 className="text-2xl text-white">{stat.value}</h3>
+                    <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mb-1 line-clamp-1">{stat.label}</p>
+                    <h3 className="text-lg sm:text-2xl text-white">{stat.value}</h3>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* CONTEÚDO PRINCIPAL DASHBOARD */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-16">
               
-              <div className="lg:col-span-1 space-y-8 flex flex-col">
-                <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
-                  <h3 className="text-xl text-white mb-6 flex items-center gap-3"><Zap className="text-[#25F4EE]" size={20} /> QUICK DISPATCH</h3>
-                  <form onSubmit={handleQuickSend} className="space-y-5 flex flex-col flex-1">
+              <div className="lg:col-span-1 space-y-6 sm:space-y-8 flex flex-col">
+                <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
+                  <h3 className="text-lg sm:text-xl text-white mb-6 flex items-center gap-3"><Zap className="text-[#25F4EE]" size={18} /> QUICK DISPATCH</h3>
+                  <form onSubmit={handleQuickSend} className="space-y-4 sm:space-y-5 flex flex-col flex-1">
                     <div>
-                      <label className="block text-[10px] text-white/40 tracking-widest mb-2">RECIPIENT</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">RECIPIENT</label>
                       <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[10px] text-white/40 tracking-widest mb-2">MESSAGE PAYLOAD</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">MESSAGE PAYLOAD</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
                     </div>
-                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] w-full mt-4 py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
+                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
                       <Send size={16} className="mr-2" /> SEND NOW
                     </button>
                   </form>
                 </div>
 
-                <div className={`bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+                <div className={`bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
-                      <div><h3 className="text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={20} className="text-[#25F4EE]"/> BULK IMPORT {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] text-white/40 tracking-widest">IMPORT 5K UNITS.</p></div>
-                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={20} className="animate-spin"/> : <Plus size={20} />}</button>}
+                      <div><h3 className="text-lg sm:text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={18} className="text-[#25F4EE]"/> BULK IMPORT {!isPro && <Lock size={14} className="text-[#FE2C55]" />}</h3><p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest">IMPORT 5K UNITS.</p></div>
+                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={18} className="animate-spin"/> : <Plus size={18} />}</button>}
                    </div>
                    {!isPro && (
-                     <div className="pro-lock-layer">
-                        <p className="text-[#FE2C55] tracking-widest text-[9px] mb-2 animate-pulse"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
-                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[8px] px-6 py-2 rounded-lg">UNLOCK</button>
+                     <div className="pro-lock-layer p-4">
+                        <p className="text-[#FE2C55] tracking-widest text-[8px] sm:text-[9px] mb-2 animate-pulse"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
+                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[7px] sm:text-[8px] px-4 sm:px-6 py-2 rounded-lg whitespace-nowrap">UNLOCK</button>
                      </div>
                    )}
                    <input type="file" accept=".txt" onChange={handleBulkImport} ref={fileInputRef} className="hidden" />
@@ -949,11 +994,11 @@ export default function App() {
               </div>
 
               {/* DASHBOARD DE REGISTROS (NETWORK PAI E FILHO OU LEADS PADRÃO) */}
-              <div className="lg:col-span-2 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[500px]">
-                 <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]">
+              <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
+                 <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
-                       {isMaster && !adminSelectedOwnerId ? <Database size={20} className="text-amber-500" /> : <History size={20} className="text-[#25F4EE]" />}
-                       <h3 className="text-xl text-white tracking-tight">{isMaster && !adminSelectedOwnerId ? 'SUBSCRIBER NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                       {isMaster && !adminSelectedOwnerId ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
+                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">{isMaster && !adminSelectedOwnerId ? 'SUBSCRIBER NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
@@ -963,23 +1008,23 @@ export default function App() {
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">SUBSCRIBER IDENTITY</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">MASTER ACTIONS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">SUBSCRIBER IDENTITY</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right">MASTER ACTIONS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
                          {subscribersList.map(sub => (
                             <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors group">
-                               <td className="px-8 py-6">
-                                  <p className="text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
-                                  <p className="text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
+                               <td className="px-6 sm:px-8 py-4 sm:py-6">
+                                  <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
+                                  <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
                                </td>
-                               <td className="px-8 py-6 text-center text-sm text-white font-black">{sub.leads.length} REGISTERED</td>
-                               <td className="px-8 py-6 flex justify-end gap-3 mt-2">
-                                  <button onClick={() => setAdminSelectedOwnerId(sub.id)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-black tracking-widest flex items-center gap-2 transition-all shadow-xl"><Database size={14}/> OPEN FOLDER</button>
-                                  <button onClick={() => handleAdminGrantTier(sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-2 transition-all shadow-xl"><Gift size={14}/> GIFT $9.00</button>
-                                  <button onClick={() => handleAdminGrantTier(sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-2 transition-all shadow-xl"><Rocket size={14}/> GIFT $19.90 (+800)</button>
+                               <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">{sub.leads.length} REGISTERED</td>
+                               <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
+                                  <button onClick={() => setAdminSelectedOwnerId(sub.id)} className="bg-white/10 hover:bg-white/20 text-white px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Database size={12} className="sm:w-3.5 sm:h-3.5"/> OPEN</button>
+                                  <button onClick={() => handleAdminGrantTier(sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Gift size={12} className="sm:w-3.5 sm:h-3.5"/> $9</button>
+                                  <button onClick={() => handleAdminGrantTier(sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Rocket size={12} className="sm:w-3.5 sm:h-3.5"/> $19.90</button>
                                </td>
                             </tr>
                          ))}
@@ -989,9 +1034,9 @@ export default function App() {
                      /* STANDARD LEADS VIEW / ADMIN FOLDER VIEW */
                      <>
                        {isMaster && adminSelectedOwnerId && (
-                          <div className="p-4 bg-[#111] border-b border-white/10 flex justify-between items-center">
-                             <span className="text-[10px] text-[#25F4EE] tracking-widest font-black uppercase"><Database size={12} className="inline mr-2 mb-0.5"/> FOLDER: {adminSelectedOwnerId}</span>
-                             <button onClick={() => setAdminSelectedOwnerId(null)} className="text-[10px] text-white/50 hover:text-white border border-white/20 px-4 py-2 rounded-lg transition-colors bg-black">BACK TO NETWORK MAP</button>
+                          <div className="p-3 sm:p-4 bg-[#111] border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                             <span className="text-[9px] sm:text-[10px] text-[#25F4EE] tracking-widest font-black uppercase line-clamp-1"><Database size={10} className="inline mr-1.5 sm:mr-2 mb-0.5 sm:w-3 sm:h-3"/> FOLDER: {adminSelectedOwnerId}</span>
+                             <button onClick={() => setAdminSelectedOwnerId(null)} className="text-[9px] sm:text-[10px] text-white/50 hover:text-white border border-white/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors bg-black whitespace-nowrap">BACK TO MAP</button>
                           </div>
                        )}
                        
@@ -999,32 +1044,32 @@ export default function App() {
                          <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
                            <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                              <tr>
-                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">RECIPIENT</th>
-                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">IDENTITY</th>
-                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">STATUS</th>
-                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">TIMESTAMP</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">RECIPIENT</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">IDENTITY</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">STATUS</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right">TIMESTAMP</th>
                              </tr>
                            </thead>
                            <tbody className="divide-y divide-white/5">
                              {(isMaster ? displayLogs : logs).map(l => (
                                <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
-                                 <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
-                                 <td className="px-8 py-6">
-                                   <div className="flex items-center gap-3">
-                                     <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
-                                       <UserCheck size={14} />
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap">{maskData(l.telefone_cliente, 'phone')}</td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6">
+                                   <div className="flex items-center gap-2 sm:gap-3">
+                                     <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
+                                       <UserCheck size={12} className="sm:w-3.5 sm:h-3.5" />
                                      </div>
-                                     <span className="text-white text-sm truncate max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
+                                     <span className="text-white text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
                                    </div>
                                  </td>
-                                 <td className="px-8 py-6">
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 whitespace-nowrap">
                                     {isPro ? (
-                                      <span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={12} /> DECRYPTED NODE</span>
+                                      <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={10} className="sm:w-3 sm:h-3" /> DECRYPTED NODE</span>
                                     ) : (
-                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={12} /> UNLOCK TO REVEAL</button>
+                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={10} className="sm:w-3 sm:h-3" /> UNLOCK TO REVEAL</button>
                                     )}
                                  </td>
-                                 <td className="px-8 py-6 text-right text-xs font-mono text-[#25F4EE]">
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-right text-[10px] sm:text-xs font-mono text-[#25F4EE] whitespace-nowrap">
                                     {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
                                  </td>
                                </tr>
@@ -1032,72 +1077,74 @@ export default function App() {
                            </tbody>
                          </table>
                        ) : (
-                         <div className="flex flex-col items-center justify-center h-full p-20 opacity-20"><Lock size={48} className="mb-4 text-white" /><p className="text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
+                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
                        )}
                      </>
                    )}
                  </div>
                  {!isPro && logs.length > 0 && (
-                   <div className="p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <p className="text-[10px] text-[#FE2C55] tracking-widest flex items-center gap-2"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
-                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[9px] px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)]">UPGRADE TO ELITE</button>
+                   <div className="p-6 sm:p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
+                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto">UPGRADE TO ELITE</button>
                    </div>
                  )}
               </div>
             </div>
 
             {/* ---> AI AGENT MODULE WITH STAGING AREA <--- */}
-            <div className={`bg-[#0a0a0a] border ${aiWarning ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-[2.5rem] p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
+            <div className={`bg-[#0a0a0a] border ${aiWarning ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
               <div className={`flex flex-col text-left`}>
-                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-8">
-                    <div className="flex items-center gap-4 text-left">
-                      <div className={`p-3 rounded-xl border ${aiWarning ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
-                        {aiWarning ? <AlertOctagon size={24} className="text-[#FE2C55]" /> : <BrainCircuit size={24} className="text-[#25F4EE]" />}
+                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-6 sm:mb-8">
+                    <div className="flex items-center gap-3 sm:gap-4 text-left">
+                      <div className={`p-2.5 sm:p-3 rounded-xl border ${aiWarning ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
+                        {aiWarning ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
                       </div>
                       <div>
-                        <h3 className="text-xl text-white tracking-tight">AI AGENT COMMAND {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3>
-                        <p className="text-[9px] text-white/40 tracking-widest mt-2">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
+                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">AI AGENT COMMAND {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
+                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 line-clamp-1 sm:line-clamp-none">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
-                    <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-5 py-3 rounded-xl text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 shrink-0">
-                      <Info size={16}/> SETUP GUIDE & DOWNLOAD
+                    <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                      <Info size={14} className="sm:w-4 sm:h-4"/> SETUP GUIDE & DOWNLOAD
                     </button>
                  </div>
 
                  {/* VARIATION STAGING AREA (REVIEW MODE) */}
                  {isReviewMode ? (
                    <div className="animate-in slide-in-from-bottom-4 fade-in duration-300">
-                     <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 border-b border-white/10 pb-4">
                         <div className="flex items-center gap-3">
-                           <SlidersHorizontal size={20} className="text-amber-500" />
-                           <h4 className="text-lg text-white">PAYLOAD REVIEW ENGINE</h4>
+                           <SlidersHorizontal size={18} className="sm:w-5 sm:h-5 text-amber-500" />
+                           <h4 className="text-base sm:text-lg text-white">PAYLOAD REVIEW ENGINE</h4>
                         </div>
-                        <p className="text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS PENDING</p>
+                        <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS PENDING</p>
                      </div>
                      
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 mb-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2 mb-4 sm:mb-6">
                         {stagedQueue.map((task, idx) => (
-                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-5 transition-colors flex flex-col h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
-                              <div className="flex justify-between items-center mb-3">
-                                <span className="text-[#25F4EE] text-[9px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
-                                <span className="text-white/30 text-[9px] font-mono truncate max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
+                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-4 sm:p-5 transition-colors flex flex-col h-[130px] sm:h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
+                              <div className="flex justify-between items-center mb-2 sm:mb-3">
+                                <span className="text-[#25F4EE] text-[8px] sm:text-[9px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
+                                <span className="text-white/30 text-[8px] sm:text-[9px] font-mono truncate max-w-[80px] sm:max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
                               </div>
                               <textarea 
                                 disabled={isDispatching}
                                 value={task.optimizedMsg} 
                                 onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
-                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50" 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar" 
                               />
                            </div>
                         ))}
                      </div>
 
                      {/* RODAPÉ DO STAGING: DISPATCH COM AVISO LIVE */}
-                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-2 bg-[#111] p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <div className="flex items-center gap-3 px-2">
-                           <Clock size={20} className="text-[#10B981] animate-pulse" />
-                           <span className="text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5">DISPATCH PACING:</span>
-                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[12px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-1 appearance-none">
+                     <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mt-2 bg-[#111] p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-white/5 shadow-inner">
+                        <div className="flex items-center justify-between sm:justify-start gap-3 px-1 sm:px-2 w-full lg:w-auto border-b sm:border-b-0 border-white/5 pb-3 sm:pb-0">
+                           <div className="flex items-center gap-2 sm:gap-3">
+                              <Clock size={16} className="sm:w-5 sm:h-5 text-[#10B981] animate-pulse" />
+                              <span className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">DISPATCH PACING:</span>
+                           </div>
+                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[12px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-0.5 sm:pb-1 appearance-none text-right sm:text-left">
                               <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
                               <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
                               <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
@@ -1107,29 +1154,29 @@ export default function App() {
                               <option value={180} className="bg-[#0a0a0a] text-white">180 SECONDS</option>
                            </select>
                         </div>
-                        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
-                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-10 py-3.5 text-black font-black text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full md:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
-                              {isDispatching ? <><RefreshCw size={16} className="animate-spin" /> TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</> : <><Send size={16} /> CONFIRM & DISPATCH TO NODE</>}
+                        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full lg:w-auto">
+                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-6 sm:px-8 py-3 sm:py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[9px] sm:text-[10px] font-black tracking-widest transition-colors w-full sm:w-auto disabled:opacity-30">CANCEL</button>
+                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-6 sm:px-10 py-3 sm:py-3.5 text-black font-black text-[10px] sm:text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full sm:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
+                              {isDispatching ? <><RefreshCw size={14} className="sm:w-4 sm:h-4 animate-spin" /> <span className="truncate">TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</span></> : <><Send size={14} className="sm:w-4 sm:h-4" /> CONFIRM & DISPATCH</>}
                            </button>
                         </div>
                      </div>
                    </div>
                  ) : (
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 text-left">
                       <div className="space-y-4 flex flex-col">
                          {aiWarning && (
-                            <div className="p-4 bg-[#FE2C55]/10 border border-[#FE2C55] rounded-xl flex items-start gap-3 animate-pulse shadow-[0_0_15px_rgba(254,44,85,0.2)]">
-                              <AlertTriangle size={20} className="text-[#FE2C55] shrink-0 mt-0.5"/>
-                              <p className="text-[10px] text-[#FE2C55] tracking-widest font-black leading-tight">{aiWarning}</p>
+                            <div className="p-3 sm:p-4 bg-[#FE2C55]/10 border border-[#FE2C55] rounded-xl flex items-start gap-2.5 sm:gap-3 animate-pulse shadow-[0_0_15px_rgba(254,44,85,0.2)]">
+                              <AlertTriangle size={18} className="sm:w-5 sm:h-5 text-[#FE2C55] shrink-0 mt-0.5"/>
+                              <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest font-black leading-tight">{aiWarning}</p>
                             </div>
                          )}
 
-                         <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-2xl mb-2">
-                           <Clock size={20} className="text-[#10B981]" />
+                         <div className="flex items-center gap-3 sm:gap-4 bg-black/40 border border-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl mb-2">
+                           <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
                            <div className="flex-1">
-                             <p className="text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY SETTING</p>
-                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                             <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY SETTING</p>
+                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
                                 <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
                                 <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
                                 <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
@@ -1141,107 +1188,108 @@ export default function App() {
                            </div>
                          </div>
 
-                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[140px] resize-none font-sans font-medium !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
+                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
                          
-                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
+                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
                             {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, (isMaster && adminSelectedOwnerId ? displayLogs.length : logs.length))} UNITS)`}
                          </button>
                       </div>
                       
                       {/* PAINEL DE DISPARO REMOTO & DIAGNÓSTICO GHOST PROTOCOL */}
-                      <div className="bg-[#111] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[200px] text-center shadow-inner relative overflow-hidden">
+                      <div className="bg-[#111] border border-white/5 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center p-6 sm:p-8 min-h-[180px] sm:min-h-[200px] text-center shadow-inner relative overflow-hidden mt-4 lg:mt-0">
                         {smsQueueCount > 0 ? (
                           <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
-                             <div className="mb-6">
-                               <p className="text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
-                               <p className="text-[9px] text-white/40 tracking-widest mt-2">PENDING IN NODE QUEUE</p>
+                             <div className="mb-4 sm:mb-6">
+                               <p className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
+                               <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2">PENDING IN NODE QUEUE</p>
                              </div>
-                             <div className="text-amber-500 flex flex-col items-center gap-3">
-                               <RefreshCw size={24} className="animate-spin" />
-                               <p className="text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P NODE..."}</p>
+                             <div className="text-amber-500 flex flex-col items-center gap-2 sm:gap-3">
+                               <RefreshCw size={20} className="sm:w-6 sm:h-6 animate-spin" />
+                               <p className="text-[8px] sm:text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P NODE..."}</p>
                              </div>
                              
-                             <button onClick={handleClearQueue} disabled={loading} className="mt-6 text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-4 py-2 rounded-lg bg-black">
-                               <Trash2 size={12} /> CLEAR STUCK QUEUE
+                             <button onClick={handleClearQueue} disabled={loading} className="mt-4 sm:mt-6 text-[8px] sm:text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-black">
+                               <Trash2 size={10} className="sm:w-3 sm:h-3"/> CLEAR STUCK QUEUE
                              </button>
 
                              {nodeWarningActive && (
-                               <div className="mt-6 p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
-                                 <p className="text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-2 mb-1"><WifiOff size={12}/> NODE DISCONNECTED OR KEY MISMATCH</p>
-                                 <p className="text-[8px] text-white/60 font-sans !text-transform-none">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
+                               <div className="mt-4 sm:mt-6 p-3 sm:p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
+                                 <p className="text-[9px] sm:text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><WifiOff size={10} className="sm:w-3 sm:h-3"/> NODE DISCONNECTED</p>
+                                 <p className="text-[7px] sm:text-[8px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
                                </div>
                              )}
                           </div>
                         ) : (
                           <div className="opacity-20 flex flex-col items-center">
-                            <ShieldAlert size={54} className="mb-4 text-white" />
-                            <p className="text-[11px] font-black tracking-widest">SYSTEM STANDBY</p>
+                            <ShieldAlert size={40} className="sm:w-[54px] sm:h-[54px] mb-3 sm:mb-4 text-white" />
+                            <p className="text-[10px] sm:text-[11px] font-black tracking-widest">SYSTEM STANDBY</p>
                           </div>
                         )}
 
                         {/* HIGH-TECH GHOST PROTOCOL EXPLANATION BADGE */}
                         {!smsQueueCount && (
-                          <div className="absolute bottom-4 left-4 right-4 p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left">
-                             <p className="text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-2 mb-1"><Wifi size={12} className="animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
-                             <p className="text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
+                          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 p-2.5 sm:p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left hidden sm:block">
+                             <p className="text-[8px] sm:text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><Wifi size={10} className="sm:w-3 sm:h-3 animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
+                             <p className="text-[7px] sm:text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
                           </div>
                         )}
                       </div>
                    </div>
                  )}
               </div>
-              {!isPro && <div className="pro-lock-layer"><p className="text-[#FE2C55] tracking-widest text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] px-10 py-3 rounded-xl">UNLOCK EXPERT AI</button></div>}
+              {!isPro && <div className="pro-lock-layer p-4"><p className="text-[#FE2C55] tracking-widest text-[10px] sm:text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={10} className="sm:w-3 sm:h-3 inline mr-1.5 sm:mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[8px] sm:text-[9px] px-6 sm:px-10 py-2.5 sm:py-3 rounded-xl whitespace-nowrap">UNLOCK EXPERT AI</button></div>}
             </div>
 
             {/* PROTOCOL INVENTORY (LINKS) */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
-              <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Radio size={20} className="text-[#25F4EE]" /><h3 className="text-lg">PROTOCOL INVENTORY</h3></div></div>
-              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
+              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-2 sm:gap-3"><Radio size={18} className="sm:w-5 sm:h-5 text-[#25F4EE]" /><h3 className="text-base sm:text-lg tracking-tight">PROTOCOL INVENTORY</h3></div></div>
+              <div className="min-h-[150px] sm:min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
                 {linksHistory.length > 0 ? linksHistory.map(l => (
-                  <div key={l.id} className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-6 hover:bg-white/[0.02] transition-colors">
-                    <div className="flex-1 truncate">
-                       <p className="text-[10px] text-white/30 mb-1 flex items-center gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Node...'}</p>
-                       <p className="text-sm text-[#25F4EE] truncate font-sans !text-transform-none">{l.url}</p>
-                       <p className="text-[9px] text-white/40 mt-1 leading-tight font-sans !text-transform-none">HOST: {String(l.company)} | PAYLOAD: {String(l.msg).substring(0,60)}...</p>
+                  <div key={l.id} className="p-5 sm:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4 sm:gap-6 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-1 overflow-hidden">
+                       <p className="text-[9px] sm:text-[10px] text-white/30 mb-1 flex items-center gap-1.5 sm:gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Node...'}</p>
+                       <p className="text-xs sm:text-sm text-[#25F4EE] truncate font-sans !text-transform-none max-w-[280px] sm:max-w-[400px]">{l.url}</p>
+                       <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 sm:mt-1.5 leading-tight font-sans !text-transform-none truncate">HOST: {String(l.company)} | PAYLOAD: {String(l.msg).substring(0,40)}...</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Node Copied!");}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors"><Copy size={16}/></button>
-                       <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home');}} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors"><Edit size={16}/></button>
-                       <button onClick={() => handleDeleteLink(l.id)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors"><Trash size={16}/></button>
+                    <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
+                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Node Copied!");}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors flex justify-center"><Copy size={14} className="sm:w-4 sm:h-4"/></button>
+                       <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home'); window.scrollTo(0,0);}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors flex justify-center"><Edit size={14} className="sm:w-4 sm:h-4"/></button>
+                       <button onClick={() => handleDeleteLink(l.id)} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors flex justify-center"><Trash size={14} className="sm:w-4 sm:h-4"/></button>
                     </div>
                   </div>
-                )) : <div className="p-20 text-center opacity-20"><Lock size={48} className="mx-auto mb-4" /><p className="text-[10px] tracking-widest">NO PROTOCOLS ESTABLISHED</p></div>}
+                )) : <div className="p-16 sm:p-20 text-center opacity-20"><Lock size={36} className="sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" /><p className="text-[9px] sm:text-[10px] tracking-widest">NO PROTOCOLS ESTABLISHED</p></div>}
               </div>
             </div>
 
             {/* UPGRADE STATION */}
-            <div id="marketplace-section" className="mb-16 mt-10 text-left">
-               <div className="flex items-center gap-3 mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
-                 <div className="bg-[#111] border border-white/10 p-10 rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE] transition-colors">
-                    <h3 className="text-3xl text-white mb-4">NEXUS ACCESS</h3>
-                    <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
-                    <p className="text-[9px] text-white/40 mb-10 leading-relaxed">UNLIMITED REDIRECTIONS & SECURE VAULT.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-xs w-full py-4">UPGRADE NOW</button>}
+            <div id="marketplace-section" className="mb-12 sm:mb-16 mt-8 sm:mt-10 text-left">
+               <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10"><ShoppingCart size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]"/><h3 className="text-lg sm:text-xl text-white text-glow-white">UPGRADE STATION</h3></div>
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8 text-left">
+                 <div className="bg-[#111] border border-white/10 p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE]/50 transition-colors">
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4">NEXUS ACCESS</h3>
+                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]">UPGRADE NOW</button>}
                  </div>
-                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 rounded-[2.5rem] group shadow-2xl hover:scale-[1.01] transition-transform">
-                    <h3 className="text-3xl text-white mb-4 text-[#25F4EE]">EXPERT AGENT</h3>
-                    <p className="text-4xl text-[#25F4EE] mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
-                    <p className="text-[9px] text-white/40 mb-10 leading-relaxed">FULL AI NATIVE SYNTHESIS & AUTOMATED DELAY.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full py-4">ACTIVATE NODE</button>}
+                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE]">EXPERT AGENT</h3>
+                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACTIVATE NODE</button>}
                  </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
                  {[
                    { name: "STARTER NODE", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
                    { name: "NEXUS PACK", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
                    { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
                  ].map(pack => (
-                   <div key={pack.name} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] text-center shadow-xl flex flex-col items-center">
-                     <p className="text-[10px] text-[#25F4EE] mb-2 tracking-widest">{pack.name}</p>
-                     <p className="text-3xl text-white mb-4">{pack.qty} HANDSHAKES</p>
-                     <p className="text-xl text-[#25F4EE] mb-8">{pack.price}</p>
-                     <button className="w-full py-3 bg-black border border-white/10 rounded-xl text-[8px] tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE NODE</button>
+                   <div key={pack.name} className="bg-white/5 border border-white/10 p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center shadow-xl flex flex-col items-center hover:bg-white/10 transition-colors">
+                     <p className="text-[9px] sm:text-[10px] text-[#25F4EE] mb-1.5 sm:mb-2 tracking-widest">{pack.name}</p>
+                     <p className="text-2xl sm:text-3xl text-white mb-3 sm:mb-4 font-black">{pack.qty}</p>
+                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4">HANDSHAKES</p>
+                     <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8">{pack.price}</p>
+                     <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE NODE</button>
                    </div>
                  ))}
               </div>
@@ -1251,19 +1299,19 @@ export default function App() {
 
         {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
         {view === 'auth' && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-left animate-in fade-in zoom-in-95 duration-200">
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 sm:p-8 text-left animate-in fade-in zoom-in-95 duration-200">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
-              <div className="lighthouse-neon-content p-12 sm:p-20 relative">
-                <h2 className="text-3xl mt-8 mb-12 text-white text-center text-glow-white tracking-tighter">SECURE MEMBER PORTAL</h2>
-                <form onSubmit={handleAuthSubmit} className="space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" /></>)}
-                  <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" />
+              <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
+                <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter">SECURE MEMBER PORTAL</h2>
+                <form onSubmit={handleAuthSubmit} className="space-y-5 sm:space-y-6 text-left">
+                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
+                  <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs w-full font-sans font-medium !text-transform-none" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-4 text-white/30"><Eye size={18}/></button>
+                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] mt-4 shadow-xl w-full tracking-widest">{loading ? 'VERIFYING NODE...' : 'AUTHORIZE ACCESS'}</button>
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[10px] text-white/20 tracking-[0.4em] mt-10 text-center hover:text-white transition-all">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5">{loading ? 'VERIFYING NODE...' : 'AUTHORIZE ACCESS'}</button>
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
             </div>
@@ -1271,32 +1319,68 @@ export default function App() {
         )}
       </div>
 
-      {/* FOOTER */}
-      <footer className="mt-auto pb-20 w-full space-y-16 z-10 px-10 border-t border-white/5 pt-20 text-left">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 text-[10px] tracking-widest text-white/30">
-          <div className="flex flex-col gap-5"><span className="text-white/40 border-b border-white/5 pb-2">LEGAL</span><a href="#" className="hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</a><a href="#" className="hover:text-[#25F4EE] transition-colors">TERMS OF USE</a></div>
-          <div className="flex flex-col gap-5"><span className="text-white/40 border-b border-white/5 pb-2">COMPLIANCE</span><a href="#" className="hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</a><a href="#" className="hover:text-[#FE2C55] transition-colors">GDPR NODE</a></div>
-          <div className="flex flex-col gap-5"><span className="text-white/40 border-b border-white/5 pb-2">NETWORK</span><a href="#" className="hover:text-[#25F4EE] transition-colors">U.S. NODES</a><a href="#" className="hover:text-[#25F4EE] transition-colors">EU NODES</a></div>
-          <div className="flex flex-col gap-5"><span className="text-white/40 border-b border-white/5 pb-2">SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={14}/></button></div>
+      {/* FOOTER (ULTRA RESPONSIVE WITH DYNAMIC MODALS) */}
+      <footer className="mt-auto pb-12 sm:pb-20 w-full z-[100] px-6 sm:px-10 border-t border-white/5 pt-12 sm:pt-20 text-left bg-[#010101] relative">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30">
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING NODES</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE NODES</span></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
         </div>
-        <p className="text-[11px] text-white/20 tracking-[8px] text-center mt-10">© 2026 CLICKMORE DIGITAL | SECURITY PROTOCOL</p>
+        <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5 flex justify-center">
+           <p className="text-[8px] sm:text-[10px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
+        </div>
       </footer>
+
+      {/* --- DYNAMIC LEGAL MODAL (ZERO RELOAD, ULTRA RESPONSIVE) --- */}
+      {legalContent && (
+        <div className="fixed inset-0 z-[700] bg-[#010101]/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6 text-left animate-in fade-in zoom-in-95">
+          <div className="bg-[#0a0a0a] border border-[#25F4EE]/30 w-full max-w-2xl rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(37,244,238,0.15)] flex flex-col max-h-[85vh] overflow-hidden relative">
+             
+             {/* Modal Header */}
+             <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] shrink-0">
+                <div className="flex items-center gap-3 sm:gap-4">
+                   {renderLegalContent()?.icon && React.createElement(renderLegalContent().icon, { size: 24, className: "text-[#25F4EE] sm:w-7 sm:h-7" })}
+                   <h3 className="text-lg sm:text-xl text-white tracking-tight">{renderLegalContent()?.title}</h3>
+                </div>
+                <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={18} className="sm:w-5 sm:h-5"/></button>
+             </div>
+
+             {/* Modal Body */}
+             <div className="p-6 sm:p-10 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-[#111] to-black">
+                <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
+                   {renderLegalContent()?.text}
+                </p>
+                
+                <div className="mt-8 sm:mt-12 p-4 sm:p-5 bg-[#25F4EE]/5 border border-[#25F4EE]/20 rounded-xl sm:rounded-2xl">
+                   <p className="text-[9px] sm:text-[10px] text-[#25F4EE] font-black tracking-widest uppercase mb-1 sm:mb-2">ENCRYPTED AT REST</p>
+                   <p className="text-[10px] sm:text-xs text-white/40 font-sans !text-transform-none leading-relaxed">By engaging with the SMART SMS PRO ecosystem, your footprint is subjected to AES-256 standard cryptographic masking. No unauthorized external relays possess decryption keyframes.</p>
+                </div>
+             </div>
+
+             {/* Modal Footer */}
+             <div className="p-6 sm:p-8 border-t border-white/10 bg-black shrink-0 flex justify-end">
+                <button onClick={() => setLegalContent(null)} className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-3.5 bg-[#25F4EE] text-black text-[10px] sm:text-[11px] font-black tracking-widest rounded-xl hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACKNOWLEDGE & CLOSE</button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE PAREAMENTO QR CODE (NODE SYNC) */}
       {showSyncModal && (
-        <div className="fixed inset-0 z-[600] bg-[#010101]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-[600] bg-[#010101]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95">
           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-[0_0_50px_rgba(37,244,238,0.3)]">
-            <div className="lighthouse-neon-content p-10 flex flex-col items-center relative">
-              <button onClick={() => setShowSyncModal(false)} className="absolute top-6 right-6 text-white/30 hover:text-white"><X size={20}/></button>
-              <Smartphone size={48} className="text-[#25F4EE] mb-6 animate-pulse" />
-              <h3 className="text-2xl tracking-tighter text-white mb-2">SYNC MOBILE NODE</h3>
-              <p className="text-[9px] text-white/50 tracking-widest mb-8 font-sans font-medium !text-transform-none">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
+            <div className="lighthouse-neon-content p-8 sm:p-10 flex flex-col items-center relative">
+              <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
+              <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
+              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2">SYNC MOBILE NODE</h3>
+              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
-              <div className="bg-white p-4 rounded-3xl mb-8 shadow-[0_0_20px_#25F4EE]">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=SMART_SMS_PRO_SYNC_${user?.uid}&color=000000`} alt="Sync QR" className="w-40 h-40" />
+              <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=SMART_SMS_PRO_SYNC_${user?.uid}&color=000000`} alt="Sync QR" className="w-32 h-32 sm:w-40 sm:h-40" />
               </div>
               
-              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] w-full py-4 shadow-xl mb-4">
+              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[9px] sm:text-[10px] w-full py-3.5 sm:py-4 shadow-xl mb-2 sm:mb-4">
                 CONFIRM NODE SYNC
               </button>
             </div>
@@ -1306,48 +1390,48 @@ export default function App() {
 
       {/* SETUP GUIDE MODAL */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 text-center animate-in fade-in">
-          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-[2rem] p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[85vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 text-center animate-in fade-in">
+          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-3xl sm:rounded-[2rem] p-6 sm:p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[90vh] overflow-y-auto custom-scrollbar">
             
-            <div className="sticky top-0 right-0 flex justify-end z-10 -mt-2 -mr-2">
-               <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"><X size={20}/></button>
+            <div className="sticky top-0 right-0 flex justify-end z-10 -mt-2 -mr-2 sm:-mr-4 sm:-mt-4">
+               <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 sm:p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors shadow-lg"><X size={18} className="sm:w-5 sm:h-5"/></button>
             </div>
             
-            <div className="flex justify-center mb-6 mt-2">
-              <div className="p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
-                <DownloadCloud size={32} className="text-[#25F4EE]" />
+            <div className="flex justify-center mb-5 sm:mb-6 mt-0 sm:mt-2">
+              <div className="p-3 sm:p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
+                <DownloadCloud size={28} className="sm:w-8 sm:h-8 text-[#25F4EE]" />
               </div>
             </div>
             
-            <h2 className="text-3xl font-black text-white italic tracking-tight mb-6">SETUP GUIDE</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6">SETUP GUIDE</h2>
             
-            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-4 py-3 rounded-xl flex items-center gap-3 mb-6 text-left">
-              <Info size={24} className="shrink-0" />
-              <p className="text-[9px] font-black leading-relaxed tracking-widest">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
-            </div>
-
-            <div className="space-y-3 text-left mb-8">
-              <div className="bg-black border border-white/5 p-4 rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 1</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Download the QR-Code Mirroring App using the premium button below and install it on your Android phone.</p>
-              </div>
-              <div className="bg-black border border-white/5 p-4 rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 2</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Open the app on your phone and grant the required SMS & Camera permissions.</p>
-              </div>
-              <div className="bg-black border border-white/5 p-4 rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 3</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Click "SYNC NODE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
-              </div>
-              <div className="bg-black border border-white/5 p-4 rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[9px] tracking-widest mb-1">STEP 4</p>
-                <p className="text-white text-[11px] font-medium font-sans !text-transform-none">Click "SYNTHESIZE QUEUE" to generate text blocks, then review them, and click "CONFIRM & DISPATCH". Your phone will do the rest!</p>
-              </div>
+            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2.5 sm:gap-3 mb-5 sm:mb-6 text-left">
+              <Info size={20} className="sm:w-6 sm:h-6 shrink-0" />
+              <p className="text-[8px] sm:text-[9px] font-black leading-relaxed tracking-widest">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
             </div>
 
-            <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[11px] py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-105 transition-transform">
-              <DownloadCloud size={18} />
-              DOWNLOAD QR-CODE MIRRORING APP
+            <div className="space-y-2.5 sm:space-y-3 text-left mb-6 sm:mb-8">
+              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 1</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Download the QR-Code Mirroring App using the premium button below and install it on your Android phone.</p>
+              </div>
+              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 2</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Open the app on your phone and grant the required SMS & Camera permissions.</p>
+              </div>
+              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 3</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNC NODE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
+              </div>
+              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 4</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNTHESIZE QUEUE" to generate text blocks, then review them, and click "CONFIRM & DISPATCH". Your phone will do the rest!</p>
+              </div>
+            </div>
+
+            <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform text-center px-4">
+              <DownloadCloud size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
+              <span className="truncate">DOWNLOAD QR-CODE MIRRORING APP</span>
             </a>
           </div>
         </div>
@@ -1355,17 +1439,15 @@ export default function App() {
 
       {/* SMART SUPPORT MODAL */}
       {showSmartSupport && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md text-left">
-           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-3xl">
-              <div className="lighthouse-neon-content p-10">
-                 <div className="flex justify-between items-center mb-10">
-                    <div className="flex items-center gap-3"><Bot size={32} className="text-[#25F4EE]"/><span className="text-sm tracking-widest text-glow-white">SMART SUPPORT</span></div>
-                    <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white"><X size={28}/></button>
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 bg-[#010101]/95 backdrop-blur-xl text-left animate-in fade-in zoom-in-95">
+           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-[0_0_50px_rgba(37,244,238,0.2)]">
+              <div className="lighthouse-neon-content p-8 sm:p-10 relative">
+                 <button onClick={() => setShowSmartSupport(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
+                 <div className="flex items-center gap-3 mb-8 sm:mb-10"><Bot size={28} className="sm:w-[32px] sm:h-[32px] text-[#25F4EE]"/><span className="text-xs sm:text-sm tracking-widest text-glow-white">SMART SUPPORT</span></div>
+                 <div className="bg-black border border-white/5 p-6 sm:p-8 rounded-2xl sm:rounded-3xl mb-6 sm:mb-8 min-h-[150px] sm:min-h-[180px] flex items-center justify-center text-center leading-relaxed shadow-inner">
+                    <p className="text-[10px] sm:text-[11px] text-white/50 tracking-widest px-2">AI AGENT ONLINE TO ASSIST YOUR ELITE CONVERSIONS. HOW CAN I HELP TODAY?</p>
                  </div>
-                 <div className="bg-black border border-white/5 p-8 rounded-3xl mb-8 min-h-[180px] flex items-center justify-center text-center leading-relaxed">
-                    <p className="text-[11px] text-white/50 tracking-widest">AI AGENT ONLINE TO ASSIST YOUR ELITE CONVERSIONS. HOW CAN I HELP TODAY?</p>
-                 </div>
-                 <button onClick={() => {alert("Connecting node..."); setShowSmartSupport(false);}} className="btn-strategic !bg-[#25F4EE] !text-black text-xs shadow-xl w-full shadow-2xl hover:scale-[1.02]">CONNECT TO NODE</button>
+                 <button onClick={() => {alert("Connecting node..."); setShowSmartSupport(false);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs shadow-xl w-full hover:scale-[1.02] py-3.5 sm:py-4">CONNECT TO NODE</button>
               </div>
            </div>
         </div>
