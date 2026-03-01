@@ -949,9 +949,17 @@ export default function App() {
                      {/* RODAPÉ DO STAGING: DISPATCH COM AVISO LIVE */}
                      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-2 bg-[#111] p-5 rounded-2xl border border-white/5 shadow-inner">
                         <div className="flex items-center gap-3 px-2">
-                           <Clock size={20} className="text-[#25F4EE] animate-pulse" />
+                           <Clock size={20} className="text-[#10B981] animate-pulse" />
                            <span className="text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5">DISPATCH PACING:</span>
-                           <span className="text-[#25F4EE] text-[12px] font-black">{sendDelay} SECONDS</span>
+                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[12px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-1 appearance-none">
+                              <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
+                              <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
+                              <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
+                              <option value={45} className="bg-[#0a0a0a] text-white">45 SECONDS</option>
+                              <option value={120} className="bg-[#0a0a0a] text-white">120 SECONDS</option>
+                              <option value={160} className="bg-[#0a0a0a] text-white">160 SECONDS</option>
+                              <option value={180} className="bg-[#0a0a0a] text-white">180 SECONDS</option>
+                           </select>
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                            <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] font-black tracking-widest transition-colors w-full md:w-auto disabled:opacity-30">CANCEL</button>
@@ -972,15 +980,17 @@ export default function App() {
                          )}
 
                          <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-2xl mb-2">
-                           <Clock size={20} className="text-[#25F4EE]" />
+                           <Clock size={20} className="text-[#10B981]" />
                            <div className="flex-1">
                              <p className="text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY SETTING</p>
-                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#25F4EE] text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
-                                <option value={5}>5 SECONDS (AGGRESSIVE)</option>
-                                <option value={15}>15 SECONDS (FAST)</option>
-                                <option value={30}>30 SECONDS (RECOMMENDED)</option>
-                                <option value={60}>1 MINUTE (SAFE)</option>
-                                <option value={120}>2 MINUTES (ULTRA SAFE)</option>
+                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                                <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
+                                <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
+                                <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
+                                <option value={45} className="bg-[#0a0a0a] text-white">45 SECONDS</option>
+                                <option value={120} className="bg-[#0a0a0a] text-white">120 SECONDS</option>
+                                <option value={160} className="bg-[#0a0a0a] text-white">160 SECONDS</option>
+                                <option value={180} className="bg-[#0a0a0a] text-white">180 SECONDS</option>
                              </select>
                            </div>
                          </div>
