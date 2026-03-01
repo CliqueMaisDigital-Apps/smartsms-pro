@@ -141,6 +141,8 @@ export default function App() {
 
   // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER (ALLOWS NATIVE TRANSLATION) ---
   useEffect(() => {
+    // Contextmenu is explicitly kept open for native browser translation extensions.
+    // Text selection and keyboard copy/dev tools are strictly blocked via JS logic.
     const handleKeyDown = (e) => {
        if (
            e.key === 'F12' || 
@@ -151,6 +153,7 @@ export default function App() {
        }
     };
     const handlePreventCopy = (e) => {
+      // Allow copy if inside an input, textarea or the chat content.
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
           e.preventDefault();
       }
@@ -952,7 +955,7 @@ export default function App() {
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
         /* SHIELD PROTOCOL: ACTIVE. User Select is open for Native Translation. DevTools are strictly blocked via JS. */
-        body { user-select: none; -webkit-user-select: none; }
+        body { user-select: text; -webkit-user-select: text; }
         input, textarea { user-select: text; -webkit-user-select: text; }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
