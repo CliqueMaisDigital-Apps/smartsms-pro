@@ -141,7 +141,7 @@ export default function App() {
 
   // --- SHIELD PROTOCOL: ANTI-COPY (ALLOWS TRANSLATION) ---
   useEffect(() => {
-    // We removed contextmenu blocker so native translation works. We only block dev tools.
+    // Contextmenu is NOT blocked here, allowing browser native translation extensions to work freely.
     const handleKeyDown = (e) => {
        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && ['U','S','P'].includes(e.key))) {
            e.preventDefault();
@@ -785,6 +785,11 @@ export default function App() {
             }
         }
 
+        // CRITICAL FIX FOR 400 BAD REQUEST: Remove any leading 'model' message since Gemini demands the payload array to strictly start with a 'user' message.
+        if (payloadContents.length > 0 && payloadContents[0].role === 'model') {
+            payloadContents.shift();
+        }
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         const data = await fetchWithBackoff(url, {
             method: 'POST',
@@ -904,6 +909,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
+        /* SHIELD PROTOCOL: MINIMAL INTERFERENCE - Allows native browser translation & text selection */
+        
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
@@ -943,7 +950,7 @@ export default function App() {
         <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest relative z-[210]">
            {!user ? (
              <>
-               <button onClick={() => { setIsLoginMode(true); setView('auth'); }} className="bg-transparent border border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2.5 rounded-xl text-[10px] tracking-widest font-black transition-all shadow-[0_0_10px_rgba(37,244,238,0.15)]">SECURE MEMBER PORTAL</button>
+               <button onClick={() => { setIsLoginMode(true); setView('auth'); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2 rounded-xl text-[10px] tracking-widest font-black transition-all shadow-[0_0_15px_rgba(37,244,238,0.2)]">SECURE MEMBER PORTAL</button>
                <button onClick={() => { setIsLoginMode(false); setView('auth'); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black px-6 py-2.5 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(37,244,238,0.4)] font-black">JOIN NETWORK</button>
              </>
            ) : (
