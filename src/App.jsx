@@ -1748,7 +1748,7 @@ export default function App() {
 
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[12px] sm:text-[14px] leading-relaxed tracking-wide break-words shadow-lg whitespace-pre-wrap ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-semibold rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[12px] sm:text-[14px] leading-relaxed tracking-wide break-words hyphens-none whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-semibold rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
                       </div>
