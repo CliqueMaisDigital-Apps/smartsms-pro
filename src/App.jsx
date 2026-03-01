@@ -82,6 +82,7 @@ export default function App() {
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
   const [smsQueueCount, setSmsQueueCount] = useState(0); 
+  const [subscribers, setSubscribers] = useState([]); // ADDED: Admin Master Subscriber List
   
   // --- ADMIN MASTER NETWORK STATES ---
   const [adminSelectedOwnerId, setAdminSelectedOwnerId] = useState(null);
@@ -144,9 +145,12 @@ export default function App() {
             const d = await getDoc(docRef);
             if (d.exists()) {
               setUserProfile(d.data());
+              // Auto-sync User to Public Subscribers for Admin Master Map
+              setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true });
             } else {
               const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
               await setDoc(docRef, p);
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...p });
               setUserProfile(p);
             }
           } catch (e) {
@@ -167,9 +171,21 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
-    if (t && m && o && view !== 'capture') {
+    if (t && m && o && view !== 'capture' && view !== 'bridge') {
+      const isAlreadyRegistered = localStorage.getItem(`smartsms_registered_for_${o}`);
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
-      setView('capture');
+      
+      if (isAlreadyRegistered) {
+         // BYPASS: Cookie detects Lead is already captured, bypass direct to SMS node
+         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+         const sep = isIOS ? '&' : '?';
+         setView('bridge');
+         setTimeout(() => {
+           window.location.href = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
+         }, 150); // ULTRA-FAST ROUTING
+      } else {
+         setView('capture');
+      }
     }
   }, [view]);
 
@@ -206,7 +222,16 @@ export default function App() {
       (error) => console.error("Queue Sync Error:", error)
     );
 
-    return () => { unsubLeads(); unsubLinks(); unsubQueue(); };
+    let unsubSubs = () => {};
+    if (isMaster) {
+      unsubSubs = onSnapshot(
+        collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'),
+        (snap) => setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+        (error) => console.error("Subs Sync Error:", error)
+      );
+    }
+
+    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubSubs(); };
   }, [user, view, isMaster]);
 
   // ============================================================================
@@ -243,12 +268,15 @@ export default function App() {
     setLoading(false);
   };
 
-  // Group leads into subscriber folders for Admin
+  // Group explicitly from Subscribers List, ensuring no Lead mix-up
   const subscribersMap = {};
   if (isMaster) {
+     subscribers.forEach(s => {
+        subscribersMap[s.id] = { id: s.id, name: s.fullName, email: s.email, tier: s.tier, leads: [] };
+     });
      logs.forEach(l => {
         if (!subscribersMap[l.ownerId]) {
-           subscribersMap[l.ownerId] = { id: l.ownerId, leads: [] };
+           subscribersMap[l.ownerId] = { id: l.ownerId, name: 'Unknown User', email: 'N/A', tier: 'UNKNOWN', leads: [] };
         }
         subscribersMap[l.ownerId].leads.push(l);
      });
@@ -568,41 +596,48 @@ export default function App() {
       const leadSnap = await getDoc(leadRef);
       const isNewLead = !leadSnap.exists();
       
-      await setDoc(leadRef, {
-        ownerId,
-        nome_cliente: String(captureForm.name),
-        telefone_cliente: sanitizedPhone,
-        timestamp: serverTimestamp(),
-        device: navigator.userAgent
-      }, { merge: true });
-      
-      // REGRA DE REDIRECIONAMENTO E COTA DE QUOTA REFINADA
-      if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
-        const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-        const opSnap = await getDoc(pubRef);
-        if (opSnap.exists()) {
-           const data = opSnap.data();
-           // Apenas planos ilimitados ignoram o decréscimo da cota
-           const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
-           
-           if (!isUnlimited) {
-               // Planos com cota, incluindo Free Trial (60 disparos)
-               if (Number(data.smsCredits) <= 0) { 
-                   alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
-                   setLoading(false); 
-                   return; 
-               }
-               // Deduz efetivamente a cota do assinante Free Trial / Pro
-               await updateDoc(pubRef, { smsCredits: increment(-1) });
-           }
+      // ISOLATION PROTOCOL: Only inject and deduct if the entity is completely new
+      if (isNewLead) {
+        await setDoc(leadRef, {
+          ownerId,
+          nome_cliente: String(captureForm.name),
+          telefone_cliente: sanitizedPhone,
+          timestamp: serverTimestamp(),
+          device: navigator.userAgent
+        }, { merge: true });
+        
+        // REGRA DE REDIRECIONAMENTO E COTA DE QUOTA REFINADA (Apenas deduz Lead Válido Novo)
+        if (ownerId !== ADMIN_MASTER_ID) {
+          const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+          const opSnap = await getDoc(pubRef);
+          if (opSnap.exists()) {
+             const data = opSnap.data();
+             const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+             
+             if (!isUnlimited) {
+                 if (Number(data.smsCredits) <= 0) { 
+                     alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
+                     setLoading(false); 
+                     return; 
+                 }
+                 await updateDoc(pubRef, { smsCredits: increment(-1) });
+             }
+          }
         }
+      } else {
+        console.log("[SYS-LOG] Duplicate Lead Detected. Bypassing database injection and quota deduction.");
       }
+      
+      // GRAVA O COOKIE PARA NÃO REPETIR A TELA DE CAPTURA NESTE LEAD
+      localStorage.setItem(`smartsms_registered_for_${ownerId}`, 'true');
+
+      // ULTRA-FAST REDIRECT INITIATION
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const sep = isIOS ? '&' : '?';
       setView('bridge');
       setTimeout(() => {
         window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-      }, 1000);
+      }, 150); // ULTRA-FAST ROUTING (Reduzido de 1000ms para 150ms)
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -621,6 +656,7 @@ export default function App() {
         authUser = cred.user;
         const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
       }
       if (authUser.uid === ADMIN_MASTER_ID) {
         setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
@@ -923,21 +959,24 @@ export default function App() {
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
                    {isMaster && !adminSelectedOwnerId ? (
-                     /* ADMIN MASTER: NETWORK VIEW (PAI E FILHO) */
+                     /* ADMIN MASTER: NETWORK VIEW (SUBSCRIBERS ONLY) */
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">SUBSCRIBER ID (PAI)</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS (FILHOS)</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">MASTER AUTHORITY ACTIONS</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">SUBSCRIBER IDENTITY</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">MASTER ACTIONS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
                          {subscribersList.map(sub => (
                             <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors group">
-                               <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider font-mono">{sub.id}</td>
+                               <td className="px-8 py-6">
+                                  <p className="text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
+                                  <p className="text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
+                               </td>
                                <td className="px-8 py-6 text-center text-sm text-white font-black">{sub.leads.length} REGISTERED</td>
-                               <td className="px-8 py-6 flex justify-end gap-3">
+                               <td className="px-8 py-6 flex justify-end gap-3 mt-2">
                                   <button onClick={() => setAdminSelectedOwnerId(sub.id)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-black tracking-widest flex items-center gap-2 transition-all shadow-xl"><Database size={14}/> OPEN FOLDER</button>
                                   <button onClick={() => handleAdminGrantTier(sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-2 transition-all shadow-xl"><Gift size={14}/> GIFT $9.00</button>
                                   <button onClick={() => handleAdminGrantTier(sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-2 transition-all shadow-xl"><Rocket size={14}/> GIFT $19.90 (+800)</button>
@@ -986,7 +1025,7 @@ export default function App() {
                                     )}
                                  </td>
                                  <td className="px-8 py-6 text-right text-xs font-mono text-[#25F4EE]">
-                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : 'Syncing...'}
+                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
                                  </td>
                                </tr>
                              ))}
