@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
-// A regra dinâmica foi removida. A Web aponta 100% para o mesmo banco fixo do seu APK Android.
 const firebaseConfig = {
   apiKey: "AIzaSyBI-JSC-FtVOz_r6p-XjN6fUrapMn_ad24",
   authDomain: "smartsmspro-4ee81.firebaseapp.com",
@@ -84,6 +83,9 @@ export default function App() {
   const [linksHistory, setLinksHistory] = useState([]);
   const [smsQueueCount, setSmsQueueCount] = useState(0); 
   
+  // --- ADMIN MASTER NETWORK STATES ---
+  const [adminSelectedOwnerId, setAdminSelectedOwnerId] = useState(null);
+  
   // --- GENERATOR & QUICK SEND STATES ---
   const [genTo, setGenTo] = useState('');
   const [genMsg, setGenMsg] = useState('');
@@ -116,7 +118,7 @@ export default function App() {
   const [sendDelay, setSendDelay] = useState(15);
   const [sessionSentCount, setSessionSentCount] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
-  const [nodeWarningActive, setNodeWarningActive] = useState(false); // Novo Diagnóstico de Nó
+  const [nodeWarningActive, setNodeWarningActive] = useState(false);
   
   const [connectedChips, setConnectedChips] = useState(1);
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
@@ -125,7 +127,8 @@ export default function App() {
   const fileInputRef = useRef(null);
   
   const isMaster = user?.uid === ADMIN_MASTER_ID;
-  const isPro = isMaster || (userProfile?.tier === 'MASTER' || userProfile?.tier === 'ELITE' || userProfile?.isSubscribed);
+  // PRO Validation updated with new tiers
+  const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
   // --- IDENTITY BOOTSTRAP ---
@@ -178,6 +181,7 @@ export default function App() {
       collection(db, 'artifacts', appId, 'public', 'data', 'leads'), 
       (snap) => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Admin Master gets ALL leads to map the network folders
         const myData = isMaster ? all : all.filter(l => l.ownerId === user.uid);
         setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
       },
@@ -196,7 +200,6 @@ export default function App() {
       collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'),
       (snap) => {
         setSmsQueueCount(snap.docs.length);
-        // Diagnóstico: Se há itens na fila e o app de celular não os apaga, ativa aviso.
         if (snap.docs.length > 5) setNodeWarningActive(true);
         else setNodeWarningActive(false);
       },
@@ -205,6 +208,54 @@ export default function App() {
 
     return () => { unsubLeads(); unsubLinks(); unsubQueue(); };
   }, [user, view, isMaster]);
+
+  // ============================================================================
+  // ADMIN MASTER ACTION FUNCTIONS
+  // ============================================================================
+  const handleAdminGrantTier = async (targetId, tierType) => {
+    if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Node: ${targetId}?`)) return;
+    setLoading(true);
+    try {
+        const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
+        const updates = {};
+        if (tierType === 'ACTIVATION_9_USD') {
+            updates.tier = 'ACTIVATION_9_USD';
+            updates.isUnlimited = true;
+            updates.canViewFullLeadData = true;
+        } else if (tierType === 'PRO_SUBSCRIPTION_19_USD') {
+            updates.tier = 'PRO_SUBSCRIPTION_19_USD';
+            updates.automationStatus = 'ACTIVE';
+            updates.smsCredits = increment(800); // Bônus Gatilho de 800 envios
+            updates.isSubscribed = true;
+        }
+        
+        const snap = await getDoc(profileRef);
+        if (snap.exists()) {
+            await updateDoc(profileRef, updates);
+        } else {
+            await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Node" });
+        }
+        alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
+    } catch (error) {
+        console.error(error);
+        alert("MASTER ACTION FAILED.");
+    }
+    setLoading(false);
+  };
+
+  // Group leads into subscriber folders for Admin
+  const subscribersMap = {};
+  if (isMaster) {
+     logs.forEach(l => {
+        if (!subscribersMap[l.ownerId]) {
+           subscribersMap[l.ownerId] = { id: l.ownerId, leads: [] };
+        }
+        subscribersMap[l.ownerId].leads.push(l);
+     });
+  }
+  const subscribersList = Object.values(subscribersMap);
+  const displayLogs = isMaster && adminSelectedOwnerId ? logs.filter(l => l.ownerId === adminSelectedOwnerId) : (isMaster ? [] : logs);
+
 
   // ============================================================================
   // PRO COMMAND FUNCTIONS
@@ -285,18 +336,21 @@ export default function App() {
   };
 
   const handlePrepareBatch = () => {
-    if (!aiObjective || logs.length === 0 || aiWarning) return;
+    // Para Admin, gera batch baseado na pasta que está a visualizar ou alerta
+    const targetLogs = isMaster ? displayLogs : logs;
+    
+    if (!aiObjective || targetLogs.length === 0 || aiWarning) return;
     setIsAiProcessing(true);
     
     setTimeout(() => {
-      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
+      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), targetLogs.length);
       if (limit <= 0 && !isMaster) {
          alert("No credits available.");
          setIsAiProcessing(false);
          return;
       }
       
-      const queue = logs.slice(0, limit).map((l, idx) => {
+      const queue = targetLogs.slice(0, limit).map((l, idx) => {
          const contextualMessage = superAIVariationEngine(aiObjective, idx, l.nome_cliente);
          return { 
            id: l.id || Math.random().toString(),
@@ -336,7 +390,6 @@ export default function App() {
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
         
-        // HIGHEST SANITIZATION: Remove espaços, travessões, parênteses
         const sanitizedPhone = task.telefone_cliente.replace(/[^\d+]/g, ''); 
         
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
@@ -417,7 +470,6 @@ export default function App() {
           const safeId = phone.replace(/\D/g, '');
           if (!safeId) continue;
           
-          // NATIVE REGEX SANITIZATION
           const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
           
           const leadDocId = `${user.uid}_${safeId}`;
@@ -524,16 +576,25 @@ export default function App() {
         device: navigator.userAgent
       }, { merge: true });
       
+      // REGRA DE REDIRECIONAMENTO E COTA DE QUOTA REFINADA
       if (isNewLead && ownerId !== ADMIN_MASTER_ID) {
         const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
         const opSnap = await getDoc(pubRef);
-        if (opSnap.exists() && opSnap.data().tier !== 'MASTER') {
-           if (opSnap.data().smsCredits <= 0) { 
-               alert("HOST OUT OF CREDITS.");
-               setLoading(false); 
-               return; 
+        if (opSnap.exists()) {
+           const data = opSnap.data();
+           // Apenas planos ilimitados ignoram o decréscimo da cota
+           const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+           
+           if (!isUnlimited) {
+               // Planos com cota, incluindo Free Trial (60 disparos)
+               if (Number(data.smsCredits) <= 0) { 
+                   alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
+                   setLoading(false); 
+                   return; 
+               }
+               // Deduz efetivamente a cota do assinante Free Trial / Pro
+               await updateDoc(pubRef, { smsCredits: increment(-1) });
            }
-           await updateDoc(pubRef, { smsCredits: increment(-1) });
         }
       }
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -569,10 +630,13 @@ export default function App() {
     setLoading(false);
   };
 
+  // MASCARAMENTO INSTIGANTE E TECNOLÓGICO PARA CONTAS FREE TRIAL
   const maskData = (s, type) => { 
     if (isPro) return String(s || ''); 
-    if (type === 'name') return String(s || '').substring(0, 3) + '***'; 
-    return String(s || '').substring(0, 6) + '***'; 
+    const str = String(s || '');
+    // Revela os primeiros 3 caracteres do nome e os primeiros 6 do telefone (DDI + 2 digitos)
+    if (type === 'name') return str.substring(0, 3) + '*** [ENCRYPTED]'; 
+    return str.substring(0, 6) + '*** [VAULT]'; 
   };
 
   if (!authResolved) {
@@ -746,7 +810,7 @@ export default function App() {
               {!user && (
                 <div className="flex flex-col items-center gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center">
                   <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-xs w-full max-w-[420px] group py-6 shadow-xl"><Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE HANDSHAKES</button>
-                  <button onClick={() => window.open("https://buy.stripe.com/nexus_access", '_blank')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] group py-6 shadow-[0_0_20px_#25F4EE]"><Star size={24} className="animate-pulse" /> UPGRADE TO ELITE MEMBER</button>
+                  <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-xs w-full max-w-[420px] group py-6 shadow-[0_0_20px_#25F4EE]"><Star size={24} className="animate-pulse" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
               )}
 
@@ -787,7 +851,7 @@ export default function App() {
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-8 py-3 rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE]">
                     <p className="text-[8px] text-white/30 mb-2 tracking-widest">SMS QUOTA</p>
-                    <p className="text-2xl text-white">{isPro ? '∞' : String(userProfile?.smsCredits || 0)}</p>
+                    <p className="text-2xl text-white">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
                  </div>
               </div>
             </div>
@@ -797,8 +861,8 @@ export default function App() {
               {[
                 { label: "DISPATCHED SMS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
-                { label: "ACTIVE CONTACTS", value: logs.length || 0, icon: Users, color: "text-amber-500" },
-                { label: "REMAINING CREDITS", value: isPro ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
+                { label: "ACTIVE CONTACTS", value: isMaster && !adminSelectedOwnerId ? subscribersList.length : (isMaster ? displayLogs.length : logs.length), icon: Users, color: "text-amber-500" },
+                { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-white/10 shadow-xl flex items-center gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-4 rounded-2xl border border-white/5 ${stat.color}`}>
@@ -848,47 +912,90 @@ export default function App() {
                 </div>
               </div>
 
+              {/* DASHBOARD DE REGISTROS (NETWORK PAI E FILHO OU LEADS PADRÃO) */}
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[500px]">
                  <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111]">
                     <div className="flex items-center gap-3">
-                       <History size={20} className="text-[#25F4EE]" />
-                       <h3 className="text-xl text-white tracking-tight">RECENT ACTIVITY LOGS</h3>
+                       {isMaster && !adminSelectedOwnerId ? <Database size={20} className="text-amber-500" /> : <History size={20} className="text-[#25F4EE]" />}
+                       <h3 className="text-xl text-white tracking-tight">{isMaster && !adminSelectedOwnerId ? 'SUBSCRIBER NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
-                   {logs.length > 0 ? (
-                     <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
+                   {isMaster && !adminSelectedOwnerId ? (
+                     /* ADMIN MASTER: NETWORK VIEW (PAI E FILHO) */
+                     <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">RECIPIENT</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">IDENTITY</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">STATUS</th>
-                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">TIMESTAMP</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">SUBSCRIBER ID (PAI)</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS (FILHOS)</th>
+                           <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">MASTER AUTHORITY ACTIONS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
-                         {logs.map(l => (
-                           <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
-                             <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
-                             <td className="px-8 py-6">
-                               <div className="flex items-center gap-3">
-                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
-                                   <UserCheck size={14} />
-                                 </div>
-                                 <span className="text-white text-sm truncate max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
-                               </div>
-                             </td>
-                             <td className="px-8 py-6"><span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={12} /> INTERCEPTED</span></td>
-                             <td className="px-8 py-6 text-right text-xs text-white/30 font-mono">
-                                {l.timestamp && typeof l.timestamp.toDate === 'function' ? l.timestamp.toDate().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : 'Syncing...'}
-                             </td>
-                           </tr>
+                         {subscribersList.map(sub => (
+                            <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors group">
+                               <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider font-mono">{sub.id}</td>
+                               <td className="px-8 py-6 text-center text-sm text-white font-black">{sub.leads.length} REGISTERED</td>
+                               <td className="px-8 py-6 flex justify-end gap-3">
+                                  <button onClick={() => setAdminSelectedOwnerId(sub.id)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-black tracking-widest flex items-center gap-2 transition-all shadow-xl"><Database size={14}/> OPEN FOLDER</button>
+                                  <button onClick={() => handleAdminGrantTier(sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-2 transition-all shadow-xl"><Gift size={14}/> GIFT $9.00</button>
+                                  <button onClick={() => handleAdminGrantTier(sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-2 transition-all shadow-xl"><Rocket size={14}/> GIFT $19.90 (+800)</button>
+                               </td>
+                            </tr>
                          ))}
                        </tbody>
                      </table>
                    ) : (
-                     <div className="flex flex-col items-center justify-center h-full p-20 opacity-20"><Lock size={48} className="mb-4 text-white" /><p className="text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
+                     /* STANDARD LEADS VIEW / ADMIN FOLDER VIEW */
+                     <>
+                       {isMaster && adminSelectedOwnerId && (
+                          <div className="p-4 bg-[#111] border-b border-white/10 flex justify-between items-center">
+                             <span className="text-[10px] text-[#25F4EE] tracking-widest font-black uppercase"><Database size={12} className="inline mr-2 mb-0.5"/> FOLDER: {adminSelectedOwnerId}</span>
+                             <button onClick={() => setAdminSelectedOwnerId(null)} className="text-[10px] text-white/50 hover:text-white border border-white/20 px-4 py-2 rounded-lg transition-colors bg-black">BACK TO NETWORK MAP</button>
+                          </div>
+                       )}
+                       
+                       {(isMaster ? displayLogs : logs).length > 0 ? (
+                         <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
+                           <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
+                             <tr>
+                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">RECIPIENT</th>
+                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">IDENTITY</th>
+                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest">STATUS</th>
+                               <th className="px-8 py-5 text-[10px] text-white/50 tracking-widest text-right">TIMESTAMP</th>
+                             </tr>
+                           </thead>
+                           <tbody className="divide-y divide-white/5">
+                             {(isMaster ? displayLogs : logs).map(l => (
+                               <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
+                                 <td className="px-8 py-6 text-sm text-[#25F4EE] tracking-wider">{maskData(l.telefone_cliente, 'phone')}</td>
+                                 <td className="px-8 py-6">
+                                   <div className="flex items-center gap-3">
+                                     <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
+                                       <UserCheck size={14} />
+                                     </div>
+                                     <span className="text-white text-sm truncate max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
+                                   </div>
+                                 </td>
+                                 <td className="px-8 py-6">
+                                    {isPro ? (
+                                      <span className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={12} /> DECRYPTED NODE</span>
+                                    ) : (
+                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[9px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={12} /> UNLOCK TO REVEAL</button>
+                                    )}
+                                 </td>
+                                 <td className="px-8 py-6 text-right text-xs font-mono text-[#25F4EE]">
+                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : 'Syncing...'}
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center h-full p-20 opacity-20"><Lock size={48} className="mb-4 text-white" /><p className="text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
+                       )}
+                     </>
                    )}
                  </div>
                  {!isPro && logs.length > 0 && (
@@ -998,7 +1105,7 @@ export default function App() {
                          <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[140px] resize-none font-sans font-medium !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
                          
                          <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[11px] py-5 rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
-                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, logs.length)} UNITS)`}
+                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, (isMaster && adminSelectedOwnerId ? displayLogs.length : logs.length))} UNITS)`}
                          </button>
                       </div>
                       
