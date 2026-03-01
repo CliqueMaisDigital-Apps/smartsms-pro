@@ -769,7 +769,7 @@ export default function App() {
         }
         return await response.json();
       } catch (err) {
-        // If it's a fatal 400/403 error, throw immediately to display to the user
+        // If it's a fatal 400/403/404 error, throw immediately to display to the user
         if (err.message.includes("API ERROR") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
@@ -878,8 +878,8 @@ Never incite, insinuate, or teach how to circumvent, deceive, or lie about any s
             validContents.shift(); 
         }
 
-        // CRITICAL FIX: Changed model endpoint to 'gemini-1.5-flash' to match external API Keys
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // CRITICAL FIX: Changed model endpoint to 'gemini-1.5-flash-latest' to resolve Google 404 API Not Found Errors
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
         const data = await fetchWithBackoff(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
