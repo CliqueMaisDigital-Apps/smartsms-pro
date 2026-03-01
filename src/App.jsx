@@ -1027,7 +1027,7 @@ export default function App() {
                         {!smsQueueCount && (
                           <div className="absolute bottom-4 left-4 right-4 p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left">
                              <p className="text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-2 mb-1"><Wifi size={12} className="animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
-                             <p className="text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Dispatches are injected directly into the cellular radio baseband, bypassing Google Messages & RCS entirely. Sent messages will NOT appear in your Android outbox to preserve operational stealth.</p>
+                             <p className="text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
                           </div>
                         )}
                       </div>
