@@ -740,16 +740,16 @@ export default function App() {
       try {
         const response = await fetch(url, options);
         if (!response.ok) {
-           if (response.status === 400) {
+           if (response.status >= 400 && response.status < 500) {
                // Fast-Fail if Payload format is violently rejected by the API
-               console.error(`Gemini Fast-Fail: 400 Bad Request`);
-               throw new Error(`Bad Request 400`);
+               console.error(`Gemini Fast-Fail: ${response.status} Client Error`);
+               throw new Error(`Client Error ${response.status}`);
            }
            throw new Error(`HTTP error! status: ${response.status}`);
         }
         return await response.json();
       } catch (err) {
-        if (err.message.includes("Bad Request") || i === retries - 1) throw err;
+        if (err.message.includes("Client Error") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
       }
@@ -786,8 +786,13 @@ export default function App() {
         for (const msg of history) {
             // Skips leading 'model' messages, ensuring payload always starts with 'user'
             if (validContents.length === 0 && msg.role !== 'user') continue; 
-            if (msg.role === lastRole) continue; // Forces role alternation
-            validContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+            
+            if (validContents.length > 0 && validContents[validContents.length - 1].role === msg.role) {
+                // If same role occurs back-to-back, merge them to avoid 400 error
+                validContents[validContents.length - 1].parts[0].text += "\n" + msg.text;
+            } else {
+                validContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+            }
             lastRole = msg.role;
         }
 
