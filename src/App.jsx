@@ -139,9 +139,9 @@ export default function App() {
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
-  // --- SHIELD PROTOCOL: ANTI-COPY (ALLOWS TRANSLATION) ---
+  // --- SHIELD PROTOCOL: ANTI-COPY (ALLOWS NATIVE TRANSLATION) ---
   useEffect(() => {
-    // Contextmenu is NOT blocked here, allowing browser native translation extensions to work freely.
+    // Contextmenu is entirely free. Only key combos for DevTools are strictly blocked.
     const handleKeyDown = (e) => {
        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && ['U','S','P'].includes(e.key))) {
            e.preventDefault();
@@ -580,7 +580,7 @@ export default function App() {
     const to = editingLink ? editingLink.to : genTo;
     const msg = editingLink ? editingLink.msg : genMsg;
     const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
-    if (!to) return alert("DESTINATION NUMBER IS REQUIRED.");
+    if (!to) return alert("RECIPIENT NUMBER IS REQUIRED.");
     setLoading(true);
     const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
     const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
@@ -733,25 +733,30 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- EXPONENTIAL BACKOFF FETCH UTILITY ---
-  const fetchWithBackoff = async (url, options, retries = 5) => {
-    let delay = 1000;
+  // --- EXPONENTIAL BACKOFF FETCH UTILITY (INSTANT RETURN ON BAD REQUEST) ---
+  const fetchWithBackoff = async (url, options, retries = 3) => {
+    let delay = 500;
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url, options);
         if (!response.ok) {
+           if (response.status === 400) {
+               // Fast-Fail if Payload format is violently rejected by the API
+               console.error(`Gemini Fast-Fail: 400 Bad Request`);
+               throw new Error(`Bad Request 400`);
+           }
            throw new Error(`HTTP error! status: ${response.status}`);
         }
         return await response.json();
       } catch (err) {
-        if (i === retries - 1) throw err;
+        if (err.message.includes("Bad Request") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
       }
     }
   };
 
-  // --- AI GEMINI CHAT HANDLER (AIDA EXPERT & LEAD CAPTURE) ---
+  // --- AI GEMINI CHAT HANDLER (AIDA EXPERT & LEAD CAPTURE - ZERO LAG) ---
   const handleSendChat = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -761,7 +766,7 @@ export default function App() {
     setIsChatLoading(true);
 
     try {
-        const apiKey = ""; // Runtime Key auto injected
+        const apiKey = ""; // Runtime Key auto injected by immersive environment
         
         const systemPrompt = `You are NEXUS AI SMART, the Smart Support AI Agent for SMART SMS PRO.
         CRITICAL RULES:
@@ -774,20 +779,21 @@ export default function App() {
         6. SELLING THE SAAS: Emphasize that Free Trial users consume 'SALDO QUOTA REDIRECT' for each link click. PRO users who wish to automate mass sending need to acquire 'SMS QUOTA' packs. Highlight the high ROI and stealth architecture of the Terminal.
         Maintain a highly humanized, persuasive, and concise tone.`;
 
-        // ALGORITMO DE SANITIZAÇÃO DE HISTÓRICO: Garante a alternância perfeita entre 'user' e 'model' para evitar o erro 400 Bad Request da API.
-        const rawHistory = [...chatMessages, newMsg];
-        const payloadContents = [];
-        let expectedRole = 'user';
-        for (let i = rawHistory.length - 1; i >= 0; i--) {
-            if (rawHistory[i].role === expectedRole) {
-                payloadContents.unshift({ role: expectedRole, parts: [{ text: rawHistory[i].text }] });
-                expectedRole = expectedRole === 'user' ? 'model' : 'user';
-            }
+        // PERFECT HISTORY SANITIZER (Guarantees alternating 'user'/'model' roles to prevent 400 Errors)
+        let validContents = [];
+        const history = [...chatMessages, newMsg];
+        let lastRole = null;
+        for (const msg of history) {
+            // Skips leading 'model' messages, ensuring payload always starts with 'user'
+            if (validContents.length === 0 && msg.role !== 'user') continue; 
+            if (msg.role === lastRole) continue; // Forces role alternation
+            validContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+            lastRole = msg.role;
         }
 
-        // CRITICAL FIX FOR 400 BAD REQUEST: Remove any leading 'model' message since Gemini demands the payload array to strictly start with a 'user' message.
-        if (payloadContents.length > 0 && payloadContents[0].role === 'model') {
-            payloadContents.shift();
+        // Failsafe validation against Gemini strict limits
+        if (validContents.length > 0 && validContents[0].role === 'model') {
+            validContents.shift(); 
         }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -795,7 +801,7 @@ export default function App() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: payloadContents,
+                contents: validContents,
                 systemInstruction: { parts: [{ text: systemPrompt }] }
             })
         });
@@ -909,8 +915,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
-        /* SHIELD PROTOCOL: MINIMAL INTERFERENCE - Allows native browser translation & text selection */
-        
+        /* SHIELD PROTOCOL: USER SELECT AND RIGHT CLICK KEPT OPEN FOR NATIVE TRANSLATION */
+
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
         .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
@@ -1002,7 +1008,7 @@ export default function App() {
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-300">
             <header className="mb-14 text-center flex flex-col items-center">
               <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl sm:text-4xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
-              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4">HIGH-END REDIRECTION PROTOCOL - 60 FREE HANDSHAKES</p>
+              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4">HIGH-END REDIRECTION PROTOCOL - 60 FREE CONNECTIONS</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
@@ -1014,17 +1020,17 @@ export default function App() {
 
               <div className="lighthouse-neon-wrapper shadow-3xl mx-2 sm:mx-0">
                 <div className="lighthouse-neon-content p-6 sm:p-12 text-left space-y-8">
-                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[10px] sm:text-[11px] tracking-widest text-white/60">SMART HANDSHAKE GENERATOR</h3></div>
+                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[10px] sm:text-[11px] tracking-widest text-white/60">SMART CONNECTION GENERATOR</h3></div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">DESTINATION <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">RECIPIENT <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
                      <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium text-white font-sans font-medium" placeholder="+1 999 999 9999" />
                   </div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">HOST IDENTITY</label>
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">NAME OR COMPANY</label>
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm text-white/50 w-full font-sans font-medium !text-transform-none" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">PAYLOAD CONTENT</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">WRITE HERE THE PRE-DEFINED MESSAGE FOR THE RECIPIENT</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm leading-relaxed pr-12 font-sans font-medium !text-transform-none" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
@@ -1063,7 +1069,7 @@ export default function App() {
 
               {!user && (
                 <div className="flex flex-col items-center gap-4 sm:gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0">
-                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE HANDSHAKES</button>
+                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE CONNECTIONS</button>
                   <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={20} className="animate-pulse sm:w-6 sm:h-6" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
               )}
@@ -1142,7 +1148,7 @@ export default function App() {
                       <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">MESSAGE PAYLOAD</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">WRITE HERE THE PRE-DEFINED MESSAGE FOR THE RECIPIENT</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
                     </div>
                     <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
@@ -1494,7 +1500,7 @@ export default function App() {
                    <div key={pack.name} className="bg-white/5 border border-white/10 p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center shadow-xl flex flex-col items-center hover:bg-white/10 transition-colors">
                      <p className="text-[9px] sm:text-[10px] text-[#25F4EE] mb-1.5 sm:mb-2 tracking-widest">{pack.name}</p>
                      <p className="text-2xl sm:text-3xl text-white mb-3 sm:mb-4 font-black">{pack.qty}</p>
-                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4">HANDSHAKES</p>
+                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4">CONNECTIONS</p>
                      <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8">{pack.price}</p>
                      <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
                    </div>
