@@ -749,23 +749,39 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- HARDCODED CLIENT-SIDE NLP ENGINE (ZERO-LAG, ZERO-API CRASH) ---
-  // Substitutes Gemini API completely for 100% Uptime, Instant Response, and Absolute Local Reliability
+  // --- HARDCODED CLIENT-SIDE NLP ENGINE (POLYGLOT & AIDA MASTER) ---
   const nexusSmartAIEngine = (historyContext, inputString) => {
       const text = String(inputString).toLowerCase();
-      // Language Detection (Simple Heuristic for PT vs EN)
-      const isPt = /\b(oi|olá|ola|opa|bom|boa|ajuda|sim|não|nao|quero|como)\b/i.test(text);
+      
+      // Zero Tolerance Pre-Scanner for AI Chat
+      const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
+      if (forbidden.test(text)) {
+          return "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED.";
+      }
 
-      // Lead Extraction Regex (Matches International formats +1 999 999 9999)
+      // Language Detection Engine (Top 10 USA + PT-BR)
+      let lang = 'en'; // Default
+      if (/\b(oi|olá|ola|opa|bom dia|boa tarde|ajuda|sim|não|nao|quero|como)\b/i.test(text)) lang = 'pt';
+      else if (/\b(hola|buenos|ayuda|si|no|quiero|gracias)\b/i.test(text)) lang = 'es';
+      else if (/\b(bonjour|salut|aide|oui|non|merci)\b/i.test(text)) lang = 'fr';
+      else if (/\b(hallo|guten|hilfe|ja|nein|danke)\b/i.test(text)) lang = 'de';
+      else if (/\b(ni hao|你好|xiexie|谢谢)\b/i.test(text)) lang = 'zh';
+      else if (/\b(chao|xin chao|giup|cảm ơn)\b/i.test(text)) lang = 'vi';
+      else if (/\b(kamusta|tulong|salamat)\b/i.test(text)) lang = 'tl'; // Tagalog
+      else if (/\b(mrhba|مرحبا|shukran|شكرا)\b/i.test(text)) lang = 'ar';
+      else if (/\b(annyeong|안녕하세요|kamsahamnida|감사합니다)\b/i.test(text)) lang = 'ko';
+      else if (/\b(privet|привет|pomoshch|помощь|spasibo|спасибо)\b/i.test(text)) lang = 'ru';
+
+      // Lead Extraction Regex (International formats +1 999 999 9999)
       const phoneRegex = /(\+?\d{1,3}[-.\s]?\(?\d{2,3}\)?[-.\s]?\d{3,4}[-.\s]?\d{4,5})/;
       
       if (phoneRegex.test(text)) {
           const phoneMatch = text.match(phoneRegex)[0];
-          let extractedName = isPt ? "Operador" : "Operator";
+          let extractedName = lang === 'pt' ? "Operador" : (lang === 'es' ? "Operador" : "Operator");
           
           const cleanText = text.replace(phoneRegex, '').trim();
           const words = cleanText.split(/\s+/);
-          const ignoreWords = ['meu', 'nome', 'é', 'e', 'numero', 'telefone', 'my', 'name', 'is', 'phone', 'number', 'call', 'me'];
+          const ignoreWords = ['meu', 'nome', 'é', 'e', 'numero', 'telefone', 'my', 'name', 'is', 'phone', 'number', 'call', 'me', 'mi', 'nombre', 'es'];
           
           for (let w of words) {
               if (w.length > 2 && !ignoreWords.includes(w)) {
@@ -774,45 +790,51 @@ export default function App() {
               }
           }
 
-          if (isPt) {
-              return `Fantástico, ${extractedName}! O seu terminal foi autenticado. Estratégia de Elite: Contas Free Trial consomem 'SALDO QUOTA REDIRECT' a cada clique nos seus links. Para escalar com envios em massa e ativar as nossas automações furtivas, você deve adquirir pacotes de 'SMS QUOTA'. É o motor principal para explodir o seu ROI. Em que campanha de marketing posso ajudar agora? ||LEAD:${extractedName},${phoneMatch}||`;
-          } else {
-              return `Fantastic, ${extractedName}! Your secure terminal is authenticated. Elite Strategy: Free Trial users consume 'SALDO QUOTA REDIRECT' for each link click. To scale with mass sending and unlock stealth automations, you must acquire our 'SMS QUOTA' packs. It's the primary engine to explode your ROI. What marketing campaign can I help you with now? ||LEAD:${extractedName},${phoneMatch}||`;
-          }
+          // AIDA: Interest & Desire (Post-Capture)
+          const responses = {
+              'pt': `Excelente, ${extractedName}. O seu terminal criptográfico está estabelecido. Estratégia de Elite: No plano Free Trial, você consome o seu 'SALDO QUOTA REDIRECT' a cada clique. Para dominar o mercado, automatizar envios em massa e ativar o nosso Spintax furtivo, o próximo passo é desbloquear pacotes de 'SMS QUOTA'. É o motor que escala o seu ROI. Que tipo de campanha deseja lançar hoje? ||LEAD:${extractedName},${phoneMatch}||`,
+              'en': `Excellent, ${extractedName}. Your cryptographic terminal is established. Elite Strategy: On the Free Trial, you consume 'SALDO QUOTA REDIRECT' per click. To dominate your market, automate mass sending, and unlock our stealth Spintax, your next step is acquiring 'SMS QUOTA' packs. It's the engine that scales your ROI. What kind of campaign are we launching today? ||LEAD:${extractedName},${phoneMatch}||`,
+              'es': `Excelente, ${extractedName}. Su terminal criptográfico está establecido. Estrategia de Élite: En el plan Free Trial, usted consume 'SALDO QUOTA REDIRECT' por cada clic. Para dominar su mercado, automatizar envíos masivos y desbloquear nuestro Spintax furtivo, el siguiente paso es adquirir paquetes de 'SMS QUOTA'. Es el motor que escala su ROI. ¿Qué campaña desea lanzar hoy? ||LEAD:${extractedName},${phoneMatch}||`
+          };
+          return responses[lang] || responses['en'];
       }
 
-      // Keyword-based AIDA Funnel Rules
+      // Keyword-based AIDA Funnel Rules (Action focused)
       if (text.includes('quota') || text.includes('saldo') || text.includes('free') || text.includes('trial') || text.includes('comprar') || text.includes('buy') || text.includes('price') || text.includes('preço')) {
-          if (isPt) {
-              return "A matemática de conversão é simples: 'SALDO QUOTA REDIRECT' é a sua cota no Free Trial para redirecionamento. Quando acabar, o fluxo pausa. Adquirir pacotes 'SMS QUOTA' liberta o envio em massa e a nossa Super IA de Spintax. É a Ação definitiva do funil AIDA para dominar a sua conversão. Vamos ativar o seu pacote PRO no menu 'Upgrade Station'?";
-          } else {
-              return "The conversion math is simple: 'SALDO QUOTA REDIRECT' is your Free Trial allowance for routing. When depleted, the flow halts. Acquiring 'SMS QUOTA' packs unlocks mass sending and our Super AI Spintax. It's the ultimate Action step in your AIDA funnel to dominate conversions. Shall we activate your PRO pack in the Upgrade Station?";
-          }
+          const responses = {
+              'pt': "A matemática da conversão não falha: o 'SALDO QUOTA REDIRECT' é a sua proteção inicial no Free Trial. Quando atinge o limite, o fluxo pausa para proteger a rede. Adquirir pacotes 'SMS QUOTA' liberta o potencial total do seu funil e permite envios ilimitados da IA. É a ação definitiva para o sucesso. Vamos ativar o seu pacote PRO na nossa 'Upgrade Station' agora?",
+              'en': "The conversion math never fails: 'SALDO QUOTA REDIRECT' is your initial shield on the Free Trial. Once reached, the flow pauses to protect the network. Acquiring 'SMS QUOTA' packs unleashes your funnel's total potential and enables unlimited AI dispatches. It's the ultimate action for success. Shall we activate your PRO pack in our 'Upgrade Station' now?",
+              'es': "La matemática de conversión no falla: el 'SALDO QUOTA REDIRECT' es su escudo inicial en el Free Trial. Al límite, el flujo se pausa para proteger la red. Adquirir paquetes de 'SMS QUOTA' libera el potencial total de su embudo y permite envíos ilimitados. Es la acción definitiva para el éxito. ¿Activamos su paquete PRO en la 'Upgrade Station' ahora?"
+          };
+          return responses[lang] || responses['en'];
       }
 
       if (text.includes('mkt') || text.includes('marketing') || text.includes('campanha') || text.includes('campaign') || text.includes('dica') || text.includes('tip') || text.includes('estrategia') || text.includes('strategy')) {
-           if (isPt) {
-               return "No SMS Marketing, a técnica AIDA (Atenção, Interesse, Desejo, Ação) é letal. Use gatilhos mentais curtos e links de alto impacto. O nosso sistema fará o bypass furtivo para a operadora nativa do Lead. Certifique-se apenas de ter 'SMS QUOTA' suficiente para o tráfego gerado. Quer uma dica avançada sobre a criação da sua Carga Útil (Payload)?";
-           } else {
-               return "In SMS Marketing, the AIDA framework (Attention, Interest, Desire, Action) is highly effective. Use short psychological hooks and high-impact links. Our system executes a stealth bypass to the Lead's native carrier. Just ensure you have enough 'SMS QUOTA' to handle the traffic spike. Would you like an advanced tip on crafting your Payload?";
-           }
+           const responses = {
+              'pt': "No SMS Marketing, a técnica AIDA (Atenção, Interesse, Desejo, Ação) é letal. Use gatilhos mentais curtos e links magnéticos. O nosso sistema faz o bypass furtivo para a operadora nativa do Lead, garantindo quase 100% de entrega. Apenas garanta que possui 'SMS QUOTA' suficiente para a explosão de tráfego. Deseja ajuda para criar o texto da sua Carga Útil (Payload)?",
+              'en': "In SMS Marketing, the AIDA framework (Attention, Interest, Desire, Action) is lethal. Use short psychological triggers and magnetic links. Our system executes a stealth bypass to the Lead's native carrier, ensuring near 100% delivery. Just ensure you have enough 'SMS QUOTA' for the traffic explosion. Do you need help crafting your Payload text?",
+              'es': "En SMS Marketing, la técnica AIDA es letal. Use gatillos mentales cortos y enlaces magnéticos. Nuestro sistema hace el bypass furtivo a la operadora nativa del Lead, asegurando casi 100% de entrega. Solo asegúrese de tener 'SMS QUOTA' suficiente para la explosión de tráfico. ¿Necesita ayuda para crear su Carga Útil (Payload)?"
+          };
+          return responses[lang] || responses['en'];
       }
 
-      // First interaction / Greetings
-      if (historyContext.length === 0 || text.match(/\b(oi|olá|ola|opa|hey|hi|hello)\b/i)) {
-          if (isPt) {
-              return "NEXUS AI SMART ONLINE. Olá! Sou o seu Agente de Vendas e Suporte Especializado. Para iniciarmos o seu atendimento e libertar o poder do SMART SMS PRO, por favor, informe o seu Nome e Número de Telefone (Ex: +1 999 999 9999).";
-          } else {
-              return "NEXUS AI SMART ONLINE. Hello! I am your Elite Sales and Support Agent. To initialize your session and unleash the power of SMART SMS PRO, please provide your Name and valid Phone Number (Ex: +1 999 999 9999).";
-          }
+      // First interaction / Greetings / AIDA: Attention
+      if (historyContext.length === 0 || text.match(/\b(oi|olá|ola|opa|hey|hi|hello|hola|bonjour|hallo|ni hao|chao|kamusta|mrhba|annyeong|privet)\b/i)) {
+          const responses = {
+              'pt': "NEXUS AI SMART ONLINE. Olá! Eu sou o seu Agente Especialista de Alta Conversão. Para iniciarmos o seu protocolo e libertar o poder da nossa rede, por favor, insira o seu Nome e Número de Telefone válido (Ex: +1 999 999 9999).",
+              'en': "NEXUS AI SMART ONLINE. Hello! I am your Elite Conversion Specialist Agent. To initialize your protocol and unleash the power of our network, please enter your Name and a valid Phone Number (Ex: +1 999 999 9999).",
+              'es': "NEXUS AI SMART ONLINE. ¡Hola! Soy su Agente Especialista de Alta Conversión. Para inicializar su protocolo y liberar el poder de nuestra red, por favor ingrese su Nombre y Número de Teléfono válido (Ej: +1 999 999 9999)."
+          };
+          return responses[lang] || responses['en'];
       }
 
       // Fallback
-      if (isPt) {
-          return "Fascinante. Para eu poder fornecer a resposta técnica exata e analisar a sua infraestrutura de conversão, preciso registrar a sua identidade na nossa Vault. Qual é o seu Nome e Telefone (Ex: +1 999 999 9999)?";
-      } else {
-          return "Fascinating. In order to provide the exact technical response and analyze your conversion infrastructure, I must register your identity in our Vault. What is your Name and Phone number (Ex: +1 999 999 9999)?";
-      }
+      const responses = {
+          'pt': "Compreendo a sua estratégia. No entanto, para eu processar a resposta técnica exata e blindar a sua sessão, preciso validar a sua identidade. Qual é o seu Nome e Número de Telefone (Ex: +1 999 999 9999)?",
+          'en': "I understand your strategy. However, for me to process the exact technical response and secure your session, I must validate your identity. What is your Name and Phone Number (Ex: +1 999 999 9999)?",
+          'es': "Entiendo su estrategia. Sin embargo, para procesar la respuesta técnica exacta y asegurar su sesión, necesito validar su identidad. ¿Cuál es su Nombre y Número de Teléfono (Ej: +1 999 999 9999)?"
+      };
+      return responses[lang] || responses['en'];
   };
 
   // --- AI CHAT HANDLER (ZERO-LAG CLIENT SIDE ENGINE) ---
@@ -824,13 +846,22 @@ export default function App() {
     setChatInput('');
     setIsChatLoading(true);
 
-    // HUMANIZED TYPING DELAY: Simulate AI reading and processing to make the chat feel real.
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700));
+    // ZERO TOLERANCE SCANNER IN CHAT INPUT
+    const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
+    if (forbidden.test(newMsg.text)) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Fast fail
+        setChatMessages(prev => [...prev, { role: 'model', text: "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED." }]);
+        setIsChatLoading(false);
+        return;
+    }
+
+    // HUMANIZED TYPING DELAY: Extended for realistic Premium feel (1.2s to 2s)
+    await new Promise(resolve => setTimeout(resolve, 1200 + Math.random() * 800));
 
     try {
         const historyContext = chatMessages.filter(m => m.role === 'user');
         
-        // PURE CLIENT-SIDE AI EXECUTION (Eliminates Gemini API 400 Errors and Network Latency)
+        // PURE CLIENT-SIDE AI EXECUTION
         const aiTextRaw = nexusSmartAIEngine(historyContext, newMsg.text);
         
         let displayAiText = aiTextRaw;
@@ -1688,8 +1719,8 @@ export default function App() {
                      <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
                  </header>
                  
-                 {/* Chat Body (Scrollable) */}
-                 <main className="flex-1 min-h-0 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner relative">
+                 {/* Chat Body (Scrollable & Premium Typography) */}
+                 <main className="flex-1 min-h-0 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 shadow-inner relative">
                     
                     {/* Empty State / NEUROMARKETING Call to action */}
                     {chatMessages.length === 0 && !isChatLoading && (
@@ -1706,7 +1737,7 @@ export default function App() {
 
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                         <div className={`p-3 sm:p-4 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[11px] sm:text-[13px] leading-relaxed shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none text-[12px] sm:text-[14px] leading-relaxed tracking-wide hyphens-auto break-words shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-semibold rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
                       </div>
@@ -1715,13 +1746,13 @@ export default function App() {
                     {/* Realist Typing Indicator */}
                     {isChatLoading && (
                       <div className="flex w-full justify-start animate-in fade-in duration-300">
-                         <div className="p-3 sm:p-4 rounded-2xl rounded-tl-sm max-w-[85%] bg-white/5 border border-white/10 flex items-center gap-3 shadow-lg">
-                           <span className="flex gap-1 items-center h-4 ml-1">
-                              <span className="w-1.5 h-1.5 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                         <div className="p-4 sm:p-5 rounded-2xl rounded-tl-sm max-w-[85%] bg-white/5 border border-white/10 flex items-center gap-3 shadow-lg">
+                           <span className="flex gap-1.5 items-center h-5 ml-1">
+                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                            </span>
-                           <span className="text-[9px] tracking-widest uppercase italic text-[#25F4EE]/70 font-black ml-1">NEXUS AI IS TYPING...</span>
+                           <span className="text-[9px] tracking-widest uppercase italic text-[#25F4EE]/70 font-black ml-2">NEXUS AI IS TYPING...</span>
                          </div>
                       </div>
                     )}
