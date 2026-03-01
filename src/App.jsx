@@ -127,7 +127,7 @@ export default function App() {
   const [showSyncModal, setShowSyncModal] = useState(false);
 
   // --- AI CHAT SUPPORT STATES ---
-  const [chatMessages, setChatMessages] = useState([]); // Removed hardcoded greeting for API 400 fix and humanization
+  const [chatMessages, setChatMessages] = useState([]); 
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
@@ -733,22 +733,22 @@ export default function App() {
   };
 
   // --- EXPONENTIAL BACKOFF FETCH UTILITY (INSTANT RETURN ON BAD REQUEST) ---
-  const fetchWithBackoff = async (url, options, retries = 3) => {
-    let delay = 500;
+  const fetchWithBackoff = async (url, options, retries = 4) => {
+    let delay = 1000;
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url, options);
         if (!response.ok) {
-           if (response.status >= 400 && response.status < 500) {
-               // Fast-Fail if Payload format is violently rejected by the API
-               console.error(`Gemini Fast-Fail: ${response.status} Client Error`);
-               throw new Error(`Client Error ${response.status}`);
+           if (response.status === 400) {
+               const errText = await response.text();
+               console.error(`Gemini Fast-Fail: 400 Bad Request`, errText);
+               throw new Error(`Fatal 400 Bad Request`);
            }
            throw new Error(`HTTP error! status: ${response.status}`);
         }
         return await response.json();
       } catch (err) {
-        if (err.message.includes("Client Error") || i === retries - 1) throw err;
+        if (err.message.includes("Fatal 400") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
       }
@@ -1673,9 +1673,13 @@ export default function App() {
                     
                     {/* Empty State / Call to action */}
                     {chatMessages.length === 0 && !isChatLoading && (
-                       <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30 pointer-events-none px-4 text-center">
+                       <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40 pointer-events-none px-4 text-center">
                           <Bot size={56} className="mb-4 text-[#25F4EE] animate-pulse" />
-                          <p className="text-[10px] tracking-widest font-black text-white">SYSTEM READY. AWAITING INPUT.</p>
+                          <p className="text-[10px] tracking-widest font-black text-[#25F4EE] flex items-center justify-center gap-2">
+                             <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-ping"></span> 
+                             24/7 NEXUS AI ACTIVE
+                          </p>
+                          <p className="text-[8px] tracking-[0.2em] font-medium text-white/50 mt-2">READY TO BOOST YOUR CONVERSIONS. TYPE BELOW.</p>
                        </div>
                     )}
 
