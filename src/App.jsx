@@ -52,7 +52,7 @@ const db = getFirestore(firebaseApp);
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
 // --- ZERO TOLERANCE GLOBAL REGEX (ULTRA ENHANCED COGNITION) ---
-const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgraçado|desgracado|miseravel|miserável|safado|lixo|trouxa)/i;
+const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgra[çc]ado|desgra[çc]a|miser[áa]vel|safado|lixo|trouxa)/i;
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
@@ -946,6 +946,20 @@ export default function App() {
       }
   };
 
+  const maskData = (value, type) => {
+    if (!value) return '—';
+    if (isPro || isMaster) return String(value);
+    if (type === 'phone') {
+      const s = String(value);
+      return s.length > 4 ? s.slice(0, 3) + '****' + s.slice(-2) : '****';
+    }
+    if (type === 'name') {
+      const parts = String(value).split(' ');
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1, 2) + '*** ' + (parts[1] ? parts[1].charAt(0) + '***' : '');
+    }
+    return String(value);
+  };
+
   const renderLegalContent = () => {
     const contents = {
       PRIVACY: { icon: FileLock2, title: 'PRIVACY POLICY', text: `SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL collects, uses, and shares information.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email, and phone number.\n\nHOW WE USE YOUR INFORMATION: We use the information to provide, maintain, and improve our services.\n\nSECURITY: We implement appropriate technical measures to protect your personal information against unauthorized access.` },
@@ -993,7 +1007,6 @@ export default function App() {
           .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
-          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; -ms-hyphens: none !important; word-break: normal !important; overflow-wrap: break-word !important; }
         `}</style>
         <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
