@@ -148,7 +148,8 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]); 
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
+  const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false);
+  const [isChatBanned, setIsChatBanned] = useState(false); // Added missing state
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
 
@@ -1336,4 +1337,321 @@ export default function App() {
               <div>
                 <h2 className="text-4xl sm:text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                   <span className
+                   <span className={`text-[9px] sm:text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse font-black' : 'bg-white/5 border-white/10 text-white/40 font-black'}`}>
+                      {isMaster ? <span className="flex items-center gap-2"><Crown size={12} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
+                   </span>
+                   {isPro && <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest animate-pulse font-black">● LIVE PROTOCOL ACTIVE</span>}
+                </div>
+              </div>
+              <div className="flex items-stretch gap-3 sm:gap-4 flex-wrap text-center">
+                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[9px] sm:text-[10px] text-[#25F4EE] flex font-black">
+                    <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
+                 </button>
+                 <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">ACTIVE NODES</p>
+                    <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-lg sm:text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
+                 </div>
+                 <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none">
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">PRO PACKETS</p>
+                    <p className="text-xl sm:text-2xl text-white font-black">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
+                 </div>
+              </div>
+            </div>
+
+            {/* MASTER ONLY: GLOBAL BROADCAST COMPONENT */}
+            {isMaster && (
+                <div className="bg-[#0a0a0a] border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(245,158,11,0.1)] flex flex-col relative overflow-hidden mb-8">
+                  <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
+                  <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
+                    <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                      <Send size={14}/> DEPLOY
+                    </button>
+                  </form>
+                </div>
+            )}
+
+            {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
+              {[
+                { label: "SMS TRANSMISSIONS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
+                { label: "ACTIVE CONTACTS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
+                { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
+              ].map((stat, idx) => (
+                <div key={idx} className="bg-[#0a0a0a] p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
+                  <div className={`bg-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 ${stat.color}`}>
+                    <stat.icon size={20} className="sm:w-6 sm:h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mb-1 line-clamp-1 font-black">{stat.label}</p>
+                    <h3 className="text-lg sm:text-2xl text-white font-black">{stat.value}</h3>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* CONTEÚDO PRINCIPAL DASHBOARD */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-16">
+              
+              <div className="lg:col-span-1 space-y-6 sm:space-y-8 flex flex-col">
+                <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
+                  <h3 className="text-lg sm:text-xl text-white mb-6 flex items-center gap-3 font-black"><Zap className="text-[#25F4EE]" size={18} /> INSTANT PAYLOAD DISPATCH</h3>
+                  <form onSubmit={handleQuickSend} className="space-y-4 sm:space-y-5 flex flex-col flex-1">
+                    <div>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">RECIPIENT (TARGET NUMBER)</label>
+                      <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label>
+                      <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
+                    </div>
+                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
+                      <Send size={16} className="mr-2" /> SEND NOW
+                    </button>
+                  </form>
+                </div>
+
+                <div className={`bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
+                   <div className={`flex items-center justify-between w-full relative z-10`}>
+                      <div><h3 className="text-lg sm:text-xl text-white mb-2 flex items-center gap-2 font-black"><UploadCloud size={18} className="text-[#25F4EE]"/> MASS INGESTION HUB {!isPro && <Lock size={14} className="text-[#FE2C55]" />}</h3><p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest font-black">IMPORT 5K UNITS.</p></div>
+                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={18} className="animate-spin"/> : <Plus size={18} />}</button>}
+                   </div>
+                   {!isPro && (
+                     <div className="pro-lock-layer p-4">
+                        <p className="text-[#FE2C55] tracking-widest text-[8px] sm:text-[9px] mb-2 animate-pulse font-black"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
+                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[7px] sm:text-[8px] px-4 sm:px-6 py-2 rounded-lg whitespace-nowrap font-black">UNLOCK</button>
+                     </div>
+                   )}
+                   <input type="file" accept=".txt" onChange={handleBulkImport} ref={fileInputRef} className="hidden" />
+                </div>
+              </div>
+
+              {/* DASHBOARD DE REGISTROS (CRM MASTER ADMIN / OPERATOR VIEW) */}
+              <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
+                 <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
+                    <div className="flex items-center gap-3">
+                       {isMaster ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
+                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">{isMaster ? 'PREMIUM CRM & NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                    </div>
+                 </div>
+                 
+                 <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
+                   {isMaster ? (
+                     <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
+                       <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
+                         <tr>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">SUBSCRIBER ALIAS (NICKNAME)</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center font-black">CAPTURED LEADS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">MASTER FOLDER STATUS</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-white/5">
+                         {subscribersList.map(sub => (
+                            <React.Fragment key={sub.id}>
+                                <tr onClick={() => setExpandedAdminRow(expandedAdminRow === sub.id ? null : sub.id)} className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${expandedAdminRow === sub.id ? 'bg-white/[0.03]' : ''}`}>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6">
+                                      <div className="flex items-center gap-3">
+                                          {expandedAdminRow === sub.id ? <ChevronDown size={16} className="text-[#25F4EE]" /> : <ChevronRightSquare size={16} className="text-white/30 group-hover:text-white/60" />}
+                                          <div>
+                                              <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.nickname).toUpperCase()}</p>
+                                              <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
+                                          </div>
+                                      </div>
+                                   </td>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">
+                                       <span className={`bg-white/5 px-4 py-1.5 rounded-lg border border-white/10 ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500 border-amber-500/30' : ''}`}>{sub.leads.length} BASE</span>
+                                   </td>
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
+                                      <span className="text-[9px] sm:text-[10px] text-white/30 font-black tracking-widest">{expandedAdminRow === sub.id ? 'CLOSING VIEW' : 'EXPAND BASE VIEW'}</span>
+                                   </td>
+                                </tr>
+                                {expandedAdminRow === sub.id && (
+                                    <tr>
+                                        <td colSpan="3" className="p-0 border-b border-white/5">
+                                            <div className={`bg-black border-l-4 p-6 animate-in slide-in-from-top-2 ${sub.id === 'AI_SMART_CHAT' ? 'border-amber-500' : 'border-[#25F4EE]'}`}>
+                                                {sub.leads.length > 0 ? (
+                                                    <table className="w-full text-left font-sans font-medium !text-transform-none">
+                                                       <thead className="text-[8px] text-white/30 uppercase tracking-widest border-b border-white/5">
+                                                           <tr>
+                                                               <th className="pb-3 px-4 font-black">TARGET NUMBER</th>
+                                                               <th className="pb-3 px-4 font-black">IDENTITY</th>
+                                                               <th className="pb-3 px-4 font-black">FOLDER</th>
+                                                               <th className="pb-3 px-4 text-right font-black">ACTIONS (CRM)</th>
+                                                           </tr>
+                                                       </thead>
+                                                       <tbody className="divide-y divide-white/5">
+                                                           {sub.leads.map(l => (
+                                                              <tr key={l.id} className="hover:bg-white/5 group">
+                                                                 <td className={`py-3 px-4 text-xs font-mono ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500' : 'text-[#25F4EE]'}`}>{l.telefone_cliente}</td>
+                                                                 <td className="py-3 px-4 text-xs text-white">{l.nome_cliente} {sub.id === 'AI_SMART_CHAT' && <span className="ml-2 text-[8px] tracking-widest text-black bg-amber-500 px-2 py-0.5 rounded-sm">NEXUS AGENT</span>}</td>
+                                                                 <td className="py-3 px-4 text-xs">
+                                                                    <select
+                                                                      defaultValue={l.folderId || 'MANUAL'}
+                                                                      onChange={e => handleAdminAssignFolder(l.id, e.target.value)}
+                                                                      onClick={e => e.stopPropagation()}
+                                                                      className="bg-[#111] border border-white/10 text-white/50 text-[8px] px-2 py-1 rounded-lg outline-none font-black tracking-widest appearance-none cursor-pointer hover:border-[#25F4EE]/30 transition-colors"
+                                                                    >
+                                                                      {folders.map(f => (
+                                                                        <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
+                                                                      ))}
+                                                                    </select>
+                                                                 </td>
+                                                                 <td className="py-3 px-4 text-xs text-right">
+                                                                    <div className="flex items-center justify-end gap-3">
+                                                                      {/* MIMOS INJECTED IN LEAD CRM ACTION ROW */}
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:text-white p-1.5 rounded-md transition-all"><Gift size={15}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:text-white p-1.5 rounded-md transition-all"><Rocket size={15}/></button>
+                                                                      <div className="w-px h-4 bg-white/20 mx-1"></div>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); setEditLeadModal({id: l.id, nome_cliente: l.nome_cliente, telefone_cliente: l.telefone_cliente, folderId: l.folderId || 'MANUAL'})}} title="Edit Lead Data" className="text-white/30 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"><Edit size={14}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminDeleteLead(l.id)}} title="Purge Lead" className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-all"><Trash size={14}/></button>
+                                                                    </div>
+                                                                 </td>
+                                                              </tr>
+                                                           ))}
+                                                       </tbody>
+                                                    </table>
+                                                ) : (
+                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4 font-black text-wrap-balance">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
+                         ))}
+                       </tbody>
+                     </table>
+                   ) : (
+                     <>
+                       {logs.length > 0 ? (
+                         <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
+                           <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
+                             <tr>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">RECIPIENT (TARGET NUMBER)</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">HOST IDENTITY</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">STATUS</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">TIMESTAMP</th>
+                             </tr>
+                           </thead>
+                           <tbody className="divide-y divide-white/5">
+                             {logs.map(l => (
+                               <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap font-mono">{maskData(l.telefone_cliente, 'phone')}</td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6">
+                                   <div className="flex items-center gap-2 sm:gap-3">
+                                     <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
+                                       <UserCheck size={12} className="sm:w-3.5 sm:h-3.5" />
+                                     </div>
+                                     <span className="text-white text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
+                                   </div>
+                                 </td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 whitespace-nowrap">
+                                    {isPro ? (
+                                      <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={10} className="sm:w-3 sm:h-3" /> DECRYPTED GATEWAY</span>
+                                    ) : (
+                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={10} className="sm:w-3 sm:h-3" /> UNLOCK TO REVEAL</button>
+                                    )}
+                                 </td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-right text-[10px] sm:text-xs font-mono text-[#25F4EE] whitespace-nowrap">
+                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none text-wrap-balance">NO ACTIVE INTERCEPTIONS.</p></div>
+                       )}
+                     </>
+                   )}
+                 </div>
+                 {!isPro && !isMaster && logs.length > 0 && (
+                   <div className="p-6 sm:p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto font-black"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
+                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto font-black">UPGRADE TO ELITE</button>
+                   </div>
+                 )}
+              </div>
+            </div>
+
+            {/* ---> AI AGENT MODULE WITH STAGING AREA <--- */}
+            <div className={`bg-[#0a0a0a] border ${isAiObjectiveForbidden ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
+              <div className={`flex flex-col text-left`}>
+                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-6 sm:mb-8">
+                    <div className="flex items-center gap-3 sm:gap-4 text-left">
+                      <div className={`p-2.5 sm:p-3 rounded-xl border ${isAiObjectiveForbidden ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
+                        {isAiObjectiveForbidden ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS SMART SHUFFLE ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
+                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black text-balance">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                      <Info size={14} className="sm:w-4 sm:h-4"/> SETUP GUIDE & DOWNLOAD
+                    </button>
+                 </div>
+
+                 {/* VARIATION STAGING AREA (REVIEW MODE) */}
+                 {isReviewMode ? (
+                   <div className="animate-in slide-in-from-bottom-4 fade-in duration-300">
+                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                           <SlidersHorizontal size={18} className="sm:w-5 sm:h-5 text-amber-500" />
+                           <h4 className="text-base sm:text-lg text-white font-black">PAYLOAD REVIEW ENGINE</h4>
+                        </div>
+                        <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">{stagedQueue.length} VARIATIONS PENDING</p>
+                     </div>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2 mb-4 sm:mb-6">
+                        {stagedQueue.map((task, idx) => (
+                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-4 sm:p-5 transition-colors flex flex-col h-[130px] sm:h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
+                              <div className="flex justify-between items-center mb-2 sm:mb-3">
+                                <span className="text-[#25F4EE] text-[8px] sm:text-[9px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
+                                <span className="text-white/30 text-[8px] sm:text-[9px] font-mono truncate max-w-[80px] sm:max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
+                              </div>
+                              <textarea 
+                                disabled={isDispatching}
+                                value={task.optimizedMsg} 
+                                onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar text-balance" 
+                              />
+                           </div>
+                        ))}
+                     </div>
+
+                     {/* RODAPÉ DO STAGING: DISPATCH COM AVISO LIVE */}
+                     <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mt-2 bg-[#111] p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-white/5 shadow-inner">
+                        <div className="flex items-center justify-between sm:justify-start gap-3 px-1 sm:px-2 w-full lg:w-auto border-b sm:border-b-0 border-white/5 pb-3 sm:pb-0">
+                           <div className="flex items-center gap-2 sm:gap-3">
+                              <Clock size={16} className="sm:w-5 sm:h-5 text-[#10B981] animate-pulse" />
+                              <span className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">DISPATCH PACING:</span>
+                           </div>
+                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[12px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-0.5 sm:pb-1 appearance-none text-right sm:text-left">
+                              <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
+                              <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
+                              <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
+                              <option value={45} className="bg-[#0a0a0a] text-white">45 SECONDS</option>
+                              <option value={120} className="bg-[#0a0a0a] text-white">120 SECONDS</option>
+                              <option value={160} className="bg-[#0a0a0a] text-white">160 SECONDS</option>
+                              <option value={180} className="bg-[#0a0a0a] text-white">180 SECONDS</option>
+                           </select>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full lg:w-auto">
+                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-6 sm:px-8 py-3 sm:py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[9px] sm:text-[10px] font-black tracking-widest transition-colors w-full sm:w-auto disabled:opacity-30">CANCEL</button>
+                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-6 sm:px-10 py-3 sm:py-3.5 text-black font-black text-[10px] sm:text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full sm:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
+                              {isDispatching ? <><RefreshCw size={14} className="sm:w-4 sm:h-4 animate-spin" /> <span className="truncate">TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</span></> : <><Send size={14} className="sm:w-4 sm:h-4" /> CONFIRM & DISPATCH</>}
+                           </button>
+                        </div>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 text-left">
+                      <div className="space-y-4 flex flex-col">
+                         <div className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 p-3 rounded-xl sm:rounded-2xl mb-2 flex-wrap">
+                           <div className="flex items-center gap-3">
+                             <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
+                             <div>
+                               <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY</p>
+                               <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[11
