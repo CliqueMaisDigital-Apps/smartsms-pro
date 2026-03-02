@@ -272,6 +272,11 @@ export default function App() {
     }
   }, [view]);
 
+  // --- VIEW NAVIGATION SCROLL TO TOP (UX FIX) ---
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
+
   // --- DATA SYNCHRONIZATION (TELEMETRY) ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
@@ -590,7 +595,6 @@ export default function App() {
 
   const handleGenerate = async () => {
     if (!user) { 
-      // Seamlessly switch to Auth view to enforce Free Trial sign-up as a gift
       setIsWelcomeTrial(true);
       setIsLoginMode(false); 
       setView('auth'); 
@@ -990,7 +994,7 @@ export default function App() {
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.8); }
         .pro-obscure { position: relative; overflow: hidden; border-radius: 2.5rem; }
         .pro-obscure::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-blur: 4px; pointer-events: none; z-index: 5; }
-        .pro-lock-layer { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+        .pro-lock-layer { absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
@@ -1094,7 +1098,7 @@ export default function App() {
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
@@ -1618,7 +1622,7 @@ export default function App() {
                    <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
                       <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 WELCOME TO THE ELITE</h2>
                       <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case">
-                         We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
+                         We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 Free-Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
                       </p>
                    </div>
                 ) : (
@@ -1803,7 +1807,7 @@ export default function App() {
                         ref={i === chatMessages.length - 1 ? latestMessageRef : null}
                         className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
                       >
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide break-words hyphens-none whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
                          {/* Action Buttons Render */}
