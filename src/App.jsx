@@ -799,8 +799,11 @@ export default function App() {
     await new Promise(resolve => setTimeout(resolve, 1200 + Math.random() * 800));
 
     try {
-        // ACTUAL GEMINI API KEY INJECTED AS REQUESTED
-        const apiKey = "AIzaSyD72IxUPcAaNJDlaYW1U-xSWJWeUi6QjJ0"; 
+        // ============================================================================
+        // [ INSTRUCTION: PASTE YOUR GOOGLE CLOUD API KEY INSIDE THE QUOTES BELOW ]
+        // [ INSTRUÇÃO: COLE SUA NOVA CHAVE DE API AQUI ] -> Linha 689 (Aproximadamente)
+        // ============================================================================
+        const apiKey = "gen-lang-client-0149262660"; 
         
         const systemPrompt = `SYSTEM INSTRUCTIONS FOR NEXUS AI SMART
 You are NEXUS AI SMART, the elite artificial intelligence, specialized Sales, and Support Agent for the SMART SMS PRO platform.
@@ -854,9 +857,7 @@ Elite Strategy: On the Free Trial, you consume 'TRIAL ROUTING QUOTA' for each cl
 What kind of campaign are we launching today?
 1️⃣ Learn about Payload formatting
 2️⃣ Go to the Nexus Upgrade Hub
-3️⃣ Speak with human support" ||LEAD:Alex,+5511999999999||
-
-Never incite, insinuate, or teach how to circumvent, deceive, or lie about any system, tips, guidelines, or mentoring for our SMART SMS PRO users or telephone operators; be 100% ethical in every sense of customer service, conversation, and commercially correct!`;
+3️⃣ Speak with human support" ||LEAD:Alex,+5511999999999||`;
 
         // PERFECT HISTORY SANITIZER (Guarantees alternating 'user'/'model' roles to prevent 400 Errors)
         let validContents = [];
@@ -880,15 +881,16 @@ Never incite, insinuate, or teach how to circumvent, deceive, or lie about any s
             validContents.shift(); 
         }
 
-        // CRITICAL FIX: Configured for 'gemini-2.0-flash' exactly as configured in your AI Studio prompt
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        // CRITICAL UPDATE: Configured for 'gemini-robotics-er-1.5-preview' with Google Search Grounding
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-robotics-er-1.5-preview:generateContent?key=${apiKey}`;
         const data = await fetchWithBackoff(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: validContents,
                 systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: { temperature: 2.0 } // Set to 2.0 for maximum dynamic creativity as specified
+                tools: [{ "google_search": {} }], // Live Web Search Grounding Enabled
+                generationConfig: { temperature: 2.0 } // Maximum dynamic creativity
             })
         });
         
@@ -1018,7 +1020,7 @@ Never incite, insinuate, or teach how to circumvent, deceive, or lie about any s
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.8); }
         .pro-obscure { position: relative; overflow: hidden; border-radius: 2.5rem; }
         .pro-obscure::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-blur: 4px; pointer-events: none; z-index: 5; }
-        .pro-lock-layer { absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+        .pro-lock-layer { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
