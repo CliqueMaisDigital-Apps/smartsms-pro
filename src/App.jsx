@@ -30,7 +30,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
@@ -84,9 +84,11 @@ export default function App() {
   const [linksHistory, setLinksHistory] = useState([]);
   const [smsQueueCount, setSmsQueueCount] = useState(0); 
   const [subscribers, setSubscribers] = useState([]); 
+  const [globalNotifications, setGlobalNotifications] = useState([]);
   
   // --- ADMIN MASTER NETWORK STATES ---
   const [expandedAdminRow, setExpandedAdminRow] = useState(null);
+  const [broadcastMsg, setBroadcastMsg] = useState('');
   
   // --- GENERATOR & QUICK SEND STATES ---
   const [genTo, setGenTo] = useState('');
@@ -105,6 +107,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullNameInput, setFullNameInput] = useState('');
+  const [nicknameInput, setNicknameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
@@ -115,6 +118,7 @@ export default function App() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
+  const [selectedFolder, setSelectedFolder] = useState('ALL'); // Pasta/Filtro de envio
   
   const [isDispatching, setIsDispatching] = useState(false);
   const [sendDelay, setSendDelay] = useState(15);
@@ -132,8 +136,6 @@ export default function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
   const chatEndRef = useRef(null);
-  
-  // Ref para ancorar a visão na mensagem mais recente (UX Fix)
   const latestMessageRef = useRef(null);
 
   const fileInputRef = useRef(null);
@@ -144,8 +146,6 @@ export default function App() {
 
   // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER (ALLOWS NATIVE TRANSLATION) ---
   useEffect(() => {
-    // Contextmenu is explicitly kept open for native browser translation extensions.
-    // Text selection and keyboard copy/dev tools are strictly blocked via JS logic.
     const handleKeyDown = (e) => {
        if (
            e.key === 'F12' || 
@@ -156,7 +156,6 @@ export default function App() {
        }
     };
     const handlePreventCopy = (e) => {
-      // Allow copy if inside an input, textarea or the chat content.
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
           e.preventDefault();
       }
@@ -172,8 +171,7 @@ export default function App() {
     };
   }, []);
 
-  // --- UX: DYNAMIC SCROLL MANAGEMENT ---
-  // Aligns the view to the top of the new message block for better UX
+  // --- AUTO SCROLL CHAT (FIXED TO LATEST MESSAGE FOR PERFECT UX) ---
   useEffect(() => {
     if (showSmartSupport && latestMessageRef.current) {
        setTimeout(() => {
@@ -188,7 +186,7 @@ export default function App() {
       if (u) {
         setUser(u);
         if (u.uid === ADMIN_MASTER_ID) {
-          setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
+          setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
         } else {
           try {
             const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
@@ -197,14 +195,14 @@ export default function App() {
               setUserProfile(d.data());
               setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true });
             } else {
-              const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
+              const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), nickname: 'Operator', email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
               await setDoc(docRef, p);
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...p });
               setUserProfile(p);
             }
           } catch (e) {
             console.error("Profile load error", e);
-            setUserProfile({ fullName: "Operator", tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
+            setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
           }
         }
       } else {
@@ -216,7 +214,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING & CACHE) ---
+  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING & DEDUPLICATION CACHE) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
@@ -225,13 +223,12 @@ export default function App() {
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
       
       if (isAlreadyRegistered) {
-         // BYPASS: Cookie detects Lead is already captured, bypass direct to SMS Terminal
          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
          const sep = isIOS ? '&' : '?';
          setView('bridge');
          setTimeout(() => {
            window.location.href = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
-         }, 150); // ULTRA-FAST ROUTING
+         }, 150); 
       } else {
          setView('capture');
       }
@@ -248,26 +245,29 @@ export default function App() {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const myData = isMaster ? all : all.filter(l => l.ownerId === user.uid);
         setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-      },
-      (error) => console.error("Leads Sync Error:", error)
+      }
     );
 
     const unsubLinks = onSnapshot(
       collection(db, 'artifacts', appId, 'users', user.uid, 'links'), 
       (snap) => {
         setLinksHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-      },
-      (error) => console.error("Links Sync Error:", error)
+      }
     );
 
     const unsubQueue = onSnapshot(
       collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'),
       (snap) => {
         setSmsQueueCount(snap.docs.length);
-        if (snap.docs.length > 5) setNodeWarningActive(true);
-        else setNodeWarningActive(false);
-      },
-      (error) => console.error("Queue Sync Error:", error)
+        setNodeWarningActive(snap.docs.length > 5);
+      }
+    );
+
+    const unsubNotifs = onSnapshot(
+      collection(db, 'artifacts', appId, 'public', 'data', 'notifications'),
+      (snap) => {
+        setGlobalNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+      }
     );
 
     let unsubSubs = () => {};
@@ -275,33 +275,24 @@ export default function App() {
       unsubSubs = onSnapshot(
         collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'),
         (snap) => setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-        (error) => console.error("Subs Sync Error:", error)
       );
     }
 
-    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubSubs(); };
+    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); };
   }, [user, view, isMaster]);
 
   // ============================================================================
-  // ADMIN MASTER ACTION FUNCTIONS & ACCORDION DATA BUILDER
+  // ADMIN MASTER FUNCTIONS
   // ============================================================================
   const handleAdminGrantTier = async (e, targetId, tierType) => {
     e.stopPropagation(); 
-    if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Gateway: ${targetId}?`)) return;
+    if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} into target: ${targetId}?`)) return;
     setLoading(true);
     try {
         const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
-        const updates = {};
-        if (tierType === 'ACTIVATION_9_USD') {
-            updates.tier = 'ACTIVATION_9_USD';
-            updates.isUnlimited = true;
-            updates.canViewFullLeadData = true;
-        } else if (tierType === 'PRO_SUBSCRIPTION_19_USD') {
-            updates.tier = 'PRO_SUBSCRIPTION_19_USD';
-            updates.automationStatus = 'ACTIVE';
-            updates.smsCredits = increment(800);
-            updates.isSubscribed = true;
-        }
+        const updates = tierType === 'ACTIVATION_9_USD' 
+          ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
+          : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', smsCredits: increment(800), isSubscribed: true };
         
         const snap = await getDoc(profileRef);
         if (snap.exists()) {
@@ -309,49 +300,54 @@ export default function App() {
         } else {
             await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
         }
-        alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
-    } catch (error) {
-        console.error(error);
-        alert("MASTER ACTION FAILED.");
-    }
+    } catch (error) { console.error(error); }
     setLoading(false);
+  };
+
+  const handleAdminDeleteLead = async (leadId) => {
+     if(!window.confirm("MASTER OVERRIDE: Purge this lead permanently from the vault?")) return;
+     try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadId)); } 
+     catch(e) { console.error(e); }
+  };
+
+  const handleBroadcastPush = async (e) => {
+     e.preventDefault();
+     if(!broadcastMsg.trim()) return;
+     setLoading(true);
+     try {
+       await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'notifications')), {
+          message: broadcastMsg,
+          author: "MASTER COMMAND",
+          created_at: serverTimestamp()
+       });
+       setBroadcastMsg('');
+       alert("MASTER BROADCAST INJECTED TO ALL NODES.");
+     } catch(e) { console.error(e); }
+     setLoading(false);
   };
 
   const subscribersMap = {};
   if (isMaster) {
      subscribers.forEach(s => {
-        subscribersMap[s.id] = { id: s.id, name: s.fullName, email: s.email, tier: s.tier, leads: [] };
+        subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] };
      });
      
      logs.forEach(l => {
         if (!subscribersMap[l.ownerId]) {
            let folderName = `GATEWAY ID: ${l.ownerId.substring(0,8)}...`;
-           let folderEmail = 'Legacy / Auto-Captured';
            let folderTier = 'FREE_TRIAL';
-           
-           if (l.ownerId === 'AI_SMART_CHAT') {
-               folderName = '⚡ NEXUS AI SMART (LEADS)';
-               folderEmail = 'Captured via Intelligent AI Conversation';
-               folderTier = 'NEXUS_AGENT';
-           }
-           if (l.ownerId === ADMIN_MASTER_ID) {
-               folderName = 'MASTER ADMIN';
-               folderEmail = 'System Core';
-               folderTier = 'MASTER';
-           }
-           
-           subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, email: folderEmail, tier: folderTier, leads: [] };
+           if (l.ownerId === 'AI_SMART_CHAT') { folderName = '⚡ NEXUS AI SMART (LEADS)'; folderTier = 'NEXUS_AGENT'; }
+           if (l.ownerId === ADMIN_MASTER_ID) { folderName = 'MASTER ADMIN'; folderTier = 'MASTER'; }
+           subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, nickname: 'System', email: 'Legacy', tier: folderTier, leads: [] };
         }
         subscribersMap[l.ownerId].leads.push(l);
      });
   }
   const subscribersList = Object.values(subscribersMap).sort((a,b) => b.leads.length - a.leads.length); 
 
-
   // ============================================================================
-  // PRO COMMAND FUNCTIONS
+  // PRO COMMAND FUNCTIONS & SPINTAX ENGINE
   // ============================================================================
-  
   const validateAIContent = (text) => {
     setAiObjective(text);
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
@@ -362,68 +358,15 @@ export default function App() {
     }
   };
 
-  const superAIVariationEngine = (baseText, index, leadName) => {
-    const ptMarkers = /\b(orçamento|cotação|gostaria|quero|trabalho|serviço|projeto|vocês|empresa|teste|olá|boa tarde|bom dia|para|com|como|fazer|preço)\b/gi;
-    const enMarkers = /\b(quote|estimate|pricing|work|portfolio|projects|request|ask|hi|hello|hey|test|this|for|with)\b/gi;
-    
-    const ptMatch = (baseText.match(ptMarkers) || []).length;
-    const enMatch = (baseText.match(enMarkers) || []).length;
-    const detectedLang = ptMatch > enMatch ? 'pt' : 'en';
-
-    const synonymsPT = [
-      { rx: /\b(gostaria de|queria|quero)\b/gi, reps: ["gostaria de", "queria", "tenho interesse em", "estou buscando", "preciso de"] },
-      { rx: /\b(um orçamento|orçamento|uma cotação|cotação)\b/gi, reps: ["um orçamento", "uma cotação", "uma estimativa", "saber os valores", "uma base de preço", "os custos"] },
-      { rx: /\b(trabalho|serviço|projeto|fotos|perfil)\b/gi, reps: ["trabalho", "serviço", "projeto", "portfólio", "perfil", "resultado"] },
-      { rx: /\b(vi|encontrei|achei|descobri)\b/gi, reps: ["vi", "encontrei", "achei", "descobri", "me deparei com"] },
-      { rx: /\b(empresa|vocês|sua empresa)\b/gi, reps: ["empresa", "equipe", "vocês", "seu perfil", "seu negócio"] },
-      { rx: /\b(teste)\b/gi, reps: ["teste", "ensaio", "validação", "experimento"] },
-      { rx: /\b(bom dia|boa tarde|boa noite|olá|oi|ei)\b/gi, reps: ["Olá", "Oi", "Tudo bem?", "Saudações", "Opa", "Ei"] },
-      { rx: /\b(google)\b/gi, reps: ["Google", "Google Search", "busca do Google", "Google Maps"] },
-      { rx: /\b(pedir|solicitar)\b/gi, reps: ["pedir", "solicitar", "requerer", "agendar"] }
-    ];
-
-    const synonymsEN = [
-      { rx: /\b(request a quote|get a quote|quote|estimate|pricing)\b/gi, reps: ["request a quote", "get an estimate", "ask for pricing", "get a proposal", "request an estimate"] },
-      { rx: /\b(work|portfolio|projects|photos)\b/gi, reps: ["work", "portfolio", "projects", "services", "past jobs", "profile"] },
-      { rx: /\b(saw|found|noticed)\b/gi, reps: ["saw", "found", "noticed", "came across", "discovered"] },
-      { rx: /\b(request|ask for|get)\b/gi, reps: ["request", "ask for", "get", "receive", "inquire about"] },
-      { rx: /\b(hi|hello|hey|greetings)\b/gi, reps: ["Hi", "Hello", "Hey", "Greetings", "Good day", "Hi there"] },
-      { rx: /\b(test)\b/gi, reps: ["test", "trial", "validation", "check"] },
-      { rx: /\b(google|google search)\b/gi, reps: ["Google", "Google Search", "Google Maps", "online search"] }
-    ];
-
-    const syns = detectedLang === 'pt' ? synonymsPT : synonymsEN;
-    let spun = baseText;
-    
-    syns.forEach((s, i) => {
-      let matchCount = 0;
-      spun = spun.replace(s.rx, (match) => {
-         const repIdx = (index * 11 + i * 7 + matchCount) % s.reps.length;
-         let replacement = s.reps[repIdx];
-         matchCount++;
-         if (match[0] === match[0].toUpperCase()) {
-            replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
-         }
-         return replacement;
+  const executeSpintax = (text, leadName) => {
+      // Process Spintax {Option1|Option2|Option3}
+      let processedText = text.replace(/\{([^{}]+)\}/g, function(match, contents) {
+          const choices = contents.split('|');
+          return choices[Math.floor(Math.random() * choices.length)];
       });
-    });
-
-    let finalMessage = spun;
-
-    if (index % 2 !== 0 && !spun.endsWith('?')) {
-        if (detectedLang === 'pt') {
-            const ptClosings = [" Fico no aguardo.", " Aguardo retorno.", " Podemos conversar?", " Obrigado.", " Me avise."];
-            finalMessage = `${spun}${ptClosings[(index) % ptClosings.length]}`;
-        } else {
-            const enClosings = [" Looking forward to hearing from you.", " Awaiting your reply.", " Can we chat?", " Thanks.", " Let me know."];
-            finalMessage = `${spun}${enClosings[(index) % enClosings.length]}`;
-        }
-    }
-
-    const invisibleChars = ["\u200B", "\u200C", "\u200D", "\uFEFF"];
-    const byteBypass = invisibleChars[index % invisibleChars.length].repeat((index % 4) + 1);
-
-    return (finalMessage.trim() + byteBypass).replace(/\s{2,}/g, ' ');
+      // Inject Lead Name
+      processedText = processedText.replace(/\[NOME\]/gi, leadName || 'Cliente');
+      return processedText.trim();
   };
 
   const handlePrepareBatch = () => {
@@ -431,28 +374,36 @@ export default function App() {
     setIsAiProcessing(true);
     
     setTimeout(() => {
-      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), logs.length);
+      // Filtra leads pela pasta/campanha selecionada se não for ALL
+      let targetLeads = logs;
+      if (selectedFolder !== 'ALL') {
+          // Simplificação: Filtro baseado na origem/device para criar grupos
+          targetLeads = logs.filter(l => l.device === selectedFolder || (selectedFolder === 'MANUAL' && l.device !== 'Bulk Import TXT'));
+      }
+
+      const limit = Math.min(60, isPro ? 999999 : (Number(userProfile?.smsCredits) || 0), targetLeads.length);
       if (limit <= 0 && !isMaster) {
-         alert("No credits available.");
+         alert("No credits or leads available for this selection.");
          setIsAiProcessing(false);
          return;
       }
       
-      const queue = logs.slice(0, limit).map((l, idx) => {
-         const contextualMessage = superAIVariationEngine(aiObjective, idx, l.nome_cliente);
+      const queue = targetLeads.slice(0, limit).map((l, idx) => {
+         // Applies Spintax and Anti-Block Invisible Bytes
+         const contextualMessage = executeSpintax(aiObjective, l.nome_cliente);
+         const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
          return { 
            id: l.id || Math.random().toString(),
            telefone_cliente: l.telefone_cliente, 
-           nome_cliente: l.nome_cliente || 'Valued Customer',
-           optimizedMsg: contextualMessage 
+           nome_cliente: l.nome_cliente || 'Customer',
+           optimizedMsg: contextualMessage + byteBypass 
          };
       });
       
       setStagedQueue(queue);
       setIsReviewMode(true);
       setIsAiProcessing(false);
-      
-    }, 1500);
+    }, 1200);
   };
 
   const handleEditStagedMsg = (index, newMsg) => {
@@ -463,11 +414,7 @@ export default function App() {
 
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
-    
-    if (!isDeviceSynced) {
-       setShowSyncModal(true);
-       return;
-    }
+    if (!isDeviceSynced) { setShowSyncModal(true); return; }
 
     setIsDispatching(true);
     const queueCopy = [...stagedQueue];
@@ -477,12 +424,9 @@ export default function App() {
     try {
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
-        
-        const sanitizedPhone = task.telefone_cliente.replace(/[^\d+]/g, ''); 
-        
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
-          telefone_cliente: sanitizedPhone,
+          telefone_cliente: task.telefone_cliente.replace(/[^\d+]/g, ''),
           optimizedMsg: task.optimizedMsg,
           created_at: serverTimestamp()
         });
@@ -492,36 +436,18 @@ export default function App() {
 
         if (!isMaster) {
           const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-          try {
-             await updateDoc(profileRef, { 
-               smsCredits: increment(-1),
-               dailySent: increment(1)
-             });
-             setUserProfile(prev => ({ 
-                 ...prev, 
-                 smsCredits: (prev?.smsCredits || 0) - 1, 
-                 dailySent: (prev?.dailySent || 0) + 1 
-             }));
-          } catch(e) {}
-        } else {
-          setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
+          await updateDoc(profileRef, { smsCredits: increment(-1), dailySent: increment(1) });
+          setUserProfile(prev => ({ ...prev, smsCredits: (prev?.smsCredits || 0) - 1, dailySent: (prev?.dailySent || 0) + 1 }));
         }
 
-        if (i < queueCopy.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
-        }
+        if (i < queueCopy.length - 1) await new Promise(r => setTimeout(r, sendDelay * 1000));
       }
-    } catch (error) {
-      console.error("Dispatch Error:", error);
-      alert("Failed to push protocol to Gateway.");
-    }
-    
-    setIsDispatching(false);
-    setIsReviewMode(false);
+    } catch (e) { console.error(e); alert("Failed to push protocol."); }
+    setIsDispatching(false); setIsReviewMode(false);
   };
 
   const handleClearQueue = async () => {
-    if (!window.confirm("CONFIRMATION: Are you sure you want to completely clear the stuck queue?")) return;
+    if (!window.confirm("CONFIRMATION: Purge queue?")) return;
     setLoading(true);
     try {
       const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
@@ -529,10 +455,7 @@ export default function App() {
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to clear queue.");
-    }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
@@ -546,96 +469,61 @@ export default function App() {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
       try {
         let batch = writeBatch(db);
-        let count = 0;
-        let totalImported = 0;
+        let count = 0; let totalImported = 0;
         for (const line of lines) {
-          let name = "Imported Lead";
-          let phone = line;
+          let name = "Imported Lead", phone = line;
           if (line.includes(',')) {
             const parts = line.split(',');
-            name = parts[0].trim();
-            phone = parts[1].trim();
+            name = parts[0].trim(); phone = parts[1].trim();
           }
-          
           const safeId = phone.replace(/\D/g, '');
           if (!safeId) continue;
           
-          const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
-          
           const leadDocId = `${user.uid}_${safeId}`;
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          batch.set(leadRef, {
-            ownerId: user.uid,
-            nome_cliente: name,
-            telefone_cliente: sanitizedPhone,
-            timestamp: serverTimestamp(),
-            device: 'Bulk Import TXT'
+          batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId), {
+            ownerId: user.uid, nome_cliente: name, telefone_cliente: phone.replace(/[^\d+]/g, ''),
+            timestamp: serverTimestamp(), device: 'Bulk Import TXT'
           }, { merge: true });
           
-          count++;
-          totalImported++;
-          if (count === 400) {
-            await batch.commit();
-            batch = writeBatch(db);
-            count = 0;
-          }
+          count++; totalImported++;
+          if (count === 400) { await batch.commit(); batch = writeBatch(db); count = 0; }
         }
-        if (count > 0) { await batch.commit(); }
-        alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED INTO THE VAULT.`);
-      } catch (error) {
-        console.error(error);
-        alert("ERROR DURING BULK INGESTION.");
-      }
-      setLoading(false);
-      e.target.value = '';
+        if (count > 0) await batch.commit();
+        alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED.`);
+      } catch (error) { console.error(error); }
+      setLoading(false); e.target.value = '';
     };
     reader.readAsText(file);
   };
 
   const handleGenerate = async () => {
-    if (!user) { 
-      setIsLoginMode(false); 
-      setView('auth'); 
-      return; 
-    }
-    const to = editingLink ? editingLink.to : genTo;
-    const msg = editingLink ? editingLink.msg : genMsg;
-    const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
-    if (!to) return alert("RECIPIENT NUMBER IS REQUIRED.");
+    if (!user) { setIsLoginMode(false); setView('auth'); return; }
+    if (!genTo) return alert("RECIPIENT NUMBER IS REQUIRED.");
     setLoading(true);
     const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
-    const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
+    const link = `${window.location.origin}?t=${encodeURIComponent(genTo)}&m=${encodeURIComponent(genMsg)}&o=${user.uid}&c=${encodeURIComponent(companyName || 'Verified Host')}`;
     await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { 
-      url: link, to, msg, company, created_at: serverTimestamp(), status: 'active'
+      url: link, to: genTo, msg: genMsg, company: companyName, created_at: serverTimestamp(), status: 'active'
     }, { merge: true });
     if (!editingLink) setGeneratedLink(link);
-    setEditingLink(null);
-    setGenTo(''); setGenMsg(''); setCompanyName('');
+    setEditingLink(null); setGenTo(''); setGenMsg(''); setCompanyName('');
     setLoading(false);
   };
 
   const handleQuickSend = async (e) => {
     e.preventDefault();
-    if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
+    if(!genTo || !genMsg) return;
     if (isDeviceSynced && user) {
       setLoading(true);
       try {
-        const sanitizedPhone = genTo.replace(/[^\d+]/g, '');
-        const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
-        await setDoc(docRef, {
-          telefone_cliente: sanitizedPhone,
-          optimizedMsg: genMsg,
-          created_at: serverTimestamp()
+        await setDoc(doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue')), {
+          telefone_cliente: genTo.replace(/[^\d+]/g, ''), optimizedMsg: genMsg, created_at: serverTimestamp()
         });
         setGenTo(''); setGenMsg('');
-        
         setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
-        alert("PUSHED TO SECURE GATEWAY!");
       } catch(e) { console.error(e); }
       setLoading(false);
-    } else {
-      setShowSyncModal(true);
-    }
+    } else { setShowSyncModal(true); }
   };
 
   const handleDeleteLink = async (id) => {
@@ -647,262 +535,212 @@ export default function App() {
   // --- SEPARATION OF DB LOGIC AND REDIRECT (ULTRA FAST & SECURE QUOTA DEDUCTION) ---
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
-    if(!captureForm.phone.startsWith('+')) return alert("USE VALID FORMAT WITH '+' PREFIX (EX: +1 999 999 9999)");
+    // Basic phone validation
+    const phoneDigits = captureForm.phone.replace(/\D/g, '');
+    if(phoneDigits.length < 8) return alert("PLEASE USE A VALID MOBILE FORMAT.");
+    
     setLoading(true);
-    
     const ownerId = captureData.ownerId;
-    const safeId = captureForm.phone.replace(/\D/g, '');
-    const sanitizedPhone = captureForm.phone.replace(/[^\d+]/g, ''); 
-    
     let allowRedirect = true;
 
     try {
-      const leadDocId = `${ownerId}_${safeId}`;
-      const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-      const leadSnap = await getDoc(leadRef);
-      const isNewLead = !leadSnap.exists();
+      const leadDocId = `${ownerId}_${phoneDigits}`;
       
-      if (isNewLead) {
-        await setDoc(leadRef, {
-          ownerId,
-          nome_cliente: String(captureForm.name),
-          telefone_cliente: sanitizedPhone,
-          timestamp: serverTimestamp(),
-          device: navigator.userAgent
-        }, { merge: true });
-        
-        if (ownerId !== ADMIN_MASTER_ID) {
-          try {
-             const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-             const opSnap = await getDoc(pubRef);
-             if (opSnap.exists()) {
-                 const data = opSnap.data();
-                 const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
-                 
-                 if (!isUnlimited) {
-                     if (Number(data.smsCredits) <= 0) { 
-                         alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
-                         allowRedirect = false; 
-                     } else {
-                         await updateDoc(pubRef, { smsCredits: increment(-1) });
-                     }
-                 }
-             }
-          } catch(err) {
-             console.error("[SYS-LOG] Quota check failed.", err);
-          }
-        }
+      // Cookie Deduplication Check
+      const cookieMark = `nexus_lead_${leadDocId}`;
+      if (document.cookie.includes(cookieMark)) {
+         console.log("Device already registered via Cookie.");
       } else {
-        console.log("[SYS-LOG] Duplicate Lead Detected. Bypassing database injection.");
+          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+          const leadSnap = await getDoc(leadRef);
+          
+          if (!leadSnap.exists()) {
+            await setDoc(leadRef, {
+              ownerId, nome_cliente: String(captureForm.name), telefone_cliente: phoneDigits,
+              timestamp: serverTimestamp(), device: navigator.userAgent
+            }, { merge: true });
+            
+            // Mark Cookie to prevent future DB hits from this browser for this lead
+            document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
+
+            if (ownerId !== ADMIN_MASTER_ID) {
+              const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+              const opSnap = await getDoc(pubRef);
+              if (opSnap.exists()) {
+                  const data = opSnap.data();
+                  const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+                  if (!isUnlimited) {
+                      if (Number(data.smsCredits) <= 0) { 
+                          alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
+                          allowRedirect = false; 
+                      } else {
+                          await updateDoc(pubRef, { smsCredits: increment(-1) });
+                      }
+                  }
+              }
+            }
+          }
       }
-    } catch (e) {
-       console.error("Database connection exception:", e);
-    } finally {
+    } catch (e) { console.error(e); } 
+    finally {
        setLoading(false);
        if (allowRedirect) {
            localStorage.setItem(`smartsms_registered_for_${ownerId}`, 'true');
            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
            const sep = isIOS ? '&' : '?';
            setView('bridge');
-           setTimeout(() => {
-             window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-           }, 150); 
+           setTimeout(() => { window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`; }, 150); 
        }
     }
   };
 
   const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault(); setLoading(true);
     try {
       const emailLower = email.toLowerCase().trim();
-      let authUser;
-      if (isLoginMode) {
-        const cred = await signInWithEmailAndPassword(auth, emailLower, password);
-        authUser = cred.user;
-      } else {
+      if (isLoginMode) { await signInWithEmailAndPassword(auth, emailLower, password); }
+      else {
         const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
-        authUser = cred.user;
-        const p = { fullName: fullNameInput, email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
-        await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
-      }
-      if (authUser.uid === ADMIN_MASTER_ID) {
-        setUserProfile({ fullName: "Alex Master", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
+        const p = { 
+          fullName: fullNameInput, 
+          nickname: nicknameInput || fullNameInput.split(' ')[0], 
+          email: emailLower, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() 
+        };
+        await setDoc(doc(db, 'artifacts', appId, 'users', cred.user.uid, 'profile', 'data'), p);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', cred.user.uid), { id: cred.user.uid, ...p });
       }
       setView('dashboard');
     } catch (e) { alert("IDENTITY DENIED: " + e.message); }
     setLoading(false);
   };
 
-  // --- SAVE LEAD CAPTURED EXCLUSIVELY VIA AI CHAT ---
   const saveChatLead = async (name, phone) => {
       try {
           const safeId = phone.replace(/\D/g, '');
-          const sanitizedPhone = phone.replace(/[^\d+]/g, '');
-          const leadDocId = `CHAT_BOT_${safeId}`;
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          await setDoc(leadRef, {
-              ownerId: "AI_SMART_CHAT",
-              nome_cliente: String(name),
-              telefone_cliente: sanitizedPhone,
-              timestamp: serverTimestamp(),
-              device: "AI_AGENT_CONVERSATION",
-              source: "CHAT_BOT"
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `CHAT_BOT_${safeId}`), {
+              ownerId: "AI_SMART_CHAT", nome_cliente: String(name), telefone_cliente: safeId,
+              timestamp: serverTimestamp(), device: "AI_AGENT_CONVERSATION", source: "CHAT_BOT"
           }, { merge: true });
-          console.log("[SYS-LOG] Chat Lead Successfully Registered.");
-      } catch (e) { console.error("Chat lead capture error", e); }
+      } catch (e) { console.error(e); }
   };
 
-  // --- EXPONENTIAL BACKOFF FETCH UTILITY (KEPT FOR FALLBACK/SAFETY) ---
-  const fetchWithBackoff = async (url, options, retries = 3) => {
-    let delay = 500;
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url, options);
-        if (!response.ok) {
-           const errorData = await response.json().catch(() => ({}));
-           const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
-           if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-               console.error(`Fast-Fail: ${response.status} Client Error - ${errorMsg}`);
-               throw new Error(`API ERROR ${response.status}: ${errorMsg}`);
-           }
-           throw new Error(`Server Error: ${errorMsg}`);
-        }
-        return await response.json();
-      } catch (err) {
-        if (err.message.includes("API ERROR") || i === retries - 1) throw err;
-        await new Promise(res => setTimeout(res, delay));
-        delay *= 2; 
-      }
-    }
-  };
-
-  // --- AI GEMINI CHAT HANDLER (100% FREE LOCAL HEURISTIC ENGINE - ZERO API COSTS) ---
-  const handleSendChat = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    const newMsg = { role: 'user', text: chatInput };
+  // --- NEXUS AI SMART (ADVANCED HEURISTIC ENGINE WITH AIDA & NEUROMARKETING) ---
+  const handleSendChat = async (e, directText = null) => {
+    if(e) e.preventDefault();
+    const textToSend = directText || chatInput;
+    if (!textToSend.trim()) return;
     
-    // Add User Message Immediately
+    const newMsg = { role: 'user', text: textToSend };
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput('');
     setIsChatLoading(true);
 
-    // ZERO TOLERANCE SCANNER
+    // ZERO TOLERANCE PROTOCOL
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
-    if (forbidden.test(newMsg.text)) {
+    if (forbidden.test(textToSend)) {
         await new Promise(resolve => setTimeout(resolve, 500)); 
-        setChatMessages(prev => [...prev, { role: 'model', text: "ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. COMMUNICATION TERMINATED." }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: "🚨 ZERO TOLERANCE PROTOCOL ACTIVATED: Palavras proibidas detectadas. Sua sessão pode ser reportada. Operação finalizada." }]);
         setIsChatLoading(false);
         return;
     }
 
-    // HUMANIZED TYPING DELAY: Optimized for faster interaction (600ms to 1.2s)
+    // Humanized Typing Delay
     await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 600));
 
     try {
-        // ============================================================================
-        // [ NEXUS LOCAL HEURISTIC ENGINE ]
-        // 100% Free Deterministic AI simulation. Bypasses Google API Quotas completely.
-        // Implements Elite Neuromarketing, AIDA Funnel, and Lead Capture natively.
-        // ============================================================================
         const generateHeuristicResponse = (input, historyList) => {
             const lowerInput = input.toLowerCase();
+            const userIsSubbed = userProfile?.isSubscribed || isPro;
 
-            // 1. LEAD CAPTURE LOGIC (AIDA: Attention & Action)
-            if (!hasCapturedChatLead) {
+            // 1. LEAD CAPTURE & VALIDATION (AIDA: Action)
+            if (!hasCapturedChatLead && !user) {
                 const phoneMatch = input.match(/\+?\d{8,15}/);
                 if (phoneMatch) {
+                    const digitsOnly = phoneMatch[0].replace(/\D/g, '');
+                    if (digitsOnly.length < 8) {
+                        return { text: `Este número parece incompleto. Por favor, forneça um WhatsApp válido (Ex: 11 99999 9999) para ativarmos seu terminal.` };
+                    }
                     let name = input.replace(phoneMatch[0], '').replace(/(meu nome é|sou o|aqui é|chamo|me chamo)/gi, '').trim();
                     name = name.length > 2 ? name.split(' ')[0] : 'Parceiro';
-                    const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+                    const capName = name.charAt(0).toUpperCase() + name.slice(1);
                     
-                    return `Perfeito, ${capitalizedName}! Seu terminal seguro está autenticado. 🚀\n\nSabe aquele dinheiro que você perde todos os dias quando a operadora bloqueia seus links de vendas? O SMART SMS PRO elimina isso com o nosso "Secure Direct Routing".\n\nComo posso guiar sua operação hoje?\n1️⃣ Entender como driblar os bloqueios\n2️⃣ Explorar os Pacotes PRO\n3️⃣ Dicas para escalar vendas\n||LEAD:${capitalizedName},${phoneMatch[0]}||`;
+                    return { 
+                      text: `Protocolo Ativado, ${capName}! 🛡️\n\nAquele dinheiro que você perde todos os dias com links bloqueados pelas operadoras? O SMART SMS PRO resolve isso agora.\n\nComo especialista em escala, qual o seu foco hoje?\n||LEAD:${capName},${phoneMatch[0]}||`,
+                      buttons: [
+                        { label: '🚀 COMEÇAR FREE TRIAL', action: 'TRIAL' },
+                        { label: '💳 VER PACOTES PRO', action: 'UPGRADE' },
+                        { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }
+                      ]
+                    };
+                } else if (historyList.length <= 1) {
+                    return { text: `Olá! Eu sou a NEXUS AI SMART, sua especialista de elite em conversão. ⚡\n\nEstou aqui para estancar sua perda de leads e garantir que suas mensagens cruzem o bloqueio das operadoras.\n\nPara calibrar seu protocolo, digite seu *Nome e WhatsApp* (Ex: João 11 99999-9999).` };
                 } else {
-                    if (historyList.length <= 1) {
-                        return `Olá! Eu sou a NEXUS AI SMART, sua especialista em conversão no SMART SMS PRO. ⚡\n\nEstou aqui para estancar a perda de dinheiro com mensagens bloqueadas e garantir que seus links cheguem ao cliente final.\n\nPara eu calibrar seu protocolo seguro, digite seu *Nome e WhatsApp* (Ex: João +55 11 99999-9999).`;
-                    } else {
-                        return `Para que eu possa liberar seu acesso e te mostrar como parar de perder leads, preciso apenas do seu *Nome e Telefone* (com DDD). Pode digitar aqui? 👇`;
-                    }
+                    return { text: `Para que eu possa liberar suas ferramentas de bloqueio anti-spam, preciso apenas do seu *Nome e Telefone*. Pode digitar aqui? 👇` };
                 }
             }
 
-            // 2. POST-CAPTURE FUNNEL & NEUROMARKETING (AIDA: Interest & Desire)
-            if (lowerInput.match(/1|como|funciona|driblar|bloqueio/)) {
-                return `A mágica acontece através do nosso "Nexus Polymorphic Engine". Ele reescreve a estrutura da sua mensagem em frações de segundo, tornando-a indetectável para os filtros das operadoras. 🛡️\n\nCada SMS que falha é um cliente que foi para o concorrente. Pronto para blindar seus envios com os nossos "Pacotes PRO"?`;
-            }
-            if (lowerInput.match(/2|pro|pacote|plano|preço|valor|comprar/)) {
-                return `No nosso "Nexus Upgrade Hub" logo abaixo, você encontra a chave para o envio em massa sem dores de cabeça.\n\nCom pacotes a partir de $9.00, você ativa a inteligência que adapta e protege seus links, multiplicando seu ROI quase instantaneamente. Quer que eu te ajude a escolher o melhor pack? 💼`;
-            }
-            if (lowerInput.match(/3|dica|escalar|venda/)) {
-                return `Estratégia de Elite: No plano gratuito, você consome cota a cada clique. A verdadeira escala (onde os grandes players fazem fortuna) exige automação. 📈\n\nAtivar um pacote "PRO Transmission" libera a automação de disparo. Qual o volume de clientes que você quer atingir hoje?`;
-            }
-            if (lowerInput.match(/sim|quero|ajuda|escolher/)) {
-                return `Excelente decisão! 🎯 Recomendo começar com o "Nexus Pack" para sentir o poder da entrega total. Basta rolar a página até o "Nexus Upgrade Hub" e fazer a ativação.\n\nPosso te ajudar com mais alguma configuração técnica?`;
-            }
-            if (lowerInput.match(/não|nao|depois|agora nao/)) {
-                return `Sem problemas! Lembre-se: a cada hora que seus envios padrão são bloqueados, o custo de oportunidade é altíssimo. 💸\n\nSeu ambiente de testes gratuitos já está ativo. Qual campanha vamos testar primeiro?`;
-            }
+            // 2. CONTEXT-AWARE INTELLIGENCE (AIDA: Interest/Desire & Neuromarketing)
             
-            // Fallback for unrecognized inputs (Keeps pushing the funnel)
-            return `Compreendo! O meu foco aqui é garantir que você não deixe mais dinheiro na mesa por causa de operadoras barrando seus links. 🚀\n\nQue tal darmos uma olhada no "Nexus Upgrade Hub" ali embaixo para turbinar sua operação agora mesmo?`;
+            // Logged in / Existing User Context
+            if (user && historyList.length <= 1) {
+                 return { 
+                    text: `Olá, ${userProfile?.nickname || 'Operador'}! ⚡ NEXUS AI pronta.\n\nSeu terminal está ativo. Cada clique bloqueado na concorrência é lucro para você usando nosso roteamento seguro.\n\nComo vamos escalar seus envios hoje?`,
+                    buttons: userIsSubbed ? [{ label: '📡 PAINEL DE BROADCAST', action: 'DASH' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }]
+                 };
+            }
+
+            // Navigation Commands
+            if (lowerInput.includes('trial') || lowerInput.includes('free')) {
+                return { text: `Excelente. Seu Trial te dá 60 conexões blindadas. Mas lembre-se: no mercado de elite, volume é rei. Use o Painel para gerar seus links agora!`, buttons: [{label: 'Acessar Hub', action: 'DASH'}]};
+            }
+            if (lowerInput.includes('guide') || lowerInput.includes('guia') || lowerInput.includes('como')) {
+                return { text: `O Segredo do "Spintax" + "App Mirroring":\n\n1. O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n2. Nosso APK Android faz o envio em massa silenciosamente.\n\nPronto para configurar?`, buttons: [{label: 'Baixar APK', action: 'APK'}]};
+            }
+            if (lowerInput.includes('upgrade') || lowerInput.includes('comprar') || lowerInput.includes('pro')) {
+                return { text: `Decisão de tubarão. 🦈 O pacote PRO ativa a automação silenciosa e entrega em massa. Pare de deixar dinheiro na mesa e ative no Upgrade Hub.`, buttons: [{label: 'Ver Pacotes', action: 'UPGRADE'}]};
+            }
+            if (lowerInput.includes('dash') || lowerInput.includes('painel')) {
+                 return { text: `Redirecionando para o seu Hub de Comando Operacional...`, buttons: [{label: 'Abrir Dashboard', action: 'DASH'}]};
+            }
+
+            // Fallback (Neuromarketing Ping)
+            return { 
+              text: `Cada segundo sem automação, o filtro anti-spam das operadoras corta seu alcance. 🛡️\n\nVamos blindar sua base e ativar o motor polimórfico? Escolha seu caminho:`,
+              buttons: [{label: '💳 UPGRADE HUB', action: 'UPGRADE'}, {label: '📖 LER O GUIA', action: 'GUIDE'}]
+            };
         };
 
-        const aiTextRaw = generateHeuristicResponse(newMsg.text, chatMessages);
-        let displayAiText = aiTextRaw;
+        const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
+        let displayAiText = aiResponse.text;
         
-        // INTERCEPT AND CAPTURE SECRET LEAD TAG NATIVELY
-        const leadMatch = aiTextRaw.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
+        // INTERCEPT SECRET TAG
+        const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
         if (leadMatch) {
-            displayAiText = aiTextRaw.replace(leadMatch[0], '').trim();
+            displayAiText = displayAiText.replace(leadMatch[0], '').trim();
             if (!hasCapturedChatLead) {
                 saveChatLead(leadMatch[1].trim(), leadMatch[2].trim());
                 setHasCapturedChatLead(true);
             }
         }
 
-        setChatMessages(prev => [...prev, { role: 'model', text: displayAiText }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: displayAiText, buttons: aiResponse.buttons }]);
     } catch (error) {
-        console.error("Local Engine Error:", error);
-        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Local Heuristic Engine Error.` }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: `[SYSTEM ALERT]: Engine Offline.` }]);
     }
     
     setIsChatLoading(false);
   };
 
-  const maskData = (s, type) => { 
-    if (isPro) return String(s || ''); 
-    const str = String(s || '');
-    if (type === 'name') return str.substring(0, 3) + '*** [ENCRYPTED]'; 
-    return str.substring(0, 6) + '*** [VAULT]'; 
-  };
-
-  // --- RENDER LEGAL CONTENT FOR MODAL ---
-  const renderLegalContent = () => {
-    switch(legalContent) {
-      case 'PRIVACY': return { 
-        title: "GLOBAL PRIVACY POLICY", 
-        icon: FileLock2,
-        text: "The SMART SMS PRO ecosystem operates under a strict Zero-Knowledge cryptographic architecture, ensuring full compliance with international data privacy frameworks. All metadata captured via our routing gateways is insulated using military-grade encryption at rest. We legally reserve all rights to audit network traffic to prevent system abuse. We categorically do not sell, rent, or cross-reference encrypted user payloads. For any privacy inquiries, our Smart Support terminal is active 24/7." 
-      };
-      case 'TERMS': return { 
-        title: "TERMS OF USE & OPERATION", 
-        icon: FileText,
-        text: "By accessing the Master Terminal, you enter into a legally binding international agreement. Operators are solely responsible for ensuring all automated dispatches comply with applicable local, federal, and international telecommunication legislations (including TCPA and CAN-SPAM). We expressly reserve the right to permanently terminate and blacklist any operational gateway engaged in fraudulent, malicious, or unverified routing without prior notice. For operational guidance, our Smart Support is active 24/7." 
-      };
-      case 'LGPD': return { 
-        title: "GLOBAL DATA PROTECTION & LGPD", 
-        icon: LawScale,
-        text: "Designed in strict adherence to the Brazilian General Data Protection Law (LGPD - Law No. 13,709/2018) while fulfilling broader international data protection mandates. Our terminal captures identity and contact vectors exclusively through explicit, voluntary affirmative action. This guarantees undeniable prior consent before any routing initialization. Data subjects retain absolute rights to request immediate data erasure from the encrypted vault. Compliance assistance is available via our 24/7 Smart Support." 
-      };
-      case 'GDPR': return { 
-        title: "GDPR & INTERNATIONAL SOVEREIGNTY", 
-        icon: Globe,
-        text: "Engineered in full alignment with the General Data Protection Regulation (EU) 2016/679 and overarching global privacy doctrines. Data processing is executed relying on unambiguous consent dynamically secured during the initial cryptographic handshake. Our robust database architecture mathematically isolates international gateways to uphold absolute data sovereignty. Right to erasure protocols are natively integrated. For official DPO inquiries, our Smart Support is active 24/7." 
-      };
-      default: return null;
-    }
+  const handleChatButtonAction = (action) => {
+      setShowSmartSupport(false);
+      if(action === 'UPGRADE') {
+          setView('dashboard');
+          setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+      } else if (action === 'DASH' || action === 'TRIAL') {
+          if(user) setView('dashboard'); else { setIsLoginMode(false); setView('auth'); }
+      } else if (action === 'APK' || action === 'GUIDE') {
+          if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsLoginMode(false); setView('auth'); }
+      }
   };
 
   if (!authResolved) {
@@ -914,9 +752,6 @@ export default function App() {
     );
   }
 
-  // ============================================================================
-  // CAPTURE PORTAL (ISOLATED)
-  // ============================================================================
   if (view === 'capture') {
     return (
       <div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center p-6 text-center font-black italic selection:bg-[#25F4EE] selection:text-black">
@@ -955,13 +790,10 @@ export default function App() {
     );
   }
 
-  // ============================================================================
-  // MAIN APP VIEW
-  // ============================================================================
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
-        /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
+        /* SHIELD PROTOCOL: ACTIVE. */
         body { user-select: none; -webkit-user-select: none; }
         input, textarea { user-select: text; -webkit-user-select: text; }
 
@@ -981,6 +813,14 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
+      {globalNotifications.length > 0 && (
+         <div className="bg-[#FE2C55] text-black w-full text-center py-2 px-4 flex items-center justify-center gap-3 z-[300] relative">
+            <BellRing size={16} className="animate-bounce shrink-0"/>
+            <span className="text-[10px] sm:text-xs font-black tracking-widest">{globalNotifications[0].message}</span>
+            <button onClick={() => setGlobalNotifications([])}><X size={14}/></button>
+         </div>
+      )}
+
       {/* --- FLOATING AI CHAT BUBBLE --- */}
       {view !== 'capture' && view !== 'bridge' && !showSmartSupport && (
         <button 
@@ -993,14 +833,13 @@ export default function App() {
         </button>
       )}
 
-      {/* --- TOP NAV (Z-INDEX SUPERIOR PARA MANTER FLUIDEZ SOBRE O MENU MOBILE) --- */}
+      {/* --- TOP NAV --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[200] px-6 flex justify-between items-center transition-all">
         <div className="flex items-center gap-3 cursor-pointer relative z-[210]" onClick={() => { setView('home'); setIsMenuOpen(false); }}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
           <span className="text-lg font-black tracking-tighter text-white mt-1">SMART SMS PRO</span>
         </div>
 
-        {/* DESKTOP NAV */}
         <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest relative z-[210]">
            {!user ? (
              <>
@@ -1009,6 +848,7 @@ export default function App() {
              </>
            ) : (
              <>
+               <span className="text-white/30 lowercase font-mono !not-italic">[{userProfile?.nickname || 'operador'}]</span>
                <button onClick={() => setView('dashboard')} className={`flex items-center gap-2 transition-colors ${view === 'dashboard' ? 'text-[#25F4EE]' : 'hover:text-[#25F4EE]'}`}><LayoutDashboard size={14}/> OPERATOR HUB</button>
                <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={14}/> NEXUS AI SMART</button>
                <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all flex items-center gap-2"><LogOut size={14}/> LOGOUT</button>
@@ -1016,15 +856,15 @@ export default function App() {
            )}
         </div>
 
-        {/* MOBILE MENU TOGGLE */}
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[210] relative">
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </nav>
 
-      {/* --- OMNI-MENU MOBILE (ULTRA RESPONSIVE & DYNAMIC GAVETA FLUIDA) --- */}
+      {/* --- OMNI-MENU MOBILE --- */}
       <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
         <div className="flex flex-col gap-4 flex-1 mt-4">
+          {user && <p className="text-center text-[#25F4EE] font-mono text-[10px] mb-4">ALIAS: {userProfile?.nickname}</p>}
           {!user ? (
             <>
               <button onClick={() => { setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full shadow-[0_0_15px_rgba(37,244,238,0.2)]"><Lock size={18}/> SECURE MEMBER PORTAL</button>
@@ -1038,7 +878,6 @@ export default function App() {
           )}
         </div>
         
-        {/* MOBILE ONLY: LOGOUT POSITIONED AT BOTTOM */}
         {user && (
            <div className="mt-auto pt-8 border-t border-white/5">
               <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY GATEWAY</button>
@@ -1070,17 +909,17 @@ export default function App() {
                 <div className="lighthouse-neon-content p-6 sm:p-12 text-left space-y-8">
                   <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[10px] sm:text-[11px] tracking-widest text-white/60">SMART CONNECTION PROTOCOL</h3></div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">RECIPIENT (TARGET NUMBER) <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
-                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium text-white font-sans font-medium" placeholder="+1 999 999 9999" />
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">RECIPIENT (TARGET NUMBER) <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
+                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-sans" placeholder="+1 999 999 9999" />
                   </div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">HOST IDENTITY (NAME OR COMPANY)</label>
-                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm text-white/50 w-full font-sans font-medium !text-transform-none" placeholder="Your Organization Name" />
+                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">HOST IDENTITY (NAME OR COMPANY)</label>
+                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block">PAYLOAD CONTENT (WRITE HERE THE PRE-DEFINED MESSAGE FOR THE RECIPIENT)</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">PAYLOAD CONTENT (USE SPINTAX {A|B})</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
-                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm leading-relaxed pr-12 font-sans font-medium !text-transform-none" placeholder="Draft your intelligent payload..." />
+                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
                      </div>
                   </div>
@@ -1090,15 +929,13 @@ export default function App() {
                        <h5 className="text-[10px] sm:text-[11px] text-[#25F4EE] mb-3">PERFORMANCE INSTRUCTIONS:</h5>
                        <ul className="text-[9px] sm:text-[10px] text-white/40 space-y-2 leading-relaxed">
                           <li>● Use direct calls to action to minimize user decision lag.</li>
-                          <li>● Keep payload between 160-300 chars for carrier standing.</li>
+                          <li>● SPINTAX: Use {Hi|Hello|Hey} [NOME] to randomize content.</li>
                           <li>● Confirming leads routes traffic to your native SMS gateway.</li>
                        </ul>
                     </div>
                   )}
 
-                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs py-5 w-full shadow-2xl">
-                    GENERATE SMART LINK <ChevronRight size={18} />
-                  </button>
+                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] py-5 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]">GENERATE SECURE LINK <ChevronRight size={18} /></button>
                 </div>
               </div>
 
@@ -1108,8 +945,8 @@ export default function App() {
                     <div className="bg-white p-5 sm:p-6 rounded-3xl inline-block mb-8 sm:mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} className="w-28 h-28 sm:w-32 sm:h-32" alt="QR Code"/></div>
                     <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] sm:text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none truncate" />
                     <div className="grid grid-cols-2 gap-4 sm:gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] sm:text-[10px] mt-2 text-white/50 tracking-widest text-center">QUICK COPY</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] sm:text-[10px] mt-1 text-white/50 tracking-widest text-center">LIVE TEST</span></button>
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] sm:text-[10px] mt-2 text-white/50 tracking-widest text-center font-black">QUICK COPY</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] sm:text-[10px] mt-1 text-white/50 tracking-widest text-center font-black">LIVE TEST</span></button>
                     </div>
                   </div>
                 </div>
@@ -1143,26 +980,37 @@ export default function App() {
               <div>
                 <h2 className="text-4xl sm:text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                   <span className={`text-[9px] sm:text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                   <span className={`text-[9px] sm:text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse font-black' : 'bg-white/5 border-white/10 text-white/40 font-black'}`}>
                       {isMaster ? <span className="flex items-center gap-2"><Crown size={12} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
                    </span>
-                   {isPro && <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest animate-pulse">● LIVE PROTOCOL ACTIVE</span>}
+                   {isPro && <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest animate-pulse font-black">● LIVE PROTOCOL ACTIVE</span>}
                 </div>
               </div>
               <div className="flex items-stretch gap-3 sm:gap-4 flex-wrap text-center">
-                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[9px] sm:text-[10px] text-[#25F4EE] flex">
+                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[9px] sm:text-[10px] text-[#25F4EE] flex font-black">
                     <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
-                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">ACTIVE P2P NODES</p>
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">ACTIVE NODES</p>
                     <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-lg sm:text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none">
-                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest">PRO DISPATCH QUOTA</p>
-                    <p className="text-xl sm:text-2xl text-white">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
+                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">PRO PACKETS</p>
+                    <p className="text-xl sm:text-2xl text-white font-black">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
                  </div>
               </div>
             </div>
+
+            {/* MASTER ONLY: GLOBAL BROADCAST COMPONENT */}
+            {isMaster && (
+                <div className="bg-[#0a0a0a] border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(245,158,11,0.1)] flex flex-col relative overflow-hidden mb-8">
+                  <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
+                  <form onSubmit={handleBroadcastPush} className="flex gap-4">
+                    <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
+                    <button type="submit" disabled={loading} className="btn-strategic !bg-amber-500 !text-black text-[10px] px-8 font-black">DEPLOY</button>
+                  </form>
+                </div>
+            )}
 
             {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
@@ -1177,8 +1025,8 @@ export default function App() {
                     <stat.icon size={20} className="sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mb-1 line-clamp-1">{stat.label}</p>
-                    <h3 className="text-lg sm:text-2xl text-white">{stat.value}</h3>
+                    <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mb-1 line-clamp-1 font-black">{stat.label}</p>
+                    <h3 className="text-lg sm:text-2xl text-white font-black">{stat.value}</h3>
                   </div>
                 </div>
               ))}
@@ -1189,17 +1037,17 @@ export default function App() {
               
               <div className="lg:col-span-1 space-y-6 sm:space-y-8 flex flex-col">
                 <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
-                  <h3 className="text-lg sm:text-xl text-white mb-6 flex items-center gap-3"><Zap className="text-[#25F4EE]" size={18} /> INSTANT PAYLOAD DISPATCH</h3>
+                  <h3 className="text-lg sm:text-xl text-white mb-6 flex items-center gap-3 font-black"><Zap className="text-[#25F4EE]" size={18} /> INSTANT PAYLOAD DISPATCH</h3>
                   <form onSubmit={handleQuickSend} className="space-y-4 sm:space-y-5 flex flex-col flex-1">
                     <div>
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">RECIPIENT (TARGET NUMBER)</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">RECIPIENT (TARGET NUMBER)</label>
                       <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2">PAYLOAD CONTENT (WRITE HERE THE PRE-DEFINED MESSAGE FOR THE RECIPIENT)</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">PAYLOAD CONTENT (WRITE HERE THE PRE-DEFINED MESSAGE)</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
                     </div>
-                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)]">
+                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
                       <Send size={16} className="mr-2" /> SEND NOW
                     </button>
                   </form>
@@ -1207,13 +1055,13 @@ export default function App() {
 
                 <div className={`bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
-                      <div><h3 className="text-lg sm:text-xl text-white mb-2 flex items-center gap-2"><UploadCloud size={18} className="text-[#25F4EE]"/> MASS INGESTION HUB {!isPro && <Lock size={14} className="text-[#FE2C55]" />}</h3><p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest">IMPORT 5K UNITS.</p></div>
+                      <div><h3 className="text-lg sm:text-xl text-white mb-2 flex items-center gap-2 font-black"><UploadCloud size={18} className="text-[#25F4EE]"/> MASS INGESTION HUB {!isPro && <Lock size={14} className="text-[#FE2C55]" />}</h3><p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest font-black">IMPORT 5K UNITS.</p></div>
                       {isPro && <button onClick={() => fileInputRef.current.click()} className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={18} className="animate-spin"/> : <Plus size={18} />}</button>}
                    </div>
                    {!isPro && (
                      <div className="pro-lock-layer p-4">
-                        <p className="text-[#FE2C55] tracking-widest text-[8px] sm:text-[9px] mb-2 animate-pulse"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
-                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[7px] sm:text-[8px] px-4 sm:px-6 py-2 rounded-lg whitespace-nowrap">UNLOCK</button>
+                        <p className="text-[#FE2C55] tracking-widest text-[8px] sm:text-[9px] mb-2 animate-pulse font-black"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
+                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[7px] sm:text-[8px] px-4 sm:px-6 py-2 rounded-lg whitespace-nowrap font-black">UNLOCK</button>
                      </div>
                    )}
                    <input type="file" accept=".txt" onChange={handleBulkImport} ref={fileInputRef} className="hidden" />
@@ -1225,7 +1073,7 @@ export default function App() {
                  <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
                        {isMaster ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
-                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">{isMaster ? 'HIERARCHICAL NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">{isMaster ? 'HIERARCHICAL NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
@@ -1235,9 +1083,9 @@ export default function App() {
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">SUBSCRIBER IDENTITY</th>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center">CAPTURED LEADS</th>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right">MASTER ACTIONS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">SUBSCRIBER ALIAS (NICKNAME)</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center font-black">CAPTURED LEADS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">MASTER ACTIONS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
@@ -1248,13 +1096,13 @@ export default function App() {
                                       <div className="flex items-center gap-3">
                                           {expandedAdminRow === sub.id ? <ChevronDown size={16} className="text-[#25F4EE]" /> : <ChevronRightSquare size={16} className="text-white/30 group-hover:text-white/60" />}
                                           <div>
-                                              <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.name).toUpperCase()}</p>
+                                              <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.nickname).toUpperCase()}</p>
                                               <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
                                           </div>
                                       </div>
                                    </td>
                                    <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">
-                                       <span className={`bg-white/5 px-4 py-1.5 rounded-lg border border-white/10 ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500 border-amber-500/30' : ''}`}>{sub.leads.length} CAPTURED</span>
+                                       <span className={`bg-white/5 px-4 py-1.5 rounded-lg border border-white/10 ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500 border-amber-500/30' : ''}`}>{sub.leads.length} BASE</span>
                                    </td>
                                    <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
                                       <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Gift size={12} className="sm:w-3.5 sm:h-3.5"/> $9</button>
@@ -1270,25 +1118,25 @@ export default function App() {
                                                     <table className="w-full text-left font-sans font-medium !text-transform-none">
                                                        <thead className="text-[8px] text-white/30 uppercase tracking-widest border-b border-white/5">
                                                            <tr>
-                                                               <th className="pb-3 px-4">RECIPIENT (TARGET NUMBER)</th>
-                                                               <th className="pb-3 px-4">HOST IDENTITY</th>
-                                                               <th className="pb-3 px-4 text-right">TIMESTAMP</th>
+                                                               <th className="pb-3 px-4 font-black">TARGET NUMBER</th>
+                                                               <th className="pb-3 px-4 font-black">IDENTITY</th>
+                                                               <th className="pb-3 px-4 text-right font-black">ACTION</th>
                                                            </tr>
                                                        </thead>
                                                        <tbody className="divide-y divide-white/5">
                                                            {sub.leads.map(l => (
-                                                              <tr key={l.id} className="hover:bg-white/5">
+                                                              <tr key={l.id} className="hover:bg-white/5 group">
                                                                  <td className={`py-3 px-4 text-xs font-mono ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500' : 'text-[#25F4EE]'}`}>{l.telefone_cliente}</td>
                                                                  <td className="py-3 px-4 text-xs text-white">{l.nome_cliente} {sub.id === 'AI_SMART_CHAT' && <span className="ml-2 text-[8px] tracking-widest text-black bg-amber-500 px-2 py-0.5 rounded-sm">NEXUS AGENT</span>}</td>
-                                                                 <td className="py-3 px-4 text-xs text-right font-mono text-white/50">
-                                                                    {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
+                                                                 <td className="py-3 px-4 text-xs text-right">
+                                                                    <button onClick={()=>handleAdminDeleteLead(l.id)} className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-opacity"><Trash size={14}/></button>
                                                                  </td>
                                                               </tr>
                                                            ))}
                                                        </tbody>
                                                     </table>
                                                 ) : (
-                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4 font-black">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
                                                 )}
                                             </div>
                                         </td>
@@ -1305,16 +1153,16 @@ export default function App() {
                          <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
                            <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                              <tr>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">RECIPIENT (TARGET NUMBER)</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">HOST IDENTITY</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest">STATUS</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right">TIMESTAMP</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">RECIPIENT (TARGET NUMBER)</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">HOST IDENTITY</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">STATUS</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">TIMESTAMP</th>
                              </tr>
                            </thead>
                            <tbody className="divide-y divide-white/5">
                              {logs.map(l => (
                                <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
-                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap">{maskData(l.telefone_cliente, 'phone')}</td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap font-mono">{maskData(l.telefone_cliente, 'phone')}</td>
                                  <td className="px-6 sm:px-8 py-4 sm:py-6">
                                    <div className="flex items-center gap-2 sm:gap-3">
                                      <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
@@ -1338,15 +1186,15 @@ export default function App() {
                            </tbody>
                          </table>
                        ) : (
-                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
+                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
                        )}
                      </>
                    )}
                  </div>
                  {!isPro && !isMaster && logs.length > 0 && (
                    <div className="p-6 sm:p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
-                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto">UPGRADE TO ELITE</button>
+                      <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto font-black"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
+                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto font-black">UPGRADE TO ELITE</button>
                    </div>
                  )}
               </div>
@@ -1361,8 +1209,8 @@ export default function App() {
                         {aiWarning ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
                       </div>
                       <div>
-                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight">NEXUS POLYMORPHIC ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
-                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 line-clamp-1 sm:line-clamp-none">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
+                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS POLYMORPHIC ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
+                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 line-clamp-1 sm:line-clamp-none font-black">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
                     <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
@@ -1376,9 +1224,9 @@ export default function App() {
                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 border-b border-white/10 pb-4">
                         <div className="flex items-center gap-3">
                            <SlidersHorizontal size={18} className="sm:w-5 sm:h-5 text-amber-500" />
-                           <h4 className="text-base sm:text-lg text-white">PAYLOAD REVIEW ENGINE</h4>
+                           <h4 className="text-base sm:text-lg text-white font-black">PAYLOAD REVIEW ENGINE</h4>
                         </div>
-                        <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest">{stagedQueue.length} VARIATIONS PENDING</p>
+                        <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">{stagedQueue.length} VARIATIONS PENDING</p>
                      </div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2 mb-4 sm:mb-6">
@@ -1433,26 +1281,32 @@ export default function App() {
                             </div>
                          )}
 
-                         <div className="flex items-center gap-3 sm:gap-4 bg-black/40 border border-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl mb-2">
-                           <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
-                           <div className="flex-1">
-                             <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY SETTING</p>
-                             <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
-                                <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
-                                <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
-                                <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
-                                <option value={45} className="bg-[#0a0a0a] text-white">45 SECONDS</option>
-                                <option value={120} className="bg-[#0a0a0a] text-white">120 SECONDS</option>
-                                <option value={160} className="bg-[#0a0a0a] text-white">160 SECONDS</option>
-                                <option value={180} className="bg-[#0a0a0a] text-white">180 SECONDS</option>
+                         <div className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 p-3 rounded-xl sm:rounded-2xl mb-2 flex-wrap">
+                           <div className="flex items-center gap-3">
+                             <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
+                             <div>
+                               <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY</p>
+                               <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                                  <option value={15} className="bg-[#0a0a0a]">15 SECONDS</option>
+                                  <option value={30} className="bg-[#0a0a0a]">30 SECONDS</option>
+                                  <option value={60} className="bg-[#0a0a0a]">60 SECONDS</option>
+                               </select>
+                             </div>
+                           </div>
+                           <div className="border-l border-white/10 pl-3">
+                             <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">TARGET BATCH FOLDER</p>
+                             <select disabled={!isPro} value={selectedFolder} onChange={e => setSelectedFolder(e.target.value)} className="bg-transparent text-amber-500 text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                                <option value="ALL" className="bg-[#0a0a0a]">ALL ACTIVE LEADS</option>
+                                <option value="MANUAL" className="bg-[#0a0a0a]">CAPTURED LEADS</option>
+                                <option value="Bulk Import TXT" className="bg-[#0a0a0a]">IMPORTED LIST</option>
                              </select>
                            </div>
                          </div>
 
-                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Marketing goal... AI will auto-scramble message per chip session up to 60 variations." className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
+                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Enter base payload or Spintax {Hi|Hello} [NOME]. Engine will auto-scramble message per chip session." className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
                          
-                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
-                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE (${Math.min(60, logs.length)} UNITS)`}
+                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 font-black ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
+                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE`}
                          </button>
                       </div>
                       
@@ -1462,15 +1316,15 @@ export default function App() {
                           <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
                              <div className="mb-4 sm:mb-6">
                                <p className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
-                               <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2">PENDING IN NODE QUEUE</p>
+                               <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black">PENDING IN NODE QUEUE</p>
                              </div>
                              <div className="text-amber-500 flex flex-col items-center gap-2 sm:gap-3">
                                <RefreshCw size={20} className="sm:w-6 sm:h-6 animate-spin" />
                                <p className="text-[8px] sm:text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P GATEWAY..."}</p>
                              </div>
                              
-                             <button onClick={handleClearQueue} disabled={loading} className="mt-4 sm:mt-6 text-[8px] sm:text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-black">
-                               <Trash2 size={10} className="sm:w-3 sm:h-3"/> CLEAR STUCK QUEUE
+                             <button onClick={handleClearQueue} disabled={loading} className="mt-4 sm:mt-6 text-[8px] sm:text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-black font-black">
+                               <Trash2 size={10} className="sm:w-3 sm:h-3"/> PURGE QUEUE
                              </button>
 
                              {nodeWarningActive && (
@@ -1498,12 +1352,12 @@ export default function App() {
                    </div>
                  )}
               </div>
-              {!isPro && <div className="pro-lock-layer p-4"><p className="text-[#FE2C55] tracking-widest text-[10px] sm:text-[11px] mb-2 shadow-xl animate-pulse"><Lock size={10} className="sm:w-3 sm:h-3 inline mr-1.5 sm:mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[8px] sm:text-[9px] px-6 sm:px-10 py-2.5 sm:py-3 rounded-xl whitespace-nowrap">UNLOCK NEXUS AGENT</button></div>}
+              {!isPro && <div className="pro-lock-layer p-4"><p className="text-[#FE2C55] tracking-widest text-[10px] sm:text-[11px] mb-2 shadow-xl animate-pulse font-black"><Lock size={10} className="sm:w-3 sm:h-3 inline mr-1.5 sm:mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[8px] sm:text-[9px] px-6 sm:px-10 py-2.5 sm:py-3 rounded-xl whitespace-nowrap font-black">UNLOCK NEXUS AGENT</button></div>}
             </div>
 
             {/* PROTOCOL INVENTORY (LINKS) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
-              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-2 sm:gap-3"><Radio size={18} className="sm:w-5 sm:h-5 text-[#25F4EE]" /><h3 className="text-base sm:text-lg tracking-tight">ACTIVE PROTOCOLS INVENTORY</h3></div></div>
+              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-2 sm:gap-3"><Radio size={18} className="sm:w-5 sm:h-5 text-[#25F4EE]" /><h3 className="text-base sm:text-lg tracking-tight font-black">ACTIVE PROTOCOLS INVENTORY</h3></div></div>
               <div className="min-h-[150px] sm:min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
                 {linksHistory.length > 0 ? linksHistory.map(l => (
                   <div key={l.id} className="p-5 sm:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4 sm:gap-6 hover:bg-white/[0.02] transition-colors">
@@ -1518,25 +1372,25 @@ export default function App() {
                        <button onClick={() => handleDeleteLink(l.id)} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors flex justify-center"><Trash size={14} className="sm:w-4 sm:h-4"/></button>
                     </div>
                   </div>
-                )) : <div className="p-16 sm:p-20 text-center opacity-20"><Lock size={36} className="sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" /><p className="text-[9px] sm:text-[10px] tracking-widest">NO PROTOCOLS ESTABLISHED</p></div>}
+                )) : <div className="p-16 sm:p-20 text-center opacity-20"><Lock size={36} className="sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" /><p className="text-[9px] sm:text-[10px] tracking-widest font-black">NO PROTOCOLS ESTABLISHED</p></div>}
               </div>
             </div>
 
             {/* UPGRADE STATION */}
             <div id="marketplace-section" className="mb-12 sm:mb-16 mt-8 sm:mt-10 text-left">
-               <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10"><ShoppingCart size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]"/><h3 className="text-lg sm:text-xl text-white text-glow-white">NEXUS UPGRADE HUB</h3></div>
+               <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10"><ShoppingCart size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]"/><h3 className="text-lg sm:text-xl text-white text-glow-white font-black">NEXUS UPGRADE HUB</h3></div>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8 text-left">
                  <div className="bg-[#111] border border-white/10 p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE]/50 transition-colors">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4">NEXUS VAULT ACCESS</h3>
-                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 font-black">NEXUS VAULT ACCESS</h3>
+                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
                     <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]">UPGRADE NOW</button>}
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
                  </div>
                  <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE]">NEXUS POLYMORPHIC AGENT</h3>
-                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE] font-black">NEXUS POLYMORPHIC AGENT</h3>
+                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
                     <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACTIVATE GATEWAY</button>}
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
                  </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
@@ -1546,10 +1400,10 @@ export default function App() {
                    { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
                  ].map(pack => (
                    <div key={pack.name} className="bg-white/5 border border-white/10 p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center shadow-xl flex flex-col items-center hover:bg-white/10 transition-colors">
-                     <p className="text-[9px] sm:text-[10px] text-[#25F4EE] mb-1.5 sm:mb-2 tracking-widest">{pack.name}</p>
+                     <p className="text-[9px] sm:text-[10px] text-[#25F4EE] mb-1.5 sm:mb-2 tracking-widest font-black">{pack.name}</p>
                      <p className="text-2xl sm:text-3xl text-white mb-3 sm:mb-4 font-black">{pack.qty}</p>
-                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4">PRO TRANSMISSION PACKETS</p>
-                     <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8">{pack.price}</p>
+                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4 font-black">PRO TRANSMISSION PACKETS</p>
+                     <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{pack.price}</p>
                      <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
                    </div>
                  ))}
@@ -1563,16 +1417,16 @@ export default function App() {
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 sm:p-8 text-left animate-in fade-in zoom-in-95 duration-200">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
-                <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter">SECURE MEMBER PORTAL</h2>
+                <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-5 sm:space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
+                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="OPERATOR ALIAS (NICKNAME)" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
                   <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
             </div>
@@ -1582,11 +1436,11 @@ export default function App() {
 
       {/* FOOTER (ULTRA RESPONSIVE WITH DYNAMIC MODALS) */}
       <footer className="mt-auto pb-12 sm:pb-20 w-full z-[100] px-6 sm:px-10 border-t border-white/5 pt-12 sm:pt-20 text-left bg-[#010101] relative">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30">
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button></div>
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING SERVERS</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE SERVERS</span></div>
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2 font-black">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30 font-black">
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING SERVERS</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE SERVERS</span></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5 flex justify-center">
            <p className="text-[8px] sm:text-[10px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
@@ -1601,7 +1455,7 @@ export default function App() {
              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] shrink-0">
                 <div className="flex items-center gap-3 sm:gap-4">
                    {renderLegalContent()?.icon && React.createElement(renderLegalContent().icon, { size: 24, className: "text-[#25F4EE] sm:w-7 sm:h-7" })}
-                   <h3 className="text-lg sm:text-xl text-white tracking-tight">{renderLegalContent()?.title}</h3>
+                   <h3 className="text-lg sm:text-xl text-white tracking-tight font-black">{renderLegalContent()?.title}</h3>
                 </div>
                 <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={18} className="sm:w-5 sm:h-5"/></button>
              </div>
@@ -1631,14 +1485,14 @@ export default function App() {
             <div className="lighthouse-neon-content p-8 sm:p-10 flex flex-col items-center relative">
               <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
               <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
-              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2">SYNC MOBILE DEVICE</h3>
+              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
               <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=SMART_SMS_PRO_SYNC_${user?.uid}&color=000000`} alt="Sync QR" className="w-32 h-32 sm:w-40 sm:h-40" />
               </div>
               
-              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[9px] sm:text-[10px] w-full py-3.5 sm:py-4 shadow-xl mb-2 sm:mb-4">
+              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[9px] sm:text-[10px] w-full py-3.5 sm:py-4 shadow-xl mb-2 sm:mb-4 font-black">
                 CONFIRM DEVICE SYNC
               </button>
             </div>
@@ -1646,32 +1500,37 @@ export default function App() {
         </div>
       )}
 
-      {/* SETUP GUIDE MODAL */}
+      {/* SETUP GUIDE MODAL WITH QR & COPY LINK */}
       {showHelpModal && (
         <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 text-center animate-in fade-in">
-          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-3xl sm:rounded-[2rem] p-6 sm:p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-3xl sm:rounded-[2rem] p-6 sm:p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col items-center">
             
-            <div className="sticky top-0 right-0 flex justify-end z-10 -mt-2 -mr-2 sm:-mr-4 sm:-mt-4">
+            <div className="absolute top-4 right-4 z-10">
                <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 sm:p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors shadow-lg"><X size={18} className="sm:w-5 sm:h-5"/></button>
             </div>
             
-            <div className="flex justify-center mb-5 sm:mb-6 mt-0 sm:mt-2">
+            <div className="flex justify-center mb-5 sm:mb-6 mt-4">
               <div className="p-3 sm:p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
                 <DownloadCloud size={28} className="sm:w-8 sm:h-8 text-[#25F4EE]" />
               </div>
             </div>
             
-            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6">SETUP GUIDE</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6">APK SETUP GUIDE</h2>
+
+            {/* APK DOWNLOAD QR */}
+            <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 shadow-[0_0_20px_#25F4EE]">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk")}&color=000000`} alt="Download APK QR" className="w-32 h-32 sm:w-40 sm:h-40" />
+            </div>
             
-            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2.5 sm:gap-3 mb-5 sm:mb-6 text-left">
+            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2.5 sm:gap-3 mb-5 text-left w-full">
               <Info size={20} className="sm:w-6 sm:h-6 shrink-0" />
               <p className="text-[8px] sm:text-[9px] font-black leading-relaxed tracking-widest">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
             </div>
 
-            <div className="space-y-2.5 sm:space-y-3 text-left mb-6 sm:mb-8">
+            <div className="space-y-2.5 sm:space-y-3 text-left mb-6 w-full font-black">
               <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 1</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Download the QR-Code Mirroring App using the premium button below and install it on your Android phone.</p>
+                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Scan the QR code above or use the buttons below to download the App.</p>
               </div>
               <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 2</p>
@@ -1681,26 +1540,27 @@ export default function App() {
                 <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 3</p>
                 <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNC MOBILE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
               </div>
-              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 4</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNTHESIZE QUEUE" to generate text blocks, then review them, and click "CONFIRM & DISPATCH". Your phone will do the rest!</p>
-              </div>
             </div>
 
-            <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform text-center px-4">
-              <DownloadCloud size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
-              <span className="truncate">DOWNLOAD QR-CODE MIRRORING APP</span>
-            </a>
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform text-center flex-1">
+                <DownloadCloud size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
+                <span className="truncate">DOWNLOAD APK DIRECTLY</span>
+              </a>
+              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("APK Link Copied!");}} className="bg-white/10 text-white font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-6 shrink-0">
+                <Copy size={16} /> COPY LINK
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* AI SMART SUPPORT MODAL (LIVE GEMINI CHAT - INFALLIBLE RESPONSIVE STRUCTURE) */}
+      {/* AI SMART SUPPORT MODAL (LIVE HEURISTIC CHAT WITH BUTTONS) */}
       {showSmartSupport && (
         <div className="fixed inset-0 z-[900] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-[#010101]/95 backdrop-blur-xl animate-in fade-in sm:zoom-in-95">
            <div className="w-full max-w-lg bg-[#0a0a0a] sm:border border-[#25F4EE]/30 rounded-t-3xl sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(37,244,238,0.2)] flex flex-col justify-between overflow-hidden" style={{ height: '85dvh', maxHeight: '750px' }}>
                  
-                 {/* Chat Header (Fixed) */}
+                 {/* Chat Header */}
                  <header className="shrink-0 p-4 sm:p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
                      <div className="flex items-center gap-3">
                         <Bot size={24} className="sm:w-[28px] sm:h-[28px] text-[#25F4EE]"/>
@@ -1709,10 +1569,9 @@ export default function App() {
                      <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
                  </header>
                  
-                 {/* Chat Body (Scrollable & Premium Typography) */}
+                 {/* Chat Body */}
                  <main className="flex-1 min-h-0 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 shadow-inner relative">
                     
-                    {/* Empty State / NEUROMARKETING Call to action */}
                     {chatMessages.length === 0 && !isChatLoading && (
                        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-50 pointer-events-none px-4 text-center">
                           <Bot size={56} className="mb-4 text-[#10B981] animate-pulse drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]" />
@@ -1721,24 +1580,32 @@ export default function App() {
                              <span className="w-2.5 h-2.5 bg-[#10B981] rounded-full relative"></span> 
                              <span className="text-[10px] tracking-widest font-black text-[#10B981]">ONLINE</span>
                           </div>
-                          <p className="text-[10px] tracking-[0.2em] font-medium text-white/70">24/7 NEXUS AI ACTIVE • READY TO BOOST CONVERSIONS</p>
+                          <p className="text-[10px] tracking-[0.2em] font-medium text-white/70 font-black">24/7 NEXUS AI ACTIVE • READY TO BOOST CONVERSIONS</p>
                        </div>
                     )}
 
                     {chatMessages.map((msg, i) => (
                       <div 
                         key={i} 
-                        // UX Update: Referencia apenas a mensagem mais recente (a última do array) para o scroll
                         ref={i === chatMessages.length - 1 ? latestMessageRef : null}
-                        className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}
+                        className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
                       >
                          <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide break-words hyphens-none whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
+                         {/* Action Buttons Render */}
+                         {msg.buttons && msg.buttons.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3 max-w-[85%] justify-start">
+                               {msg.buttons.map((btn, bIdx) => (
+                                  <button key={bIdx} onClick={() => handleChatButtonAction(btn.action)} className="bg-[#25F4EE]/10 border border-[#25F4EE]/30 text-[#25F4EE] px-4 py-2 rounded-lg text-[10px] font-black tracking-widest hover:bg-[#25F4EE]/20 transition-all flex items-center gap-1.5 shadow-lg">
+                                     {btn.label}
+                                  </button>
+                               ))}
+                            </div>
+                         )}
                       </div>
                     ))}
                     
-                    {/* Realist Typing Indicator */}
                     {isChatLoading && (
                       <div className="flex w-full justify-start animate-in fade-in duration-300">
                          <div className="p-4 sm:p-5 rounded-2xl rounded-tl-sm max-w-[85%] bg-white/5 border border-white/10 flex items-center gap-3 shadow-lg">
@@ -1751,11 +1618,10 @@ export default function App() {
                          </div>
                       </div>
                     )}
-                    {/* Fallback end reference */}
                     <div ref={chatEndRef} className="h-1 shrink-0" />
                  </main>
                  
-                 {/* Chat Footer / Input (Fixed) */}
+                 {/* Chat Footer */}
                  <footer className="shrink-0 p-4 sm:p-5 border-t border-white/10 bg-[#111]">
                      <form onSubmit={handleSendChat} className="flex gap-2 sm:gap-3">
                         <input 
