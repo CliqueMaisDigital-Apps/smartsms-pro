@@ -78,6 +78,7 @@ export default function App() {
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [legalContent, setLegalContent] = useState(null); 
+  const [isWelcomeTrial, setIsWelcomeTrial] = useState(false); // NOVO: Controla a view de boas vindas AIDA
   
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
@@ -141,7 +142,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
-  const [isChatBanned, setIsChatBanned] = useState(false); // ZERO TOLERANCE LOCK
+  const [isChatBanned, setIsChatBanned] = useState(false);
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
 
@@ -216,6 +217,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
+        setIsWelcomeTrial(false);
         if (u.uid === ADMIN_MASTER_ID) {
           setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
         } else {
@@ -245,6 +247,7 @@ export default function App() {
         setStagedQueue([]);
         setLogs([]);
         setLinksHistory([]);
+        setIsWelcomeTrial(false);
       }
       setAuthResolved(true);
     });
@@ -588,6 +591,7 @@ export default function App() {
   const handleGenerate = async () => {
     if (!user) { 
       // Seamlessly switch to Auth view to enforce Free Trial sign-up as a gift
+      setIsWelcomeTrial(true);
       setIsLoginMode(false); 
       setView('auth'); 
       return; 
@@ -722,6 +726,7 @@ export default function App() {
         setUserProfile(p);
       }
       if (authUser.uid === ADMIN_MASTER_ID) setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
+      setIsWelcomeTrial(false);
       setView('dashboard');
     } catch (e) { alert("IDENTITY DENIED: " + e.message); }
     setLoading(false);
@@ -1167,7 +1172,7 @@ export default function App() {
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
                   <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
                       <Send size={14}/> DEPLOY
                     </button>
                   </form>
@@ -1597,7 +1602,17 @@ export default function App() {
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 sm:p-8 text-left animate-in fade-in zoom-in-95 duration-200">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl">
               <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
-                <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
+                {isWelcomeTrial && !isLoginMode ? (
+                   <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
+                      <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 BEM-VINDO À ELITE</h2>
+                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case">
+                         Notámos que está pronto para escalar. Para gerar o seu protocolo seguro e libertar os seus primeiros <span className="text-white font-bold">60 envios blindados gratuitos</span>, basta criar a sua credencial abaixo. Pare de perder leads para os filtros das operadoras agora mesmo.
+                      </p>
+                   </div>
+                ) : (
+                   <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
+                )}
+                
                 <form onSubmit={handleAuthSubmit} className="space-y-5 sm:space-y-6 text-left">
                   {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
                   <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
@@ -1605,7 +1620,7 @@ export default function App() {
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'LIBERTAR OS MEUS 60 ENVIOS' : 'AUTHORIZE ACCESS')}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
