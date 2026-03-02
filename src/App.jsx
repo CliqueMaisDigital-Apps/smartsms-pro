@@ -55,106 +55,347 @@ const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 const checkForbiddenWords = (text) => {
 if (typeof text !== 'string' || !text) return false;
 // Normalize accents (e.g., desgraçado -> desgracado)
-const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const normalized = text.normalize("NFD").replace(/
+
+$$\\u0300-\\u036f$$
+
+/g, "").toLowerCase();
 const regex = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|odio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgracado|desgraca|miseravel|safado|lixo|trouxa|burlar|enganar|desviar|roubar|fraudar|crime|ilícito|ilicito)/i;
 return regex.test(normalized);
 };
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
-const [open, setOpen] = useState(false);
+const 
+
+$$open, setOpen$$
+
+ = useState(false);
 return (
-<div className="border-b border-white/5 py-8 group cursor-pointer" onClick={() => setOpen(!open)}>
-<div className="flex justify-between items-center gap-6 text-left leading-none">
-<h4 className="text-sm sm:text-base font-black uppercase italic tracking-widest text-white/80 group-hover:text-[#25F4EE] transition-colors leading-relaxed w-full">
-{String(q)}
-</h4>
-{open ? <ChevronUp size={24} className="text-[#25F4EE] shrink-0" /> : <ChevronDown size={24} className="text-white/40 shrink-0" />}
-</div>
-{open && <p className="mt-6 text-sm sm:text-base text-white/50 leading-relaxed font-medium animate-in slide-in-from-top-2 text-left italic tracking-wide uppercase text-pretty">{String(a)}</p>}
-</div>
-);
-}
 
 export default function App() {
 // --- GLOBAL UI STATES ---
-const [view, setView] = useState('home');
-const [user, setUser] = useState(null);
-const [userProfile, setUserProfile] = useState(null);
-const [loading, setLoading] = useState(false);
-const [authResolved, setAuthResolved] = useState(false);
-const [isMenuOpen, setIsMenuOpen] = useState(false);
-const [showSmartSupport, setShowSmartSupport] = useState(false);
-const [showHelpModal, setShowHelpModal] = useState(false);
-const [legalContent, setLegalContent] = useState(null);
-const [isWelcomeTrial, setIsWelcomeTrial] = useState(false);
+const 
+
+$$view, setView$$
+
+ = useState('home');
+const 
+
+$$user, setUser$$
+
+ = useState(null);
+const 
+
+$$userProfile, setUserProfile$$
+
+ = useState(null);
+const 
+
+$$loading, setLoading$$
+
+ = useState(false);
+const 
+
+$$authResolved, setAuthResolved$$
+
+ = useState(false);
+const 
+
+$$isMenuOpen, setIsMenuOpen$$
+
+ = useState(false);
+const 
+
+$$showSmartSupport, setShowSmartSupport$$
+
+ = useState(false);
+const 
+
+$$showHelpModal, setShowHelpModal$$
+
+ = useState(false);
+const 
+
+$$legalContent, setLegalContent$$
+
+ = useState(null);
+const 
+
+$$isWelcomeTrial, setIsWelcomeTrial$$
+
+ = useState(false);
 
 // --- COOKIE CONSENT STATE ---
-const [cookieConsent, setCookieConsent] = useState('pending');
-const [showCookieDetails, setShowCookieDetails] = useState(false);
+const 
+
+$$cookieConsent, setCookieConsent$$
+
+ = useState('pending');
+const 
+
+$$showCookieDetails, setShowCookieDetails$$
+
+ = useState(false);
 
 // --- DATA STATES ---
-const [logs, setLogs] = useState([]);
-const [linksHistory, setLinksHistory] = useState([]);
-const [smsQueueCount, setSmsQueueCount] = useState(0);
-const [subscribers, setSubscribers] = useState([]);
-const [globalNotifications, setGlobalNotifications] = useState([]);
+const 
+
+$$logs, setLogs$$
+
+ = useState(
+
+);
+const 
+
+$$linksHistory, setLinksHistory$$
+
+ = useState(
+
+);
+const 
+
+$$smsQueueCount, setSmsQueueCount$$
+
+ = useState(0);
+const 
+
+$$subscribers, setSubscribers$$
+
+ = useState(
+
+);
+const 
+
+$$globalNotifications, setGlobalNotifications$$
+
+ = useState(
+
+);
 
 // --- ADMIN MASTER NETWORK STATES ---
-const [expandedAdminRow, setExpandedAdminRow] = useState(null);
-const [broadcastMsg, setBroadcastMsg] = useState('');
+const 
+
+$$expandedAdminRow, setExpandedAdminRow$$
+
+ = useState(null);
+const 
+
+$$broadcastMsg, setBroadcastMsg$$
+
+ = useState('');
 
 // --- LEAD CRUD MODAL STATES (MASTER ADMIN) ---
-const [editLeadModal, setEditLeadModal] = useState(null);
-const [createFolderModal, setCreateFolderModal] = useState(false);
-const [newFolderName, setNewFolderName] = useState('');
-const [folders, setFolders] = useState([{ id: 'ALL', label: 'ALL ACTIVE LEADS' }, { id: 'MANUAL', label: 'CAPTURED LEADS' }, { id: 'Bulk Import TXT', label: 'IMPORTED LIST' }, { id: 'NEW_SUBSCRIBERS', label: 'NEW SUBSCRIBERS' }]);
+const 
+
+$$editLeadModal, setEditLeadModal$$
+
+ = useState(null);
+const 
+
+$$createFolderModal, setCreateFolderModal$$
+
+ = useState(false);
+const 
+
+$$newFolderName, setNewFolderName$$
+
+ = useState('');
+const 
+
+$$folders, setFolders$$
+
+ = useState(
+
+$${ id: 'ALL', label: 'ALL ACTIVE LEADS' }, { id: 'MANUAL', label: 'CAPTURED LEADS' }, { id: 'Bulk Import TXT', label: 'IMPORTED LIST' }, { id: 'NEW_SUBSCRIBERS', label: 'NEW SUBSCRIBERS' }$$
+
+);
 
 // --- GENERATOR & QUICK SEND STATES ---
-const [genTo, setGenTo] = useState('');
-const [genMsg, setGenMsg] = useState('');
-const [companyName, setCompanyName] = useState('');
-const [generatedLink, setGeneratedLink] = useState('');
-const [editingLink, setEditingLink] = useState(null);
-const [copied, setCopied] = useState(false);
-const [showInstructions, setShowInstructions] = useState(false);
+const 
+
+$$genTo, setGenTo$$
+
+ = useState('');
+const 
+
+$$genMsg, setGenMsg$$
+
+ = useState('');
+const 
+
+$$companyName, setCompanyName$$
+
+ = useState('');
+const 
+
+$$generatedLink, setGeneratedLink$$
+
+ = useState('');
+const 
+
+$$editingLink, setEditingLink$$
+
+ = useState(null);
+const 
+
+$$copied, setCopied$$
+
+ = useState(false);
+const 
+
+$$showInstructions, setShowInstructions$$
+
+ = useState(false);
 
 // --- COMPLIANCE GATE STATES ---
-const [captureData, setCaptureData] = useState(null);
-const [captureForm, setCaptureForm] = useState({ name: '', phone: '' });
+const 
+
+$$captureData, setCaptureData$$
+
+ = useState(null);
+const 
+
+$$captureForm, setCaptureForm$$
+
+ = useState({ name: '', phone: '' });
 
 // --- AUTHENTICATION STATES ---
-const [email, setEmail] = useState('');
-const [password, setPassword] = useState('');
-const [fullNameInput, setFullNameInput] = useState('');
-const [nicknameInput, setNicknameInput] = useState('');
-const [phoneInput, setPhoneInput] = useState('');
-const [isLoginMode, setIsLoginMode] = useState(true);
-const [showPass, setShowPass] = useState(false);
+const 
+
+$$email, setEmail$$
+
+ = useState('');
+const 
+
+$$password, setPassword$$
+
+ = useState('');
+const 
+
+$$fullNameInput, setFullNameInput$$
+
+ = useState('');
+const 
+
+$$nicknameInput, setNicknameInput$$
+
+ = useState('');
+const 
+
+$$phoneInput, setPhoneInput$$
+
+ = useState('');
+const 
+
+$$isLoginMode, setIsLoginMode$$
+
+ = useState(true);
+const 
+
+$$showPass, setShowPass$$
+
+ = useState(false);
 
 // --- AI AUTOMATION, STAGING & QR SYNC STATES ---
-const [aiObjective, setAiObjective] = useState('');
-const [isAiProcessing, setIsAiProcessing] = useState(false);
-const [isReviewMode, setIsReviewMode] = useState(false);
-const [stagedQueue, setStagedQueue] = useState([]);
-const [selectedFolder, setSelectedFolder] = useState('ALL');
+const 
 
-const [isDispatching, setIsDispatching] = useState(false);
-const [sendDelay, setSendDelay] = useState(15);
-const [sessionSentCount, setSessionSentCount] = useState(0);
-const [sessionTotal, setSessionTotal] = useState(0);
-const [nodeWarningActive, setNodeWarningActive] = useState(false);
+$$aiObjective, setAiObjective$$
 
-const [connectedChips, setConnectedChips] = useState(1);
-const [isDeviceSynced, setIsDeviceSynced] = useState(false);
-const [showSyncModal, setShowSyncModal] = useState(false);
+ = useState('');
+const 
+
+$$isAiProcessing, setIsAiProcessing$$
+
+ = useState(false);
+const 
+
+$$isReviewMode, setIsReviewMode$$
+
+ = useState(false);
+const 
+
+$$stagedQueue, setStagedQueue$$
+
+ = useState(
+
+);
+const 
+
+$$selectedFolder, setSelectedFolder$$
+
+ = useState('ALL');
+
+const 
+
+$$isDispatching, setIsDispatching$$
+
+ = useState(false);
+const 
+
+$$sendDelay, setSendDelay$$
+
+ = useState(15);
+const 
+
+$$sessionSentCount, setSessionSentCount$$
+
+ = useState(0);
+const 
+
+$$sessionTotal, setSessionTotal$$
+
+ = useState(0);
+const 
+
+$$nodeWarningActive, setNodeWarningActive$$
+
+ = useState(false);
+
+const 
+
+$$connectedChips, setConnectedChips$$
+
+ = useState(1);
+const 
+
+$$isDeviceSynced, setIsDeviceSynced$$
+
+ = useState(false);
+const 
+
+$$showSyncModal, setShowSyncModal$$
+
+ = useState(false);
 
 // --- AI CHAT SUPPORT STATES ---
-const [chatMessages, setChatMessages] = useState([]);
-const [chatInput, setChatInput] = useState('');
-const [isChatLoading, setIsChatLoading] = useState(false);
-const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false);
-const [isChatBanned, setIsChatBanned] = useState(false);
+const 
+
+$$chatMessages, setChatMessages$$
+
+ = useState(
+
+);
+const 
+
+$$chatInput, setChatInput$$
+
+ = useState('');
+const 
+
+$$isChatLoading, setIsChatLoading$$
+
+ = useState(false);
+const 
+
+$$hasCapturedChatLead, setHasCapturedChatLead$$
+
+ = useState(false);
+const 
+
+$$isChatBanned, setIsChatBanned$$
+
+ = useState(false);
 const chatEndRef = useRef(null);
 const latestMessageRef = useRef(null);
 
@@ -164,10 +405,18 @@ const isAiObjectiveForbidden = checkForbiddenWords(aiObjective);
 const isChatForbidden = checkForbiddenWords(chatInput);
 
 // --- SECURE QR HANDSHAKE TOKEN GENERATOR ---
-const [syncToken, setSyncToken] = useState('');
+const 
+
+$$syncToken, setSyncToken$$
+
+ = useState('');
 
 const generateUUID = () => {
-if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().split('-')[0];
+if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().split('-')
+
+$$0$$
+
+;
 return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
@@ -180,7 +429,11 @@ try {
 const encoder = new TextEncoder();
 const keyData = encoder.encode('NEXUS_SALT_KEY_2026');
 const msgData = encoder.encode(rawPayload);
-const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, 
+
+$$'sign'$$
+
+);
 const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
 const hexToken = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 const token = NEXUS_SYNC|uid:${user.uid}|tok:${hexToken}|exp:${window5min};
@@ -198,24 +451,42 @@ if (!showSyncModal || !user) return;
 generateSecureSyncToken();
 const interval = setInterval(generateSecureSyncToken, 300000);
 return () => clearInterval(interval);
-}, [showSyncModal, user]);
+}, 
+
+$$showSyncModal, user$$
+
+);
 
 const fileInputRef = useRef(null);
 
 const isMaster = user?.uid === ADMIN_MASTER_ID;
-const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
+const isPro = isMaster || 
+
+$$'MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'$$
+
+.includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
 const MSG_LIMIT = 300;
 
 // --- COOKIE INITIALIZATION ---
 useEffect(() => {
 const consent = localStorage.getItem('nexus_legal_consent');
 if (consent) setCookieConsent('resolved');
-}, []);
+}, 
+
+);
 
 // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER ---
 useEffect(() => {
 const handleKeyDown = (e) => {
-if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && ['U','S','P','C','X'].includes(e.key.toUpperCase()))) {
+if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && 
+
+$$'I','J','C'$$
+
+.includes(e.key)) || (e.ctrlKey && 
+
+$$'U','S','P','C','X'$$
+
+.includes(e.key.toUpperCase()))) {
 e.preventDefault();
 }
 };
@@ -231,18 +502,28 @@ document.removeEventListener('keydown', handleKeyDown);
 document.removeEventListener('copy', handlePreventCopy);
 document.removeEventListener('cut', handlePreventCopy);
 };
-}, []);
+}, 
+
+);
 
 // --- UX: DYNAMIC SCROLL MANAGEMENT ---
 useEffect(() => {
 if (showSmartSupport && latestMessageRef.current) {
 setTimeout(() => latestMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
 }
-}, [chatMessages, showSmartSupport, isChatLoading]);
+}, 
+
+$$chatMessages, showSmartSupport, isChatLoading$$
+
+);
 
 useEffect(() => {
 window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-}, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
+}, 
+
+$$view, isWelcomeTrial, isMenuOpen, showSmartSupport$$
+
+);
 
 // --- IDENTITY BOOTSTRAP ---
 useEffect(() => {
@@ -260,7 +541,11 @@ if (d.exists()) {
 setUserProfile(d.data());
 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true });
 } else {
-const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), nickname: 'Operator', email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
+const p = { fullName: String(u.email?.split('@')
+
+$$0$$
+
+ || 'Operator'), nickname: 'Operator', email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
 await setDoc(docRef, p);
 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...p });
 setUserProfile(p);
@@ -276,15 +561,23 @@ setUserProfile(null);
 setGeneratedLink('');
 setGenTo('');
 setGenMsg('');
-setStagedQueue([]);
-setLogs([]);
-setLinksHistory([]);
+setStagedQueue(
+
+);
+setLogs(
+
+);
+setLinksHistory(
+
+);
 setIsWelcomeTrial(false);
 }
 setAuthResolved(true);
 });
 return () => unsubscribe();
-}, []);
+}, 
+
+);
 
 // --- CAPTURE PORTAL SENSOR & ULTRA FAST ROUTING ---
 useEffect(() => {
@@ -304,7 +597,12 @@ setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verifie
 }
 
 
-}, [view]);
+
+}, 
+
+$$view$$
+
+);
 
 // --- DATA SYNCHRONIZATION (TELEMETRY) ---
 useEffect(() => {
@@ -348,7 +646,12 @@ if (isMaster) {
 return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); };
 
 
-}, [user, view, isMaster]);
+
+}, 
+
+$$user, view, isMaster$$
+
+);
 
 // ============================================================================
 // ADMIN MASTER ACTION FUNCTIONS
@@ -376,6 +679,7 @@ const updates = tierType === 'ACTIVATION_9_USD'
 setLoading(false);
 
 
+
 };
 
 const handleAdminDeleteLead = async (leadId) => {
@@ -391,7 +695,11 @@ if (!nome_cliente.trim() || !telefone_cliente.trim()) return alert("NAME AND PHO
 setLoading(true);
 try {
 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', id), {
-nome_cliente: nome_cliente.trim(), telefone_cliente: telefone_cliente.replace(/[^\\d+]/g, ''),
+nome_cliente: nome_cliente.trim(), telefone_cliente: telefone_cliente.replace(/
+
+$$^\\\\d+$$
+
+/g, ''),
 folderId: folderId || 'MANUAL', updated_at: serverTimestamp()
 });
 setEditLeadModal(null);
@@ -402,7 +710,11 @@ setLoading(false);
 const handleCreateFolder = () => {
 if (!newFolderName.trim()) return;
 const newId = newFolderName.trim().toUpperCase().replace(/\s+/g, '_');
-setFolders(prev => prev.find(f => f.id === newId) ? prev : [...prev, { id: newId, label: newFolderName.trim().toUpperCase() }]);
+setFolders(prev => prev.find(f => f.id === newId) ? prev : 
+
+$$...prev, { id: newId, label: newFolderName.trim().toUpperCase() }$$
+
+);
 setNewFolderName(''); setCreateFolderModal(false);
 };
 
@@ -427,16 +739,36 @@ setLoading(false);
 
 const subscribersMap = {};
 if (isMaster) {
-subscribers.forEach(s => { subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] }; });
+subscribers.forEach(s => { subscribersMap
+
+$$s.id$$
+
+ = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: 
+
+ }; });
 logs.forEach(l => {
-if (!subscribersMap[l.ownerId]) {
+if (!subscribersMap
+
+$$l.ownerId$$
+
+) {
 let folderName = GATEWAY ID: ${l.ownerId.substring(0,8)}...;
 let folderTier = 'FREE_TRIAL';
 if (l.ownerId === 'AI_SMART_CHAT') { folderName = '⚡ NEXUS AI SMART (LEADS)'; folderTier = 'NEXUS_AGENT'; }
 if (l.ownerId === ADMIN_MASTER_ID) { folderName = 'MASTER ADMIN'; folderTier = 'MASTER'; }
-subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, nickname: 'System', email: 'Legacy', tier: folderTier, leads: [] };
+subscribersMap
+
+$$l.ownerId$$
+
+ = { id: l.ownerId, name: folderName, nickname: 'System', email: 'Legacy', tier: folderTier, leads: 
+
+ };
 }
-subscribersMap[l.ownerId].leads.push(l);
+subscribersMap
+
+$$l.ownerId$$
+
+.leads.push(l);
 });
 }
 const subscribersList = Object.values(subscribersMap).sort((a,b) => b.leads.length - a.leads.length);
@@ -460,6 +792,7 @@ if (text.includes("{")) return text;
  return `${prefix} [NOME],\n\n${text}\n\n${suffix}`;
 
 
+
 };
 
 const executeNexusScramble = (text, leadName) => {
@@ -468,31 +801,115 @@ let i = 0;
 const parseNode = () => {
 let result = '';
 while (i < input.length) {
-if (input[i] === '{') { i++; result += parseGroup(); }
-else if (input[i] === '}' || input[i] === '|') break;
-else result += input[i++];
+if (input
+
+$$i$$
+
+ === '{') { i++; result += parseGroup(); }
+else if (input
+
+$$i$$
+
+ === '}' || input
+
+$$i$$
+
+ === '|') break;
+else result += input
+
+$$i++$$
+
+;
 }
 return result;
 };
 const parseGroup = () => {
-const alts = []; let cur = '';
+const alts = 
+
+; let cur = '';
 while (i < input.length) {
-if (input[i] === '{') { i++; cur += parseGroup(); }
-else if (input[i] === '|') { alts.push(cur); cur = ''; i++; }
-else if (input[i] === '}') {
+if (input
+
+$$i$$
+
+ === '{') { i++; cur += parseGroup(); }
+else if (input
+
+$$i$$
+
+ === '|') { alts.push(cur); cur = ''; i++; }
+else if (input
+
+$$i$$
+
+ === '}') {
 alts.push(cur); i++;
-const chosen = alts[Math.floor(Math.random() * alts.length)];
+const chosen = alts
+
+$$Math.floor(Math.random() \* alts.length)$$
+
+;
 const savedI = i; i = 0;
 const subResult = ((src) => {
 let si = 0;
-const subNode = () => { let r = ''; while(si < src.length) { if(src[si]==='{') { si++; r+=subGroup(); } else if(src[si]==='}'||src[si]==='|') break; else r+=src[si++]; } return r; };
-const subGroup = () => { const a=[]; let c=''; while(si<src.length){ if(src[si]==='{') { si++; c+=subGroup(); } else if(src[si]==='|') { a.push(c); c=''; si++; } else if(src[si]==='}') { a.push(c); si++; return ((pk) => { let _si=si; si=0; let rr=subNode(); si=_si; return pk; })(a[Math.floor(Math.random()*a.length)]); } else c+=src[si++]; } a.push(c); return a[Math.floor(Math.random()*a.length)]; };
+const subNode = () => { let r = ''; while(si < src.length) { if(src
+
+$$si$$
+
+==='{') { si++; r+=subGroup(); } else if(src
+
+$$si$$
+
+==='}'||src
+
+$$si$$
+
+==='|') break; else r+=src
+
+$$si++$$
+
+; } return r; };
+const subGroup = () => { const a=
+
+; let c=''; while(si<src.length){ if(src
+
+$$si$$
+
+==='{') { si++; c+=subGroup(); } else if(src
+
+$$si$$
+
+==='|') { a.push(c); c=''; si++; } else if(src
+
+$$si$$
+
+==='}') { a.push(c); si++; return ((pk) => { let _si=si; si=0; let rr=subNode(); si=_si; return pk; })(a
+
+$$Math.floor(Math.random()\*a.length)$$
+
+); } else c+=src
+
+$$si++$$
+
+; } a.push(c); return a
+
+$$Math.floor(Math.random()\*a.length)$$
+
+; };
 return subNode();
 })(chosen);
 i = savedI; return subResult;
-} else cur += input[i++];
+} else cur += input
+
+$$i++$$
+
+;
 }
-alts.push(cur); return alts[Math.floor(Math.random() * alts.length)];
+alts.push(cur); return alts
+
+$$Math.floor(Math.random() \* alts.length)$$
+
+;
 };
 return parseNode();
 };
@@ -506,6 +923,7 @@ try {
 } catch (err) {
   return String(text || '').replace(/\[NOME\]/gi, leadName || 'Client').replace(/\{[^}]*\}/g, '').trim();
 }
+
 
 
 };
@@ -545,11 +963,20 @@ setTimeout(() => {
 }, 1200);
 
 
+
 };
 
 const handleEditStagedMsg = (index, newMsg) => {
-const updatedQueue = [...stagedQueue];
-updatedQueue[index].optimizedMsg = newMsg;
+const updatedQueue = 
+
+$$...stagedQueue$$
+
+;
+updatedQueue
+
+$$index$$
+
+.optimizedMsg = newMsg;
 setStagedQueue(updatedQueue);
 };
 
@@ -580,6 +1007,7 @@ try {
 setIsDispatching(false); setIsReviewMode(false);
 
 
+
 };
 
 const handleClearQueue = async () => {
@@ -596,7 +1024,11 @@ setLoading(false);
 };
 
 const handleBulkImport = async (e) => {
-const file = e.target.files[0];
+const file = e.target.files
+
+$$0$$
+
+;
 if (!file || !user) return;
 setLoading(true);
 const reader = new FileReader();
@@ -606,7 +1038,15 @@ try {
 let batch = writeBatch(db); let count = 0; let totalImported = 0;
 for (const line of lines) {
 let name = "Imported Lead", phone = line;
-if (line.includes(',')) { const parts = line.split(','); name = parts[0].trim(); phone = parts[1].trim(); }
+if (line.includes(',')) { const parts = line.split(','); name = parts
+
+$$0$$
+
+.trim(); phone = parts
+
+$$1$$
+
+.trim(); }
 const safeId = phone.replace(/\D/g, '');
 if (!safeId) continue;
 
@@ -644,6 +1084,7 @@ if (!safeId) continue;
 reader.readAsText(file);
 
 
+
 };
 
 const handleGenerate = async () => {
@@ -671,7 +1112,11 @@ if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
 if (isDeviceSynced && user) {
 setLoading(true);
 try {
-const sanitizedPhone = genTo.replace(/[^\\d+]/g, '');
+const sanitizedPhone = genTo.replace(/
+
+$$^\\\\d+$$
+
+/g, '');
 const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
 await setDoc(docRef, {
 telefone_cliente: sanitizedPhone,
@@ -687,6 +1132,7 @@ setGenTo(''); setGenMsg('');
 } else {
   setShowSyncModal(true);
 }
+
 
 
 };
@@ -753,6 +1199,7 @@ finally {
 }
 
 
+
 };
 
 const handleAuthSubmit = async (e) => {
@@ -766,7 +1213,11 @@ authUser = cred.user;
 } else {
 const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
 authUser = cred.user;
-const p = { fullName: fullNameInput, nickname: nicknameInput || fullNameInput.split(' ')[0], email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
+const p = { fullName: fullNameInput, nickname: nicknameInput || fullNameInput.split(' ')
+
+$$0$$
+
+, email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
 await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
 
@@ -793,12 +1244,17 @@ await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUs
 setLoading(false);
 
 
+
 };
 
 const saveChatLead = async (name, phone) => {
 try {
 const safeId = phone.replace(/\D/g, '');
-const sanitizedPhone = phone.replace(/[^\\d+]/g, '');
+const sanitizedPhone = phone.replace(/
+
+$$^\\\\d+$$
+
+/g, '');
 const leadDocId = CHAT_BOT_${safeId};
 const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
 await setDoc(leadRef, {
@@ -810,7 +1266,11 @@ device: "AI_AGENT_CONVERSATION",
 source: "CHAT_BOT",
 folderId: "NEXUS_AGENT"
 }, { merge: true });
-console.log("[SYS-LOG] Chat Lead Successfully Registered.");
+console.log("
+
+$$SYS-LOG$$
+
+ Chat Lead Successfully Registered.");
 } catch (e) { console.error("Chat lead capture error", e); }
 };
 
@@ -1021,6 +1481,7 @@ try {
 setIsChatLoading(false);
 
 
+
 };
 
 const handleChatButtonAction = (action) => {
@@ -1050,7 +1511,23 @@ return s.length > 4 ? s.slice(0, 3) + '' + s.slice(-2) : '';
 }
 if (type === 'name') {
 const parts = String(value).split(' ');
-return parts[0].charAt(0).toUpperCase() + parts[0].slice(1, 2) + '*** ' + (parts[1] ? parts[1].charAt(0) + '***' : '');
+return parts
+
+$$0$$
+
+.charAt(0).toUpperCase() + parts
+
+$$0$$
+
+.slice(1, 2) + '*** ' + (parts
+
+$$1$$
+
+ ? parts
+
+$$1$$
+
+.charAt(0) + '***' : '');
 }
 return String(value);
 };
@@ -1062,79 +1539,23 @@ TERMS: { icon: Scale, title: 'TERMS OF USE', text: SMART SMS PRO — TERMS OF US
 LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL', text: LGPD COMPLIANCE — LAW 13.709/2018\n\nSMART SMS PRO operates in full compliance with the LGPD.\n\nLEGAL BASES: Personal data processing is based on consent, legal obligation, or legitimate interest.\n\nDATA SUBJECT RIGHTS: You have the right to confirm the existence of processing, access, correct, and delete data. },
 GDPR: { icon: Globe, title: 'GDPR COMPLIANCE NODE', text: GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the GDPR.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, or legal obligation.\n\nDATA SUBJECT RIGHTS: You have the right to access, rectify, erase, and restrict processing of your personal data. }
 };
-return contents[legalContent] || null;
+return contents
+
+$$legalContent$$
+
+ || null;
 };
 
 if (view === 'bridge') {
 return (
-<div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-8 p-6 text-center font-black italic">
-<div className="w-20 h-20 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_20px_#25F4EE]"></div>
-<div className="space-y-4">
-<h2 className="text-3xl sm:text-4xl text-white tracking-tighter">REDIRECTING TO GATEWAY...</h2>
-<p className="text-sm sm:text-base text-white/40 tracking-widest">Opening your native SMS application. If it doesn't open automatically, click below.</p>
-</div>
-{captureData && (
-<a href={sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}} className="bg-[#25F4EE] text-black px-10 py-5 rounded-xl font-black text-sm sm:text-base tracking-widest shadow-[0_0_25px_#25F4EE] hover:scale-105 transition-transform mt-4">
-OPEN SMS APP MANUALLY
-</a>
-)}
-<p className="text-[10px] sm:text-xs text-white/20 tracking-widest mt-8">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
-</div>
-);
-}
 
 if (!authResolved) {
 return (
-<div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-6">
-<div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_20px_#25F4EE]"></div>
-<p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-xs sm:text-sm animate-pulse">INITIALIZING GATEWAY...</p>
-</div>
-);
-}
 
 if (view === 'capture') {
 return (
-<div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center p-6 text-center font-black italic selection:bg-[#25F4EE] selection:text-black">
-<style>{@keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } } .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; } .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; } .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; } .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; } .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }}</style>
-<div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-<div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
-<ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
-<h2 className="text-3xl sm:text-4xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
-<p className="text-xs sm:text-sm text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto">
-Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
-</p>
-<div className="w-full space-y-6 text-left">
-<div>
-<label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block">FULL LEGAL NAME</label>
-<input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
-</div>
-<div>
-<label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block">MOBILE ID (EX: +1 999 999 9999)</label>
-<input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
-</div>
-<button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-6">CONFIRM & ACCESS <ChevronRight size={20}/></button>
-</div>
-<div className="flex items-center gap-2 mt-12 opacity-30 text-white uppercase">
-<Lock size={16} className="text-[#25F4EE]"/> <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-[#25F4EE]">ZERO-KNOWLEDGE ENCRYPTED TERMINAL</span>
-</div>
-</div>
-</div>
-</div>
-);
-}
 
 return (
-<div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
-<style>{`
-/* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
-body {
--webkit-touch-callout: none;
--webkit-user-select: none;
--khtml-user-select: none;
--moz-user-select: none;
--ms-user-select: none;
-user-select: none;
-}
 
     /* UNBLOCK INPUTS FOR MOBILE/DESKTOP */
     input, textarea, select { 
@@ -2096,6 +2517,7 @@ user-select: none;
     </div>
   )}
 </div>
+
 
 
 );
