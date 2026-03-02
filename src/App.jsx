@@ -51,6 +51,9 @@ const db = getFirestore(firebaseApp);
 // --- MASTER ADMIN ACCESS ---
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
+// --- ZERO TOLERANCE GLOBAL REGEX ---
+const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
+
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -121,7 +124,6 @@ export default function App() {
 
   // --- AI AUTOMATION, STAGING & QR SYNC STATES ---
   const [aiObjective, setAiObjective] = useState('');
-  const [aiWarning, setAiWarning] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [stagedQueue, setStagedQueue] = useState([]); 
@@ -142,9 +144,13 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
-  const [isChatBanned, setIsChatBanned] = useState(false);
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
+
+  // --- ZERO TOLERANCE COMPUTED STATES ---
+  const isGenMsgForbidden = FORBIDDEN_WORDS_REGEX.test(genMsg);
+  const isAiObjectiveForbidden = FORBIDDEN_WORDS_REGEX.test(aiObjective);
+  const isChatForbidden = FORBIDDEN_WORDS_REGEX.test(chatInput);
 
   // --- SECURE QR HANDSHAKE TOKEN GENERATOR ---
   const [syncToken, setSyncToken] = useState('');
@@ -212,6 +218,11 @@ export default function App() {
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
+  // --- VIEW NAVIGATION SCROLL TO TOP (UX FIX) ---
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
+
   // --- IDENTITY BOOTSTRAP ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -271,11 +282,6 @@ export default function App() {
       }
     }
   }, [view]);
-
-  // --- VIEW NAVIGATION SCROLL TO TOP (UX FIX) ---
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
 
   // --- DATA SYNCHRONIZATION (TELEMETRY) ---
   useEffect(() => {
@@ -409,15 +415,8 @@ export default function App() {
   const subscribersList = Object.values(subscribersMap).sort((a,b) => b.leads.length - a.leads.length); 
 
   // ============================================================================
-  // PRO COMMAND FUNCTIONS & SUPREME POLYMORPHIC ENGINE (NATIVE AST PARSER)
+  // PRO COMMAND FUNCTIONS & SUPREME SHUFFLE ENGINE (NATIVE AST PARSER)
   // ============================================================================
-  const validateAIContent = (text) => {
-    setAiObjective(text);
-    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal)/i;
-    if (forbidden.test(text)) setAiWarning("ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. SYSTEM LOCKED.");
-    else setAiWarning('');
-  };
-
   const executeNexusScramble = (text, leadName) => {
     const parseSpintax = (input) => {
       let i = 0;
@@ -465,7 +464,7 @@ export default function App() {
   };
 
   const handlePrepareBatch = () => {
-    if (!aiObjective || logs.length === 0 || aiWarning) return;
+    if (!aiObjective || logs.length === 0 || isAiObjectiveForbidden) return;
     setIsAiProcessing(true);
     
     setTimeout(() => {
@@ -759,32 +758,20 @@ export default function App() {
   const handleSendChat = async (e, directText = null) => {
     if(e) e.preventDefault();
     const textToSend = directText || chatInput;
-    if (!textToSend.trim() || isChatBanned) return;
+    if (!textToSend.trim() || isChatForbidden) return;
     
     const newMsg = { role: 'user', text: textToSend };
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput('');
     setIsChatLoading(true);
 
-    // ============================================================================
-    // MODULE 4: ZERO TOLERANCE SCANNER — STRICT TERMINATION
-    // ============================================================================
-    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
-    if (forbidden.test(textToSend)) {
-        await new Promise(resolve => setTimeout(resolve, 400)); 
-        setChatMessages(prev => [...prev, { role: 'model', text: `🚨 ZERO TOLERANCE PROTOCOL — SESSION TERMINATED\n\nProhibited content or intent detected. This interaction has been flagged and logged. Your session is now permanently locked.\n\nIf this was a mistake, please contact support through official channels.` }]);
-        setIsChatBanned(true); // Locks input permanently
-        setIsChatLoading(false);
-        return;
-    }
-
+    // HUMANIZED TYPING DELAY: Reduced to 600ms - 1.2s for fluid UX
     await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 800));
 
     try {
         const generateHeuristicResponse = (input, historyList) => {
             const lower = input.toLowerCase();
             const userIsSubbed = userProfile?.isSubscribed || isPro;
-            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|não|já|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(input);
 
             // LEAD CAPTURE FLOW (AIDA: Action trigger)
             if (!hasCapturedChatLead && !user) {
@@ -792,67 +779,52 @@ export default function App() {
                 if (phoneMatch) {
                     const digitsOnly = phoneMatch[0].replace(/\D/g, '');
                     if (digitsOnly.length < 8) {
-                        return isPT
-                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
-                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
+                        return { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
                     }
-                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome é|sou o|sou a|aqui é|chamo|me chamo|my name is|i am|i'm|this is)/gi, '').trim();
-                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
+                    let name = input.replace(phoneMatch[0], '').replace(/(my name is|i am|i'm|this is)/gi, '').trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : 'Operator';
                     const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     
-                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
-                      text: isPT ? confirmPT : confirmEN,
-                      buttons: isPT
-                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
-                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 SUPPORT / GUIDE', action: 'GUIDE' }]
+                      text: confirmEN,
+                      buttons: [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
                     };
                 }
                 
                 if (historyList.length <= 1) {
-                    return isPT
-                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
-                      : { text: `Hello! I'm *NEXUS AI SMART*, your elite conversion and persuasion specialist. ⚡\n\nEvery link blocked by a carrier is real profit you're losing right now. Our platform was built to destroy that barrier and scale your transmissions.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
+                    return { text: `Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
                 }
-                return { text: isPT ? `Ainda não recebi o seu contato móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + contato móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*` : `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
+                return { text: `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
             }
 
             // SUPPORT & NAVIGATION
             if (user && historyList.length <= 1) {
-                const greetPT = `Olá, *${userProfile?.nickname || 'Operador'}*! ⚡ NEXUS AI pronta.\n\nSeu terminal está ativo. Lembre-se: cada transmissão atrasada é alcance que você cede ao mercado. Vamos escalar?\n\n${userIsSubbed ? 'Seu plano PRO está ativo — maximize a transmissão de SMS agora.' : 'Upgrade PRO ainda não ativado — você está operando com capacidade limitada.'}`;
-                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI ready.\n\nYour terminal is active. Remember: every delayed transmission is reach you're handing to the market. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize SMS transmission now.' : 'PRO upgrade not yet active — you\'re running at limited capacity.'}`;
-                return { text: isPT ? greetPT : greetEN, buttons: userIsSubbed ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }] };
+                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI online.\n\nYour terminal is active. Remember: every delayed campaign is reach you're handing to your competition. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize dispatch now.' : 'PRO upgrade not yet active — you are running at limited capacity.'}`;
+                return { text: greetEN, buttons: userIsSubbed ? [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '📖 SETUP GUIDE', action: 'GUIDE' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 SETUP GUIDE', action: 'GUIDE' }] };
             }
 
-            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
-                return isPT
-                  ? { text: `A nossa plataforma oferece 🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'.\n\nMas atenção: operadores de elite escalam com o PRO (Nexus Automation Engine ativo). Pare de deixar dinheiro na mesa.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                  : { text: `We offer 🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'.\n\nBut remember: elite operators scale with PRO (Nexus Automation Engine active). Stop leaving money on the table.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
+            if (/(trial|free|test|start)/i.test(lower)) {
+                return { text: `We offer 🎁 60 Free-Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'.\n\nBut remember: elite operators scale with PRO (Nexus Automation Engine active). Stop leaving money on the table.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
             }
 
-            if (/(suporte|support|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help)/i.test(lower)) {
-                return isPT
-                  ? { text: `Precisa de suporte? A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n*2.* O APK Android opera silenciosamente como nó de transmissão.\n*3.* Sincronização imediata via QR Code.\n\nPronto para configurar a transmissão em massa?`, buttons: [{ label: '📲 SUPORTE / BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : { text: `Need support? Here's how the tech works:\n\n*1.* The Nexus Engine rewrites each message so carriers see no pattern.\n*2.* The Android APK runs silently as a transmission node.\n*3.* Immediate QR Code synchronization.\n\nReady to set up mass transmission?`, buttons: [{ label: '📲 SUPPORT / DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            if (/(support|guide|how|tutorial|install|apk|download|setup|help)/i.test(lower)) {
+                return { text: `Need support? Here is how the tech works:\n\n*1.* The Nexus Engine rewrites each message in real-time — zero repetitive patterns that carriers can flag.\n*2.* The Android APK runs silently as a dispatch node on your phone.\n*3.* Immediate QR Code synchronization.\n\nReady to set up mass transmission?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
-                return isPT
-                  ? { text: `Decisão de elite. 🦈\n\nO PRO ativa:\n• Transmissão silenciosa em massa\n• Engine Nexus polimórfica (cada SMS único)\n• Painel de leads com Seleção de Pastas\n\nQuanto custa *não* ter isso? Cada lead que escapa é receita que nunca volta.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
-                  : { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass transmission\n• Polymorphic Nexus Engine (each SMS is unique)\n• Lead panel with Folder Selection\n\nWhat does *not* having this cost you? Every escaped lead is revenue lost.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
+            if (/(upgrade|buy|pro|plan|pack|price|cost|subscribe)/i.test(lower)) {
+                return { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass transmission\n• Smart shuffle engine (each SMS is unique)\n• Unlimited transmission credits\n• Full lead panel with Folder Selection\n\nWhat does *not* having this cost you? Every escaped lead is revenue lost.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
             }
 
-            if (/(dashboard|painel|dash|hub|panel)/i.test(lower)) {
-                return isPT ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            if (/(dashboard|dash|hub|panel|operator)/i.test(lower)) {
+                return { text: `Redirecting to your Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            const fallbackPT = `Enquanto você lê isso, algum concorrente está a realizar transmissões sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo estratégico?`;
-            const fallbackEN = `While you read this, a competitor is running unblocked transmissions. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat's your next strategic move?`;
+            const fallbackEN = `While you read this, a competitor is running unblocked transmissions. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat is your next move?`;
             return { 
-              text: isPT ? fallbackPT : fallbackEN,
-              buttons: isPT ? [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 SUPORTE TÉCNICO', action: 'GUIDE' }] : [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
+              text: fallbackEN,
+              buttons: [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
             };
         };
 
@@ -878,12 +850,18 @@ export default function App() {
   const handleChatButtonAction = (action) => {
       setShowSmartSupport(false);
       if(action === 'UPGRADE') {
-          setView('dashboard');
-          setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+          if (user) {
+            setView('dashboard');
+            setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+          } else {
+            setIsWelcomeTrial(true);
+            setIsLoginMode(false);
+            setView('auth');
+          }
       } else if (action === 'DASH' || action === 'TRIAL') {
-          if(user) setView('dashboard'); else { setIsLoginMode(false); setView('auth'); }
+          if(user) setView('dashboard'); else { setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth'); }
       } else if (action === 'APK' || action === 'GUIDE') {
-          if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsLoginMode(false); setView('auth'); }
+          if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth'); }
       }
   };
 
@@ -905,7 +883,7 @@ export default function App() {
     const contents = {
       PRIVACY: { icon: FileLock2, title: 'PRIVACY POLICY', text: `SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL collects, uses, and shares information.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email, and phone number.\n\nHOW WE USE YOUR INFORMATION: We use the information to provide, maintain, and improve our services.\n\nSECURITY: We implement appropriate technical measures to protect your personal information against unauthorized access.` },
       TERMS: { icon: Scale, title: 'TERMS OF USE', text: `SMART SMS PRO — TERMS OF USE\n\nACCEPTABLE USE: You agree to use the service only for lawful purposes. You shall not use the service to send spam.\n\nZERO TOLERANCE POLICY: Any attempt to use the platform for scams, phishing, or illegal activities will result in immediate account termination.\n\nLIMITATION OF LIABILITY: CLICKMORE DIGITAL shall not be liable for any indirect damages resulting from your use of the service.` },
-      LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL (Lei Geral de Proteção de Dados)', text: `CONFORMIDADE COM A LGPD — LEI 13.709/2018\n\nO SMART SMS PRO opera em total conformidade com a LGPD.\n\nBASES LEGAIS: O tratamento de dados pessoais é realizado com base no consentimento, cumprimento de obrigação legal ou legítimo interesse.\n\nDIREITOS DO TITULAR: Você tem direito à confirmação da existência de tratamento, acesso, correção e eliminação dos dados.` },
+      LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL', text: `LGPD COMPLIANCE — LAW 13.709/2018\n\nSMART SMS PRO operates in full compliance with the LGPD.\n\nLEGAL BASES: Personal data processing is based on consent, legal obligation, or legitimate interest.\n\nDATA SUBJECT RIGHTS: You have the right to confirm the existence of processing, access, correct, and delete data.` },
       GDPR: { icon: Globe, title: 'GDPR COMPLIANCE NODE', text: `GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the GDPR.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, or legal obligation.\n\nDATA SUBJECT RIGHTS: You have the right to access, rectify, erase, and restrict processing of your personal data.` }
     };
     return contents[legalContent] || null;
@@ -948,7 +926,7 @@ export default function App() {
           .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
-          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; overflow-wrap: break-word; word-break: break-word; }
+          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; -ms-hyphens: none !important; word-break: normal !important; overflow-wrap: break-word !important; }
         `}</style>
         <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
@@ -964,7 +942,7 @@ export default function App() {
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-white/30 ml-1 mb-2 block">MOBILE ID (EX: +1 999 999 9999)</label>
-                <input required type="tel" placeholder="+DDI Mobile ID" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
+                <input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
               </div>
               <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[12px] uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-4">CONFIRM & ACCESS <ChevronRight size={16}/></button>
             </div>
@@ -980,9 +958,18 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
+        /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
         body { user-select: none; -webkit-user-select: none; }
         input, textarea { user-select: text; -webkit-user-select: text; }
-        *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; -ms-hyphens: none !important; overflow-wrap: break-word; word-break: break-word; }
+
+        /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
+        *, *::before, *::after { 
+          hyphens: none !important; 
+          -webkit-hyphens: none !important; 
+          -ms-hyphens: none !important; 
+          word-break: normal !important;
+          overflow-wrap: break-word !important;
+        }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -1000,6 +987,7 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
+      {/* MASTER GLOBAL NOTIFICATION BANNER */}
       {globalNotifications.length > 0 && (
          <div className="bg-[#FE2C55] text-black w-full text-center py-2 px-4 flex items-center justify-center gap-3 z-[300] relative">
             <BellRing size={16} className="animate-bounce shrink-0"/>
@@ -1008,6 +996,7 @@ export default function App() {
          </div>
       )}
 
+      {/* --- FLOATING AI CHAT BUBBLE --- */}
       {!showSmartSupport && view !== 'capture' && view !== 'bridge' && (
         <button 
           onClick={() => setShowSmartSupport(true)}
@@ -1019,6 +1008,7 @@ export default function App() {
         </button>
       )}
 
+      {/* --- TOP NAV --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[200] px-6 flex justify-between items-center transition-all">
         <div className="flex items-center gap-3 cursor-pointer relative z-[210]" onClick={() => { setView('home'); setIsMenuOpen(false); }}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
@@ -1028,8 +1018,8 @@ export default function App() {
         <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest relative z-[210]">
            {!user ? (
              <>
-               <button onClick={() => { setIsLoginMode(true); setView('auth'); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2 rounded-xl text-[10px] tracking-widest font-black transition-all shadow-[0_0_15px_rgba(37,244,238,0.2)]">SECURE MEMBER PORTAL</button>
-               <button onClick={() => { setIsLoginMode(false); setView('auth'); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black px-6 py-2.5 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(37,244,238,0.4)] font-black">JOIN NETWORK</button>
+               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2 rounded-xl text-[10px] tracking-widest font-black transition-all shadow-[0_0_15px_rgba(37,244,238,0.2)]">SECURE MEMBER PORTAL</button>
+               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black px-6 py-2.5 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(37,244,238,0.4)] font-black">JOIN NETWORK</button>
              </>
            ) : (
              <>
@@ -1045,13 +1035,14 @@ export default function App() {
         </button>
       </nav>
 
+      {/* --- OMNI-MENU MOBILE --- */}
       <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
         <div className="flex flex-col gap-4 flex-1 mt-4">
           {user && <p className="text-center text-[#25F4EE] font-mono text-[10px] mb-4">ALIAS: {userProfile?.nickname}</p>}
           {!user ? (
             <>
-              <button onClick={() => { setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full shadow-[0_0_15px_rgba(37,244,238,0.2)]"><Lock size={18}/> SECURE MEMBER PORTAL</button>
-              <button onClick={() => { setIsLoginMode(false); setView('auth'); setIsMenuOpen(false); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black shadow-[0_0_30px_rgba(37,244,238,0.4)] flex items-center justify-center gap-3 w-full"><Rocket size={18}/> JOIN NETWORK & START</button>
+              <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full shadow-[0_0_15px_rgba(37,244,238,0.2)]"><Lock size={18}/> SECURE MEMBER PORTAL</button>
+              <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); setIsMenuOpen(false); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black shadow-[0_0_30px_rgba(37,244,238,0.4)] flex items-center justify-center gap-3 w-full"><Rocket size={18}/> JOIN NETWORK & START</button>
             </>
           ) : (
             <>
@@ -1060,6 +1051,8 @@ export default function App() {
             </>
           )}
         </div>
+        
+        {/* MOBILE ONLY: LOGOUT POSITIONED AT BOTTOM */}
         {user && (
            <div className="mt-auto pt-8 border-t border-white/5">
               <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY GATEWAY</button>
@@ -1067,6 +1060,7 @@ export default function App() {
         )}
       </div>
 
+      {/* --- CONTENT HUB --- */}
       <div className="pt-28 flex-1 pb-10 relative z-[100]">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
@@ -1100,9 +1094,10 @@ export default function App() {
                   <div className="space-y-3">
                      <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
-                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
+                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium w-full text-sm font-sans ${isGenMsgForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
                      </div>
+                     {isGenMsgForbidden && <p className="text-[10px] text-[#FE2C55] mt-2 font-black tracking-widest animate-pulse">⚠️ ZERO TOLERANCE POLICY: PROHIBITED WORDS DETECTED. PLEASE CORRECT.</p>}
                   </div>
                   
                   {showInstructions && (
@@ -1116,7 +1111,9 @@ export default function App() {
                     </div>
                   )}
 
-                  <button onClick={handleGenerate} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] py-5 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]">GENERATE SECURE LINK <ChevronRight size={18} /></button>
+                  <button onClick={handleGenerate} disabled={loading || isGenMsgForbidden} className={`btn-strategic ${isGenMsgForbidden ? '!bg-white/10 !text-white/30' : '!bg-[#25F4EE] !text-black'} text-[11px] py-5 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]`}>
+                    {isGenMsgForbidden ? 'SYSTEM STANDBY' : 'GENERATE SECURE LINK'} {isGenMsgForbidden ? '' : <ChevronRight size={18} />}
+                  </button>
                 </div>
               </div>
 
@@ -1135,8 +1132,8 @@ export default function App() {
 
               {!user && (
                 <div className="flex flex-col items-center gap-4 sm:gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0">
-                  <button onClick={() => {setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE SECURE CONNECTIONS</button>
-                  <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={20} className="animate-pulse sm:w-6 sm:h-6" /> UPGRADE TO ELITE MEMBER</button>
+                  <button onClick={() => {setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE SECURE CONNECTIONS</button>
+                  <button onClick={() => {setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={20} className="animate-pulse sm:w-6 sm:h-6" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
               )}
 
@@ -1188,7 +1185,7 @@ export default function App() {
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
                   <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-3 rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
                       <Send size={14}/> DEPLOY
                     </button>
                   </form>
@@ -1397,15 +1394,15 @@ export default function App() {
             </div>
 
             {/* ---> AI AGENT MODULE WITH STAGING AREA <--- */}
-            <div className={`bg-[#0a0a0a] border ${aiWarning ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
+            <div className={`bg-[#0a0a0a] border ${isAiObjectiveForbidden ? 'border-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.2)]' : 'border-white/10'} rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl mb-8 relative overflow-hidden transition-all ${!isPro ? 'pro-obscure' : ''}`}>
               <div className={`flex flex-col text-left`}>
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-6 sm:mb-8">
                     <div className="flex items-center gap-3 sm:gap-4 text-left">
-                      <div className={`p-2.5 sm:p-3 rounded-xl border ${aiWarning ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
-                        {aiWarning ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
+                      <div className={`p-2.5 sm:p-3 rounded-xl border ${isAiObjectiveForbidden ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
+                        {isAiObjectiveForbidden ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
                       </div>
                       <div>
-                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS POLYMORPHIC ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
+                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS SMART SHUFFLE ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
                         <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 line-clamp-1 sm:line-clamp-none font-black">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
@@ -1470,13 +1467,6 @@ export default function App() {
                  ) : (
                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 text-left">
                       <div className="space-y-4 flex flex-col">
-                         {aiWarning && (
-                            <div className="p-3 sm:p-4 bg-[#FE2C55]/10 border border-[#FE2C55] rounded-xl flex items-start gap-2.5 sm:gap-3 animate-pulse shadow-[0_0_15px_rgba(254,44,85,0.2)]">
-                              <AlertTriangle size={18} className="sm:w-5 sm:h-5 text-[#FE2C55] shrink-0 mt-0.5"/>
-                              <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest font-black leading-tight">{aiWarning}</p>
-                            </div>
-                         )}
-
                          <div className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 p-3 rounded-xl sm:rounded-2xl mb-2 flex-wrap">
                            <div className="flex items-center gap-3">
                              <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
@@ -1504,10 +1494,14 @@ export default function App() {
                            </div>
                          </div>
 
-                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => validateAIContent(e.target.value)} placeholder="Enter base payload using {Hi|Hello} [NOME] syntax. The Nexus Engine will auto-scramble the payload per chip session." className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${aiWarning ? 'border-[#FE2C55]/50 focus:border-[#FE2C55]' : ''}`} />
+                         <div className="flex items-center gap-2 font-black">
+                           <span className="text-amber-500"><ShieldAlert size={14}/></span>
+                           <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
+                         </div>
+                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => setAiObjective(e.target.value)} placeholder="Enter your strategic high-conversion message up to 300 characters, and our smart engine will generate intelligent shuffle combinations. REVIEW THEM ⚠️" className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${isAiObjectiveForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} />
                          
-                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || !!aiWarning || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 font-black ${aiWarning ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
-                            {isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE`}
+                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || isAiObjectiveForbidden || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 font-black ${isAiObjectiveForbidden ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
+                            {isAiObjectiveForbidden ? "SYSTEM STANDBY — CORRECT PAYLOAD" : (isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE`)}
                          </button>
                       </div>
                       
@@ -1807,7 +1801,7 @@ export default function App() {
                         ref={i === chatMessages.length - 1 ? latestMessageRef : null}
                         className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
                       >
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-right' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-center'}`}>
                             {msg.text}
                          </div>
                          {/* Action Buttons Render */}
@@ -1840,17 +1834,23 @@ export default function App() {
                  
                  {/* Chat Footer */}
                  <footer className="shrink-0 p-4 sm:p-5 border-t border-white/10 bg-[#111]">
-                     <form onSubmit={handleSendChat} className="flex gap-2 sm:gap-3">
-                        <input 
-                          value={chatInput} 
-                          onChange={(e) => setChatInput(e.target.value)} 
-                          disabled={isChatLoading || isChatBanned}
-                          placeholder={isChatBanned ? "Sessão Bloqueada" : "Type your message..."} 
-                          className="input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black focus:border-[#25F4EE]/50 disabled:opacity-50"
-                        />
-                        <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatBanned} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)] flex items-center justify-center shrink-0">
-                          <Send size={18} className="sm:w-5 sm:h-5"/>
-                        </button>
+                     <form onSubmit={handleSendChat} className="flex gap-2 sm:gap-3 flex-col">
+                        <div className="flex items-center justify-center gap-2">
+                           <ShieldAlert size={12} className="text-amber-500" />
+                           <span className="text-[8px] text-amber-500 font-black tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
+                        </div>
+                        <div className="flex gap-2 sm:gap-3">
+                            <input 
+                              value={chatInput} 
+                              onChange={(e) => setChatInput(e.target.value)} 
+                              disabled={isChatLoading || isChatBanned}
+                              placeholder={isChatBanned ? "Sessão Bloqueada" : "Type your message..."} 
+                              className={`input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black disabled:opacity-50 ${isChatForbidden ? '!text-[#FE2C55] !border-[#FE2C55]' : 'focus:border-[#25F4EE]/50'}`}
+                            />
+                            <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden || isChatBanned} className={`p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform flex items-center justify-center shrink-0 ${isChatForbidden || isChatBanned ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#25F4EE] text-black shadow-[0_0_15px_rgba(37,244,238,0.2)]'}`}>
+                              <Send size={18} className="sm:w-5 sm:h-5"/>
+                            </button>
+                        </div>
                      </form>
                  </footer>
 
