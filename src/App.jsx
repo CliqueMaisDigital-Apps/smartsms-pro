@@ -52,7 +52,7 @@ const db = getFirestore(firebaseApp);
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
 // --- ZERO TOLERANCE GLOBAL REGEX (ENHANCED COGNITION) ---
-const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt)/i;
+const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgraçado|desgracado|miseravel|miserável)/i;
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
@@ -1985,7 +1985,7 @@ export default function App() {
                               value={chatInput} 
                               onChange={(e) => setChatInput(e.target.value)} 
                               disabled={isChatLoading || isChatBanned}
-                              placeholder={isChatForbidden ? "Forbidden content detected..." : "Type your message..."} 
+                              placeholder={isChatForbidden ? "Forbidden content detected..." : (isChatBanned ? "Sessão Bloqueada" : "Type your message...")} 
                               className={`input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black disabled:opacity-50 ${isChatForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : 'focus:border-[#25F4EE]/50'}`}
                             />
                             <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden || isChatBanned} className={`p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform flex items-center justify-center shrink-0 ${isChatForbidden || isChatBanned ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#25F4EE] text-black shadow-[0_0_15px_rgba(37,244,238,0.2)]'}`}>
