@@ -132,6 +132,9 @@ export default function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
   const chatEndRef = useRef(null);
+  
+  // Ref para ancorar a visão na mensagem mais recente
+  const latestMessageRef = useRef(null);
 
   const fileInputRef = useRef(null);
   
@@ -169,11 +172,12 @@ export default function App() {
     };
   }, []);
 
-  // --- AUTO SCROLL CHAT (FIXED DELAY FOR RELIABILITY) ---
+  // --- UX: DYNAMIC SCROLL MANAGEMENT ---
+  // Aligns the view to the top of the new message block for better UX
   useEffect(() => {
-    if (showSmartSupport && chatEndRef.current) {
+    if (showSmartSupport && latestMessageRef.current) {
        setTimeout(() => {
-          chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          latestMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
        }, 150);
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
@@ -795,8 +799,8 @@ export default function App() {
         return;
     }
 
-    // HUMANIZED TYPING DELAY: Extended for realistic Premium feel (1.2s to 2s)
-    await new Promise(resolve => setTimeout(resolve, 1200 + Math.random() * 800));
+    // HUMANIZED TYPING DELAY: Reduced for faster, more agile interaction (600ms - 1.2s)
+    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 600));
 
     try {
         // [ CRITICAL SECURITY: MASKED KEY HANDSHAKE ]
@@ -804,7 +808,7 @@ export default function App() {
         const apiKey = atob(maskedKey).trim();
         
         const systemPrompt = `SYSTEM INSTRUCTIONS FOR NEXUS AI SMART
-1. Identity: Premium, humanized AI assistant for SMART SMS PRO. Conversational, incredibly sharp, yet accessible.
+1. Identity: Premium, highly humanized AI assistant for SMART SMS PRO. Conversational, incredibly sharp, yet accessible.
 2. Response Style: ULTRA-CONCISE. Maximum 2 short paragraphs per interaction. Keep it fast and fluid like a real WhatsApp chat. NEVER output giant blocks of text.
 3. Neuromarketing & AIDA: Subtly evoke FOMO (Fear Of Missing Out). Make them realize the hidden cost of blocked standard SMS (wasted time, lost sales) without being explicitly aggressive. Position "Secure Direct Routing" and "Nexus Polymorphic Engine" as the elite, effortless solution.
 4. Interaction Rule: ALWAYS end your response with a single, compelling question to drive the conversation forward. Intelligently funnel them toward activating "PRO TRANSMISSION PACKETS" in the "Nexus Upgrade Hub".
@@ -1724,7 +1728,12 @@ export default function App() {
                     )}
 
                     {chatMessages.map((msg, i) => (
-                      <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                      <div 
+                        key={i} 
+                        // UX Update: Referencia apenas a mensagem mais recente (a última do array) para o scroll
+                        ref={i === chatMessages.length - 1 ? latestMessageRef : null}
+                        className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}
+                      >
                          <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide break-words hyphens-none whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm'}`}>
                             {msg.text}
                          </div>
@@ -1744,6 +1753,7 @@ export default function App() {
                          </div>
                       </div>
                     )}
+                    {/* Fallback end reference */}
                     <div ref={chatEndRef} className="h-1 shrink-0" />
                  </main>
                  
