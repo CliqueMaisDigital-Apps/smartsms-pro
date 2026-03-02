@@ -78,7 +78,7 @@ export default function App() {
   const [showSmartSupport, setShowSmartSupport] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [legalContent, setLegalContent] = useState(null); 
-  const [isWelcomeTrial, setIsWelcomeTrial] = useState(false); // NOVO: Controla a view de boas vindas AIDA
+  const [isWelcomeTrial, setIsWelcomeTrial] = useState(false);
   
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
@@ -824,13 +824,13 @@ export default function App() {
 
             if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
                 return isPT
-                  ? { text: `Seu Trial libera *60 conexões blindadas*. Mas atenção: operadores que ficam no Trial perdem negócio para quem usa o PRO — capacidade ilimitada, transmissão automática, Nexus Engine ativa.\n\nDecida antes que seu concorrente decida por você.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                  : { text: `Your Trial unlocks *60 shielded connections*. But remember: operators who stay on Trial lose ground to those running PRO — unlimited capacity, automated transmission, Nexus Engine active.\n\nDecide before your competitor does.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
+                  ? { text: `A nossa plataforma oferece 🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'.\n\nMas atenção: operadores de elite escalam com o PRO (Nexus Automation Engine ativo). Pare de deixar dinheiro na mesa.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                  : { text: `We offer 🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'.\n\nBut remember: elite operators scale with PRO (Nexus Automation Engine active). Stop leaving money on the table.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
             }
 
             if (/(suporte|support|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help)/i.test(lower)) {
                 return isPT
-                  ? { text: `Precisa de suporte? A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n*2.* O APK Android opera silenciosamente como nó de transmissão.\n*3.* Sincronização imediata via QR Code.\n\nPronto para configurar o envio em massa?`, buttons: [{ label: '📲 SUPORTE / BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  ? { text: `Precisa de suporte? A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n*2.* O APK Android opera silenciosamente como nó de transmissão.\n*3.* Sincronização imediata via QR Code.\n\nPronto para configurar a transmissão em massa?`, buttons: [{ label: '📲 SUPORTE / BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
                   : { text: `Need support? Here's how the tech works:\n\n*1.* The Nexus Engine rewrites each message so carriers see no pattern.\n*2.* The Android APK runs silently as a transmission node.\n*3.* Immediate QR Code synchronization.\n\nReady to set up mass transmission?`, buttons: [{ label: '📲 SUPPORT / DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
@@ -844,7 +844,7 @@ export default function App() {
                 return isPT ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            const fallbackPT = `Enquanto você lê isso, algum concorrente está disparando transmissões sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo estratégico?`;
+            const fallbackPT = `Enquanto você lê isso, algum concorrente está a realizar transmissões sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo estratégico?`;
             const fallbackEN = `While you read this, a competitor is running unblocked transmissions. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat's your next strategic move?`;
             return { 
               text: isPT ? fallbackPT : fallbackEN,
@@ -869,6 +869,18 @@ export default function App() {
         setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Engine Offline.` }]);
     }
     setIsChatLoading(false);
+  };
+
+  const handleChatButtonAction = (action) => {
+      setShowSmartSupport(false);
+      if(action === 'UPGRADE') {
+          setView('dashboard');
+          setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+      } else if (action === 'DASH' || action === 'TRIAL') {
+          if(user) setView('dashboard'); else { setIsLoginMode(false); setView('auth'); }
+      } else if (action === 'APK' || action === 'GUIDE') {
+          if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsLoginMode(false); setView('auth'); }
+      }
   };
 
   const maskData = (value, type) => {
@@ -978,7 +990,7 @@ export default function App() {
         .text-glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.8); }
         .pro-obscure { position: relative; overflow: hidden; border-radius: 2.5rem; }
         .pro-obscure::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-blur: 4px; pointer-events: none; z-index: 5; }
-        .pro-lock-layer { absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+        .pro-lock-layer { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
@@ -1082,7 +1094,7 @@ export default function App() {
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
@@ -1172,7 +1184,7 @@ export default function App() {
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
                   <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-3 rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
                       <Send size={14}/> DEPLOY
                     </button>
                   </form>
@@ -1566,13 +1578,13 @@ export default function App() {
                <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10"><ShoppingCart size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]"/><h3 className="text-lg sm:text-xl text-white text-glow-white font-black">NEXUS UPGRADE HUB</h3></div>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8 text-left">
                  <div className="bg-[#111] border border-white/10 p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE]/50 transition-colors">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 font-black">NEXUS VAULT ACCESS</h3>
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 font-black">NEXUS ROUTING PRO</h3>
                     <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
                     <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
                     {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
                  </div>
                  <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE] font-black">NEXUS POLYMORPHIC AGENT</h3>
+                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE] font-black">NEXUS AUTOMATION ENGINE</h3>
                     <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
                     <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
                     {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
@@ -1604,9 +1616,9 @@ export default function App() {
               <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
                 {isWelcomeTrial && !isLoginMode ? (
                    <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
-                      <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 BEM-VINDO À ELITE</h2>
+                      <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 WELCOME TO THE ELITE</h2>
                       <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case">
-                         Notámos que está pronto para escalar. Para gerar o seu protocolo seguro e libertar os seus primeiros <span className="text-white font-bold">60 envios blindados gratuitos</span>, basta criar a sua credencial abaixo. Pare de perder leads para os filtros das operadoras agora mesmo.
+                         We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 conexões Free-Trial de redirecionamentos por link inteligente seguro de 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
                       </p>
                    </div>
                 ) : (
@@ -1620,7 +1632,7 @@ export default function App() {
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'LIBERTAR OS MEUS 60 ENVIOS' : 'AUTHORIZE ACCESS')}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'UNLOCK MY 60 TRANSMISSIONS' : 'AUTHORIZE ACCESS')}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
