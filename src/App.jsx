@@ -1089,17 +1089,15 @@ export default function App() {
         }
         
         /* UNBLOCK INPUTS FOR MOBILE/DESKTOP */
-        input, textarea, select, button { 
-          -webkit-user-select: text !important; 
-          -khtml-user-select: text !important; 
-          -moz-user-select: text !important; 
-          -ms-user-select: text !important; 
-          user-select: text !important; 
+        input, textarea, select { 
+          -webkit-user-select: auto !important; 
+          -khtml-user-select: auto !important; 
+          -moz-user-select: auto !important; 
+          -ms-user-select: auto !important; 
+          user-select: auto !important; 
           -webkit-user-modify: read-write !important;
           pointer-events: auto !important;
           touch-action: manipulation !important;
-          position: relative;
-          z-index: 50;
         }
 
         /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
