@@ -317,6 +317,12 @@ export default function App() {
         } else {
             await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
         }
+        // Sync public subscriber record
+        const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
+        const pubSnap = await getDoc(pubRef);
+        if (pubSnap.exists()) {
+            await updateDoc(pubRef, updates);
+        }
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
     } catch (error) {
         console.error(error);
@@ -336,7 +342,8 @@ export default function App() {
      if(!broadcastMsg.trim()) return;
      setLoading(true);
      try {
-       await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'notifications')), {
+       const notifId = `notif_${Date.now()}`;
+       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', notifId), {
           message: broadcastMsg,
           author: "MASTER COMMAND",
           created_at: serverTimestamp()
@@ -461,7 +468,7 @@ export default function App() {
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
         
-        const sanitizedPhone = task.telefone_cliente.replace(/[^\d+]/g, ''); 
+        const sanitizedPhone = (task.telefone_cliente || '').replace(/[^\d+]/g, ''); 
         
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
         await setDoc(docRef, {
@@ -575,15 +582,57 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  // --- DATA MASKING UTILITY (PRO GATE FOR LEAD PRIVACY) ---
+  const maskData = (value, type) => {
+    if (!value) return '—';
+    if (isPro || isMaster) return String(value);
+    if (type === 'phone') {
+      const s = String(value);
+      return s.length > 4 ? s.slice(0, 3) + '****' + s.slice(-2) : '****';
+    }
+    if (type === 'name') {
+      const parts = String(value).split(' ');
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1, 2) + '*** ' + (parts[1] ? parts[1].charAt(0) + '***' : '');
+    }
+    return String(value);
+  };
+
+  // --- LEGAL CONTENT RENDERER ---
+  const renderLegalContent = () => {
+    const contents = {
+      PRIVACY: {
+        icon: FileLock2,
+        title: 'PRIVACY POLICY',
+        text: `SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL ("we", "us", or "our") collects, uses, and shares information about you when you use our services.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email address, and phone number when you create an account or use our services.\n\nHOW WE USE YOUR INFORMATION: We use the information we collect to provide, maintain, and improve our services, process transactions, and comply with legal obligations.\n\nDATA RETENTION: We retain your personal data for as long as necessary to fulfill the purposes outlined in this policy, unless a longer retention period is required by law.\n\nSECURITY: We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.\n\nCONTACT: For any privacy-related concerns, please contact our Data Protection Officer through our support channels.`
+      },
+      TERMS: {
+        icon: Scale,
+        title: 'TERMS OF USE',
+        text: `SMART SMS PRO — TERMS OF USE\n\nBy accessing or using SMART SMS PRO, you agree to be bound by these Terms of Use.\n\nACCEPTABLE USE: You agree to use the service only for lawful purposes and in accordance with these Terms. You shall not use the service to send unsolicited messages (spam), harass individuals, or engage in any fraudulent activity.\n\nZERO TOLERANCE POLICY: Any attempt to use the platform for scams, phishing, hate speech, or illegal activities will result in immediate account termination and may be reported to the appropriate authorities.\n\nINTELLECTUAL PROPERTY: The service and its original content, features, and functionality are owned by CLICKMORE DIGITAL and are protected by international copyright and trademark laws.\n\nLIMITATION OF LIABILITY: CLICKMORE DIGITAL shall not be liable for any indirect, incidental, or consequential damages resulting from your use of the service.\n\nGOVERNING LAW: These Terms shall be governed by the laws applicable in the jurisdiction where CLICKMORE DIGITAL operates.`
+      },
+      LGPD: {
+        icon: ShieldCheck,
+        title: 'LGPD PROTOCOL (Lei Geral de Proteção de Dados)',
+        text: `CONFORMIDADE COM A LGPD — LEI 13.709/2018\n\nO SMART SMS PRO opera em total conformidade com a Lei Geral de Proteção de Dados Pessoais (LGPD), Lei nº 13.709/2018.\n\nBASES LEGAIS: O tratamento de dados pessoais é realizado com base no consentimento do titular, cumprimento de obrigação legal, ou legítimo interesse da empresa, conforme art. 7º da LGPD.\n\nDIREITOS DO TITULAR: Você tem direito à confirmação da existência de tratamento, acesso aos dados, correção, anonimização, portabilidade, eliminação e informação sobre compartilhamento.\n\nENCARREGADO (DPO): Nosso Encarregado de Proteção de Dados está disponível para atender às solicitações dos titulares através dos canais de suporte oficiais.\n\nINCIDENTES: Em caso de incidentes de segurança com dados pessoais, notificaremos a ANPD e os titulares afetados dentro do prazo legal estabelecido.`
+      },
+      GDPR: {
+        icon: Globe,
+        title: 'GDPR COMPLIANCE NODE',
+        text: `GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the General Data Protection Regulation (GDPR) for all users in the European Economic Area.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, legal obligation, or legitimate interests as outlined in Article 6 of the GDPR.\n\nDATA SUBJECT RIGHTS: As a data subject, you have the right to access, rectify, erase, restrict processing, data portability, and object to processing of your personal data.\n\nINTERNATIONAL TRANSFERS: Any transfer of personal data outside the EEA is conducted using appropriate safeguards such as Standard Contractual Clauses.\n\nDATA PROTECTION OFFICER: Our DPO can be contacted through our official support channels for any GDPR-related inquiries.\n\nSUPERVISORY AUTHORITY: You have the right to lodge a complaint with your local supervisory authority if you believe we have not complied with applicable data protection laws.`
+      }
+    };
+    return contents[legalContent] || null;
+  };
+
   const handleGenerate = async () => {
     if (!user) { 
       setIsLoginMode(false); 
       setView('auth'); 
       return; 
     }
-    const to = editingLink ? editingLink.to : genTo;
-    const msg = editingLink ? editingLink.msg : genMsg;
-    const company = editingLink ? editingLink.company : (companyName || 'Verified Host');
+    const to = genTo || (editingLink ? editingLink.to : '');
+    const msg = genMsg || (editingLink ? editingLink.msg : '');
+    const company = companyName || (editingLink ? editingLink.company : 'Verified Host');
     if (!to) return alert("RECIPIENT NUMBER IS REQUIRED.");
     setLoading(true);
     const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
@@ -718,7 +767,8 @@ export default function App() {
         const p = { 
             fullName: fullNameInput, 
             nickname: nicknameInput || fullNameInput.split(' ')[0],
-            email: emailLower, 
+            email: emailLower,
+            phone: phoneInput,
             tier: 'FREE_TRIAL', 
             smsCredits: 60, 
             dailySent: 0, 
@@ -726,6 +776,7 @@ export default function App() {
         };
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
+        setUserProfile(p);
       }
       if (authUser.uid === ADMIN_MASTER_ID) {
         setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
@@ -871,14 +922,37 @@ export default function App() {
   const handleChatButtonAction = (action) => {
       setShowSmartSupport(false);
       if(action === 'UPGRADE') {
-          setView('dashboard');
-          setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+          if (user) {
+            setView('dashboard');
+            setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
+          } else {
+            setIsLoginMode(false);
+            setView('auth');
+          }
       } else if (action === 'DASH' || action === 'TRIAL') {
           if(user) setView('dashboard'); else { setIsLoginMode(false); setView('auth'); }
       } else if (action === 'APK' || action === 'GUIDE') {
           if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsLoginMode(false); setView('auth'); }
       }
   };
+
+  if (view === 'bridge') {
+    return (
+      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-6 p-6 text-center font-black italic">
+        <div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
+        <div className="space-y-3">
+          <h2 className="text-2xl text-white tracking-tighter">REDIRECTING TO GATEWAY...</h2>
+          <p className="text-[10px] text-white/40 tracking-widest">Opening your native SMS application. If it doesn't open automatically, click below.</p>
+        </div>
+        {captureData && (
+          <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-[11px] tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform">
+            OPEN SMS APP MANUALLY
+          </a>
+        )}
+        <p className="text-[8px] text-white/20 tracking-widest">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
+      </div>
+    );
+  }
 
   if (!authResolved) {
     return (
@@ -961,7 +1035,7 @@ export default function App() {
          <div className="bg-[#FE2C55] text-black w-full text-center py-2 px-4 flex items-center justify-center gap-3 z-[300] relative">
             <BellRing size={16} className="animate-bounce shrink-0"/>
             <span className="text-[10px] sm:text-xs font-black tracking-widest">{globalNotifications[0].message}</span>
-            <button onClick={() => setGlobalNotifications([])}><X size={14}/></button>
+            <button onClick={() => setGlobalNotifications(prev => prev.slice(1))}><X size={14}/></button>
          </div>
       )}
 
@@ -1568,7 +1642,7 @@ export default function App() {
                   <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2">{showPass ? <EyeOff size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Eye size={16} className="sm:w-[18px] sm:h-[18px]"/>}</button>
                   </div>
                   <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
