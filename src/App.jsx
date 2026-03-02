@@ -800,7 +800,7 @@ export default function App() {
 
     try {
         // ACTUAL GEMINI API KEY INJECTED AS REQUESTED
-        const apiKey = "AIzaSyAL79ADJKAYYCSOcjdSZXXqUlZp3n7N6_k"; 
+        const apiKey = "AIzaSyA_RYgBR_B5-v0vgyZjBfS_PCnvDY-EeqE"; 
         
         const systemPrompt = `SYSTEM INSTRUCTIONS FOR NEXUS AI SMART
 You are NEXUS AI SMART, the elite artificial intelligence, specialized Sales, and Support Agent for the SMART SMS PRO platform.
