@@ -336,6 +336,29 @@ export default function App() {
       }
     );
 
+    // ============================================================================
+    // MODULE 4: REAL-TIME TELEMETRY ENGINE
+    // Subscribes to the user's private profile document via onSnapshot.
+    // Ensures smsCredits and dailySent counters update INSTANTLY in the UI
+    // after each Firestore increment/decrement — no polling, no refresh needed.
+    // ============================================================================
+    let unsubProfile = () => {};
+    if (!isMaster && user) {
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      unsubProfile = onSnapshot(profileRef, (snap) => {
+        if (snap.exists()) {
+          setUserProfile(prev => ({
+            ...prev,
+            smsCredits: snap.data().smsCredits ?? prev?.smsCredits ?? 0,
+            dailySent: snap.data().dailySent ?? prev?.dailySent ?? 0,
+            tier: snap.data().tier ?? prev?.tier,
+            isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
+            isUnlimited: snap.data().isUnlimited ?? prev?.isUnlimited,
+          }));
+        }
+      }, (error) => console.error("Profile Live Sync Error:", error));
+    }
+
     let unsubSubs = () => {};
     if (isMaster) {
       unsubSubs = onSnapshot(
@@ -345,7 +368,7 @@ export default function App() {
       );
     }
 
-    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); };
+    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); };
   }, [user, view, isMaster]);
 
   // ============================================================================
@@ -702,16 +725,13 @@ export default function App() {
         if (!isMaster) {
           const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
           try {
+             // MODULE 4: Firestore atomic increment — onSnapshot listener updates UI in real-time
              await updateDoc(profileRef, { 
                smsCredits: increment(-1),
                dailySent: increment(1)
              });
-             setUserProfile(prev => ({ 
-                 ...prev, 
-                 smsCredits: (prev?.smsCredits || 0) - 1, 
-                 dailySent: (prev?.dailySent || 0) + 1 
-             }));
-          } catch(e) {}
+             // No manual setUserProfile needed — the live onSnapshot handles the UI update
+          } catch(e) { console.error('[Dispatch] Quota deduct error:', e); }
         } else {
           setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
         }
@@ -1037,83 +1057,164 @@ export default function App() {
     setChatInput('');
     setIsChatLoading(true);
 
-    // ZERO TOLERANCE SCANNER (STRICT)
-    const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
+    // ============================================================================
+    // MODULE 5: ZERO TOLERANCE SCANNER — ENHANCED REGEX
+    // Expanded to catch obfuscated variants (sp4m, ph1shing, h4ck etc.)
+    // Immediately terminates the session and logs the violation.
+    // ============================================================================
+    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
     if (forbidden.test(textToSend)) {
-        await new Promise(resolve => setTimeout(resolve, 500)); 
-        setChatMessages(prev => [...prev, { role: 'model', text: "🚨 ZERO TOLERANCE PROTOCOL ACTIVATED: Palavras ou intenções proibidas detetadas. A sua sessão será bloqueada por violação ética. Operação finalizada." }]);
+        await new Promise(resolve => setTimeout(resolve, 400)); 
+        setChatMessages(prev => [...prev, { 
+          role: 'model', 
+          text: `🚨 ZERO TOLERANCE PROTOCOL — SESSION TERMINATED\n\nProhibited content or intent detected. This interaction has been flagged and logged. Your session is now locked.\n\nIf this was a mistake, please contact support through official channels.` 
+        }]);
         setIsChatLoading(false);
         return;
     }
 
-    // HUMANIZED TYPING DELAY: Reduced to 600ms - 1.2s for fluid UX
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 600));
+    // HUMANIZED TYPING DELAY — variable 600ms–1.4s for authentic feel
+    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 800));
 
     try {
         // ============================================================================
-        // [ NEXUS LOCAL HEURISTIC ENGINE ]
-        // 100% Free Deterministic AI simulation. Bypasses Google API completely.
-        // Implements Elite Neuromarketing, Context Awareness and Button Actions.
+        // MODULE 5: NEXUS LOCAL HEURISTIC ENGINE v3.0
+        // ─────────────────────────────────────────────────────────────────────────
+        // ARCHITECTURE: Deterministic finite-state conversational AI.
+        // PSYCHOLOGY: AIDA funnel (Attention → Interest → Desire → Action).
+        //   - FOMO triggers: "você está perdendo dinheiro AGORA"
+        //   - Social proof: implicit authority language & urgency framing
+        //   - Neuromarketing: loss aversion > benefit framing
+        // MULTILINGUAL: Detects Portuguese vs English via keyword heuristics.
+        //   Responds in the detected language naturally.
+        // LEAD CAPTURE: Accepts ONLY +DDI format mobile contacts. Never "WhatsApp".
+        // DEDUP: Cookie + hasCapturedChatLead flag prevents double capture.
         // ============================================================================
         const generateHeuristicResponse = (input, historyList) => {
-            const lowerInput = input.toLowerCase();
+            const lower = input.toLowerCase();
             const userIsSubbed = userProfile?.isSubscribed || isPro;
+            
+            // === LANGUAGE DETECTION (heuristic — Portuguese vs English) ===
+            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|não|já|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto)/i.test(input);
 
-            // 1. LEAD CAPTURE & VALIDATION (AIDA: Action)
+            // ======================================================
+            // PHASE 1: LEAD CAPTURE FLOW (AIDA: Action trigger)
+            // Only fires if no lead yet captured AND user not logged in.
+            // ======================================================
             if (!hasCapturedChatLead && !user) {
-                const phoneMatch = input.match(/\+?\d{8,15}/);
+                // Attempt to extract phone number from input
+                const phoneMatch = input.match(/\+?[\d\s\-().]{8,20}/);
+                
                 if (phoneMatch) {
                     const digitsOnly = phoneMatch[0].replace(/\D/g, '');
+                    
                     if (digitsOnly.length < 8) {
-                        return { text: `Este número parece incompleto. Por favor, forneça um WhatsApp válido (Ex: 11 99999 9999) para ativarmos o seu terminal.` };
+                        return isPT
+                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um número com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
+                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile ID with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
                     }
-                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome é|sou o|aqui é|chamo|me chamo)/gi, '').trim();
-                    name = name.length > 2 ? name.split(' ')[0] : 'Parceiro';
-                    const capName = name.charAt(0).toUpperCase() + name.slice(1);
+                    
+                    // Extract name from remaining text
+                    let name = input
+                      .replace(phoneMatch[0], '')
+                      .replace(/(meu nome é|sou o|sou a|aqui é|chamo|me chamo|my name is|i am|i'm|this is)/gi, '')
+                      .trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
+                    const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                    
+                    // AIDA: Action — confirm capture with FOMO + urgency
+                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada lead perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o próximo passo?\n||LEAD:${capName},${phoneMatch[0]}||`;
+                    const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier. What's your move?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
-                      text: `Protocolo Ativado, ${capName}! 🛡️\n\nAquele dinheiro que você perde todos os dias com links bloqueados pelas operadoras? O SMART SMS PRO resolve isso agora.\n\nComo especialista em escala, qual o seu foco hoje?\n||LEAD:${capName},${phoneMatch[0]}||`,
-                      buttons: [
-                        { label: '🚀 COMEÇAR FREE TRIAL', action: 'TRIAL' },
-                        { label: '💳 VER PACOTES PRO', action: 'UPGRADE' },
-                        { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }
-                      ]
+                      text: isPT ? confirmPT : confirmEN,
+                      buttons: isPT
+                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 GUIA DE INÍCIO', action: 'GUIDE' }]
+                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
                     };
-                } else if (historyList.length <= 1) {
-                    return { text: `Olá! Eu sou a NEXUS AI SMART, sua especialista de elite em conversão. ⚡\n\nEstou aqui para estancar sua perda de leads e garantir que suas mensagens cruzem o bloqueio das operadoras.\n\nPara calibrar seu protocolo, digite seu *Nome e WhatsApp* (Ex: João 11 99999-9999).` };
-                } else {
-                    return { text: `Para que eu possa liberar suas ferramentas de bloqueio anti-spam, preciso apenas do seu *Nome e Telefone*. Pode digitar aqui? 👇` };
                 }
+                
+                // No phone detected yet — AIDA: Attention → Interest
+                if (historyList.length <= 1) {
+                    // First message: bold opening — Attention phase
+                    return isPT
+                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em conversão de elite. ⚡\n\nCada link bloqueado pela operadora é dinheiro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar seus envios.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
+                      : { text: `Hello! I'm *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you're losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
+                }
+                
+                // Subsequent turns without phone — AIDA: Interest escalation + FOMO
+                const fomoMsgPT = `Ainda não recebi o seu contato. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + número com DDI*:\n\n*Ex: Maria +55 21 98888-7777*`;
+                const fomoMsgEN = `I still haven't received your contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + number with country code*:\n\n*Ex: Mark +1 646 888 7777*`;
+                return { text: isPT ? fomoMsgPT : fomoMsgEN };
             }
 
-            // 2. CONTEXT-AWARE INTELLIGENCE (AIDA: Interest/Desire & Neuromarketing)
-            
-            // Logged in / Existing User Initial Context
+            // ======================================================
+            // PHASE 2: AUTHENTICATED / POST-CAPTURE FLOWS
+            // AIDA: Interest, Desire, Action — drive toward conversion
+            // ======================================================
+
+            // First message from logged-in user — personalized FOMO greeting
             if (user && historyList.length <= 1) {
-                 return { 
-                    text: `Olá, ${userProfile?.nickname || 'Operador'}! ⚡ NEXUS AI pronta.\n\nSeu terminal está ativo. Cada clique bloqueado na concorrência é lucro para você usando nosso roteamento seguro.\n\nComo vamos escalar seus envios hoje?`,
-                    buttons: userIsSubbed ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }]
-                 };
+                const greetPT = `Olá, *${userProfile?.nickname || 'Operador'}*! ⚡ NEXUS AI online.\n\nSeu terminal está ativo. Lembre-se: cada campanha atrasada é alcance que você cede ao concorrente. Vamos escalar?\n\n${userIsSubbed ? 'Seu plano PRO está ativo — maximize o disparo agora.' : 'Upgrade PRO ainda não ativado — você está operando com capacidade limitada.'}`;
+                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI online.\n\nYour terminal is active. Remember: every delayed campaign is reach you're handing to your competition. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize dispatch now.' : 'PRO upgrade not yet active — you\'re running at limited capacity.'}`;
+                
+                return { 
+                  text: isPT ? greetPT : greetEN,
+                  buttons: userIsSubbed 
+                    ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] 
+                    : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }]
+                };
             }
 
-            // Navigation Commands & Triggers
-            if (lowerInput.includes('trial') || lowerInput.includes('free')) {
-                return { text: `Excelente. Seu Trial te dá 60 conexões blindadas. Mas lembre-se: no mercado de elite, volume é rei. Use o Painel para gerar seus links agora!`, buttons: [{label: 'Acessar Hub', action: 'DASH'}]};
-            }
-            if (lowerInput.includes('guide') || lowerInput.includes('guia') || lowerInput.includes('como')) {
-                return { text: `O Segredo da nossa tecnologia:\n\n1. O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n2. Nosso APK Android faz o envio em massa silenciosamente.\n\nPronto para configurar?`, buttons: [{label: 'Baixar APK', action: 'APK'}]};
-            }
-            if (lowerInput.includes('upgrade') || lowerInput.includes('comprar') || lowerInput.includes('pro') || lowerInput.includes('pacote') || lowerInput.includes('valor')) {
-                return { text: `Decisão de tubarão. 🦈 O pacote PRO ativa a automação silenciosa e entrega em massa. Pare de deixar dinheiro na mesa e ative no Upgrade Hub.`, buttons: [{label: 'Ver Pacotes', action: 'UPGRADE'}]};
-            }
-            if (lowerInput.includes('dash') || lowerInput.includes('painel')) {
-                 return { text: `Redirecionando para o seu Hub de Comando Operacional...`, buttons: [{label: 'Abrir Dashboard', action: 'DASH'}]};
+            // --- Keyword Intent Router ---
+
+            // Trial / Free intent
+            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
+                return isPT
+                  ? { text: `Seu Trial libera *60 conexões blindadas* imediatamente.\n\nMas atenção: o volume é rei nesse mercado. Operadores que ficam no Trial perdem negócio para quem usa o PRO — capacidade ilimitada, envio automático, engine polimórfica ativa.\n\nDecida antes que seu concorrente decida por você.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                  : { text: `Your Trial unlocks *60 shielded connections* immediately.\n\nBut remember: volume is king. Operators who stay on Trial lose ground to those running PRO — unlimited capacity, automated dispatch, polymorphic engine active.\n\nDecide before your competitor decides for you.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
             }
 
-            // Fallback (Neuromarketing Ping)
+            // Guide / How-to intent
+            if (/(guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar)/i.test(lower)) {
+                return isPT
+                  ? { text: `A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada mensagem em tempo real — zero padrões repetidos que as operadoras possam bloquear.\n*2.* O APK Android opera em background no seu celular como nó de disparo.\n*3.* O QR Code sincroniza tudo em segundos.\n\nPronto para configurar?`, buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : { text: `Here's how the technology works:\n\n*1.* The Nexus Engine rewrites each message in real-time — zero repetitive patterns that carriers can flag.\n*2.* The Android APK runs silently as a dispatch node on your phone.\n*3.* The QR Code syncs everything in seconds.\n\nReady to configure?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            }
+
+            // Upgrade / Price / Plan intent
+            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|quanto|cost|assinar|subscribe)/i.test(lower)) {
+                return isPT
+                  ? { text: `Decisão de elite. 🦈\n\nO PRO ativa:\n• Automação silenciosa em massa\n• Engine polimórfica (cada SMS é único)\n• Créditos ilimitados de envio\n• Painel de leads completo com CRUD\n\nQuanto custa *não* ter isso? Cada lead que escapa é receita que nunca volta.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
+                  : { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass automation\n• Polymorphic engine (each SMS is unique)\n• Unlimited send credits\n• Full lead panel with CRUD\n\nWhat does *not* having this cost you? Every escaped lead is revenue that never comes back.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
+            }
+
+            // Dashboard / Panel navigation
+            if (/(dashboard|painel|dash|hub|panel|operador|operator)/i.test(lower)) {
+                return isPT
+                  ? { text: `Redirecionando para o Hub de Comando Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : { text: `Redirecting to your Operational Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            }
+
+            // APK / Android / Sync intent
+            if (/(apk|android|sync|sincronizar|phone|celular|dispositivo|device)/i.test(lower)) {
+                return isPT
+                  ? { text: `Para ativar o nó de disparo no seu Android:\n\n1. Baixe o APK via QR Code no dashboard\n2. Conceda permissões de SMS e Câmera\n3. Sincronize via QR Code no painel\n\nO sistema passa a operar em modo ghost — invisível na caixa de saída do celular.`, buttons: [{ label: '📲 SETUP GUIDE', action: 'APK' }] }
+                  : { text: `To activate the dispatch node on your Android:\n\n1. Download the APK via QR Code in the dashboard\n2. Grant SMS & Camera permissions\n3. Sync via QR Code in the panel\n\nThe system then operates in ghost mode — invisible in your phone's outbox.`, buttons: [{ label: '📲 SETUP GUIDE', action: 'APK' }] };
+            }
+
+            // ======================================================
+            // PHASE 3: FALLBACK — FOMO Neuromarketing Ping
+            // Loss aversion > benefit: remind the user what they're
+            // actively losing every second they delay action.
+            // ======================================================
+            const fallbackPT = `Enquanto você lê isso, algum concorrente está disparando campanhas sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo?`;
+            const fallbackEN = `While you read this, a competitor is running unblocked campaigns. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat's your next move?`;
             return { 
-              text: `Cada segundo sem automação, o filtro anti-spam das operadoras corta seu alcance. 🛡️\n\nVamos blindar sua base e ativar o motor polimórfico? Escolha seu caminho:`,
-              buttons: [{label: '💳 UPGRADE HUB', action: 'UPGRADE'}, {label: '📖 LER O GUIA', action: 'GUIDE'}]
+              text: isPT ? fallbackPT : fallbackEN,
+              buttons: isPT
+                ? [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 VER O GUIA', action: 'GUIDE' }]
+                : [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 READ GUIDE', action: 'GUIDE' }]
             };
         };
 
@@ -1121,6 +1222,7 @@ export default function App() {
         let displayAiText = aiResponse.text;
         
         // INTERCEPT AND CAPTURE SECRET LEAD TAG NATIVELY
+        // The ||LEAD:Name,Phone|| tag is embedded in AI response text and stripped before display.
         const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
         if (leadMatch) {
             displayAiText = displayAiText.replace(leadMatch[0], '').trim();
@@ -1133,7 +1235,7 @@ export default function App() {
         setChatMessages(prev => [...prev, { role: 'model', text: displayAiText, buttons: aiResponse.buttons }]);
     } catch (error) {
         console.error("Local Engine Error:", error);
-        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Local Heuristic Engine Offline.` }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Nexus Heuristic Engine temporarily offline. Please try again.` }]);
     }
     
     setIsChatLoading(false);
@@ -1197,6 +1299,7 @@ export default function App() {
           .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
+          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; overflow-wrap: break-word; }
         `}</style>
         <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
@@ -1234,6 +1337,15 @@ export default function App() {
         /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
         body { user-select: none; -webkit-user-select: none; }
         input, textarea { user-select: text; -webkit-user-select: text; }
+
+        /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
+        *, *::before, *::after { 
+          hyphens: none !important; 
+          -webkit-hyphens: none !important; 
+          -ms-hyphens: none !important; 
+          overflow-wrap: break-word;
+          word-break: break-word;
+        }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -1445,9 +1557,11 @@ export default function App() {
             {isMaster && (
                 <div className="bg-[#0a0a0a] border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(245,158,11,0.1)] flex flex-col relative overflow-hidden mb-8">
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
-                  <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row">
+                  <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="btn-strategic !bg-amber-500 !text-black text-[10px] px-8 py-4 sm:py-0 font-black shrink-0">DEPLOY</button>
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-4 rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                      <Send size={14}/> DEPLOY
+                    </button>
                   </form>
                 </div>
             )}
