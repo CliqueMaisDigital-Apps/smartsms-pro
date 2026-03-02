@@ -51,8 +51,8 @@ const db = getFirestore(firebaseApp);
 // --- MASTER ADMIN ACCESS ---
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
-// --- ZERO TOLERANCE GLOBAL REGEX (ENHANCED COGNITION) ---
-const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgraçado|desgracado|miseravel|miserável)/i;
+// --- ZERO TOLERANCE GLOBAL REGEX (ULTRA ENHANCED COGNITION) ---
+const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgraçado|desgracado|miseravel|miserável|safado|lixo|trouxa)/i;
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
@@ -200,7 +200,7 @@ export default function App() {
        }
     };
     const handlePreventCopy = (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') e.preventDefault();
     };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('copy', handlePreventCopy);
@@ -773,45 +773,59 @@ export default function App() {
         const generateHeuristicResponse = (input, historyList) => {
             const lower = input.toLowerCase();
             const userIsSubbed = userProfile?.isSubscribed || isPro;
-            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|n[ãa]o|j[áa]|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(input) || /[áàãâéêíóôõúç]/i.test(input);
-
+            
+            // Language Detection Heuristics
+            const isES = /(hola|gracias|quiero|necesito|como|cuanto|ahora|mi|nuestro|todo|bien|día|tarde|noche|funciona|ayuda|tengo|hacer|enviar|mensaje|cliente|vender|campaña|producto|soporte)/i.test(lower);
+            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|n[ãa]o|j[áa]|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(lower) || /[áàãâéêíóôõúç]/i.test(lower);
+            
             // LEAD CAPTURE FLOW (AIDA: Action trigger)
             if (!hasCapturedChatLead && !user) {
                 const phoneMatch = input.match(/\+?[\d\s\-().]{8,20}/);
                 if (phoneMatch) {
                     const digitsOnly = phoneMatch[0].replace(/\D/g, '');
                     if (digitsOnly.length < 8) {
-                        return isPT
-                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
-                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
+                        return isES 
+                          ? { text: `Ese número parece incompleto. 🔴\n\nNecesito un Contacto Móvil válido con código de país — Formato: *+34 999 999 999*\n\nPor favor, introdúzcalo de nuevo para desbloquear su acceso.` }
+                          : (isPT
+                            ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
+                            : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` });
                     }
-                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome [ée]|sou o|sou a|aqui [ée]|chamo|me chamo|my name is|i am|i'm|this is)/gi, '').trim();
-                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
+                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome [ée]|sou o|sou a|aqui [ée]|chamo|me chamo|my name is|i am|i'm|this is|mi nombre es|soy)/gi, '').trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : (isES ? 'Socio' : 'Operator'));
                     const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     
                     const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
+                    const confirmES = `¡Protocolo Activado, ${capName}! ⚡\n\nMientras usted duda, sus mensajes están siendo bloqueados por los operadores — y cada clic perdido es dinero que va directamente a su competidor.\n\nSMART SMS PRO elimina ese filtro ahora mismo. ¿Cuál es su enfoque inmediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
-                      text: isPT ? confirmPT : confirmEN,
-                      buttons: isPT
-                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
-                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
+                      text: isES ? confirmES : (isPT ? confirmPT : confirmEN),
+                      buttons: isES 
+                        ? [{ label: '🚀 PRUEBA GRATIS', action: 'TRIAL' }, { label: '💳 VER PLANES PRO', action: 'UPGRADE' }, { label: '📖 GUÍA RÁPIDA', action: 'GUIDE' }]
+                        : (isPT
+                          ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
+                          : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }])
                     };
                 }
                 
                 if (historyList.length <= 1) {
-                    return isPT
-                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
-                      : { text: `Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
+                    return isES 
+                      ? { text: `¡Hola! Soy *NEXUS AI SMART*, su especialista en conversión de élite. ⚡\n\nCada enlace bloqueado por el operador es dinero que pierde ahora mismo — en tiempo real. Nuestra plataforma fue creada para destruir esa barrera y escalar sus envíos.\n\nPara calibrar su protocolo, necesito su *nombre y contacto móvil* en este formato:\n\n*Nombre +CódigoPaís Número*\n(Ej: Juan +34 600 000 000)` }
+                      : (isPT
+                        ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
+                        : { text: `Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` });
                 }
-                return { text: isPT ? `Ainda não recebi o seu contato móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + contato móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*` : `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
+                return isES 
+                  ? { text: `Aún no he recibido su contacto móvil. ⏳\n\nCada minuto sin este acceso es tiempo que su competencia aprovecha. Para desbloquear el terminal, solo necesito su *nombre + contacto móvil (con código de país)*:\n\n*Ej: Maria +34 600 111 222*` }
+                  : (isPT 
+                    ? { text: `Ainda não recebi o seu contato móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + contato móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*` }
+                    : { text: `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` });
             }
 
             // SUPPORT & NAVIGATION
             
             // 1. Greetings / Small talk
-            if (/^(oi|ol[áa]|hey|hello|hi|bom dia|boa tarde|boa noite|tudo bem|what's up|greetings)$/i.test(lower)) {
+            if (/^(oi|ol[áa]|hey|hello|hi|hola|bom dia|boa tarde|boa noite|buenos dias|buenas tardes|tudo bem|what's up|greetings)$/i.test(lower)) {
                 const greetingsPT = [
                   `Olá, ${userProfile?.nickname || 'Operador'}! ⚡ NEXUS AI 100% operacional. O que vamos escalar hoje?`,
                   `Tudo excelente por aqui! Sistemas blindados e prontos. Como posso otimizar a sua conversão hoje?`,
@@ -822,34 +836,50 @@ export default function App() {
                   `All systems go! Fully shielded and ready. How can I optimize your conversions today?`,
                   `Welcome back to the frontline. Need to fine-tune a campaign or check the setup guide?`
                 ];
-                const r = isPT ? greetingsPT[Math.floor(Math.random()*greetingsPT.length)] : greetingsEN[Math.floor(Math.random()*greetingsEN.length)];
-                return { text: r, buttons: [{ label: isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD', action: 'DASH' }] };
+                const greetingsES = [
+                  `¡Hola, ${userProfile?.nickname || 'Socio'}! ⚡ NEXUS AI 100% operacional. ¿Qué vamos a escalar hoy?`,
+                  `¡Todo excelente por aquí! Sistemas blindados y listos. ¿Cómo puedo optimizar su conversión hoy?`
+                ];
+                const arr = isES ? greetingsES : (isPT ? greetingsPT : greetingsEN);
+                const r = arr[Math.floor(Math.random()*arr.length)];
+                const btnLabel = isES ? '📡 ABRIR DASHBOARD' : (isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD');
+                return { text: r, buttons: [{ label: btnLabel, action: 'DASH' }] };
             }
 
             // 2. Support / Doubts
-            if (/(suporte|support|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help|erro|error|bug|não funciona|doesn't work)/i.test(lower)) {
-                return isPT
-                  ? { text: `Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O APK Android atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?`, buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : { text: `I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Android APK acts as a silent dispatch node.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            if (/(suporte|support|soporte|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help|ayuda|erro|error|bug|não funciona|doesn't work|no funciona)/i.test(lower)) {
+                return isES
+                  ? { text: `Estoy aquí para ayudarle con cualquier desafío técnico. 🛠️\n\nNuestra tecnología se basa en 3 pilares:\n*1.* El Nexus Engine mezcla el mensaje para engañar al filtro del operador.\n*2.* El APK de Android actúa como un nodo de disparo silencioso.\n*3.* La sincronización se realiza a través de un código QR en su Hub.\n\n¿En cuál de estos pasos necesita apoyo?`, buttons: [{ label: '📲 DESCARGAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : (isPT
+                    ? { text: `Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O APK Android atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?`, buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                    : { text: `I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Android APK acts as a silent dispatch node.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
             }
 
             // 3. Pricing / Upgrades
-            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
-                return isPT
-                  ? { text: `Decisão de elite. 🦈\n\nO plano PRO liberta todo o poder do sistema:\n• Transmissão silenciosa e massiva\n• Engine de embaralhamento inteligente\n• Painel avançado de leads\n\nDeixar de converter um lead custa muito mais que o nosso pacote mais avançado.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
-                  : { text: `Elite decision. 🦈\n\nPRO unlocks the system's full power:\n• Silent and massive transmission\n• Smart shuffle engine\n• Advanced lead panel\n\nLosing a single lead costs way more than our most advanced pack.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
+            if (/(upgrade|comprar|buy|compro|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
+                return isES
+                  ? { text: `Decisión de élite. 🦈\n\nEl plan PRO libera todo el poder del sistema:\n• Transmisión masiva y silenciosa\n• Motor inteligente Nexus\n• Panel avanzado de leads\n\nDejar de convertir un lead cuesta mucho más que nuestro paquete más avanzado.`, buttons: [{ label: '💳 VER PLANES', action: 'UPGRADE' }] }
+                  : (isPT
+                    ? { text: `Decisão de elite. 🦈\n\nO plano PRO liberta todo o poder do sistema:\n• Transmissão silenciosa e massiva\n• Engine de embaralhamento inteligente\n• Painel avançado de leads\n\nDeixar de converter um lead custa muito mais que o nosso pacote mais avançado.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
+                    : { text: `Elite decision. 🦈\n\nPRO unlocks the system's full power:\n• Silent and massive transmission\n• Smart shuffle engine\n• Advanced lead panel\n\nLosing a single lead costs way more than our most advanced pack.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] });
             }
 
             // 4. Trial info
-            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
-                return isPT
-                  ? { text: `O seu Trial assegura 🎁 60 conexões de redirecionamentos por link inteligente seguro.\n\nNo entanto, os maiores operadores escalam sem limites usando o Nexus Automation Engine ativo no plano PRO. Use o seu Trial para validar, e o PRO para faturar.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                  : { text: `Your Trial ensures 🎁 60 connections of secure smart link redirects.\n\nHowever, top operators scale limitlessly using the Nexus Automation Engine active on PRO. Use the Trial to validate, and PRO to profit.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
+            if (/(trial|free|gratis|gratuito|teste|prueba|experimentar|começar|start)/i.test(lower)) {
+                return isES
+                  ? { text: `Su Trial asegura 🎁 60 conexiones de redireccionamientos por enlace seguro.\n\nSin embargo, los operadores más grandes escalan sin límites usando el Nexus Automation Engine activo en el plan PRO. Use su Trial para validar, y el PRO para facturar.`, buttons: [{ label: '🚀 ACCEDER AL HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                  : (isPT
+                    ? { text: `O seu Trial assegura 🎁 60 conexões de redirecionamentos por link inteligente seguro.\n\nNo entanto, os maiores operadores escalam sem limites usando o Nexus Automation Engine ativo no plano PRO. Use o seu Trial para validar, e o PRO para faturar.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                    : { text: `Your Trial ensures 🎁 60 connections of secure smart link redirects.\n\nHowever, top operators scale limitlessly using the Nexus Automation Engine active on PRO. Use the Trial to validate, and PRO to profit.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] });
             }
 
             // Dashboard / Panel navigation
             if (/(dashboard|painel|dash|hub|panel|operador|operator)/i.test(lower)) {
-                return isPT ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+                return isES 
+                  ? { text: `Redirigiendo a su Hub de Comando Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : (isPT 
+                    ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } 
+                    : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
             }
 
             // 5. Intelligent Fallback (Contextual)
@@ -863,11 +893,19 @@ export default function App() {
               `Excellent observation.\n\nWhile we chat, your technical advantage over the competition is active. To keep our focus on conversions, how would you like to proceed?`,
               `I am processing that information.\n\nRemember that the Nexus Engine is ready to shuffle your payload and maximize your ROI. Shall we head to the Operational Hub?`
             ];
+            const fallbacksES = [
+              `Interesante. Entiendo su punto.\n\nNuestra prioridad es asegurar que sus transmisiones crucen los filtros de los operadores. ¿Desea ajustar su panel de envío o revisar las guías?`,
+              `Excelente observación.\n\nMientras charlamos, su ventaja técnica sobre la competencia está activa. Para mantener el enfoque en la conversión, ¿cómo prefiere avanzar ahora?`
+            ];
 
-            const f = isPT ? fallbacksPT[Math.floor(Math.random()*fallbacksPT.length)] : fallbacksEN[Math.floor(Math.random()*fallbacksEN.length)];
+            const fArr = isES ? fallbacksES : (isPT ? fallbacksPT : fallbacksEN);
+            const f = fArr[Math.floor(Math.random()*fArr.length)];
+            const btnLabelDash = isES ? '📡 ABRIR DASHBOARD' : (isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD');
+            const btnLabelGuide = isES ? '📖 SOPORTE TÉCNICO' : (isPT ? '📖 SUPORTE TÉCNICO' : '📖 TECHNICAL SUPPORT');
+
             return { 
               text: f,
-              buttons: isPT ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }, { label: '📖 SUPORTE TÉCNICO', action: 'GUIDE' }] : [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
+              buttons: [{ label: btnLabelDash, action: 'DASH' }, { label: btnLabelGuide, action: 'GUIDE' }]
             };
         };
 
@@ -906,20 +944,6 @@ export default function App() {
       } else if (action === 'APK' || action === 'GUIDE') {
           if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth'); }
       }
-  };
-
-  const maskData = (value, type) => {
-    if (!value) return '—';
-    if (isPro || isMaster) return String(value);
-    if (type === 'phone') {
-      const s = String(value);
-      return s.length > 4 ? s.slice(0, 3) + '****' + s.slice(-2) : '****';
-    }
-    if (type === 'name') {
-      const parts = String(value).split(' ');
-      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1, 2) + '*** ' + (parts[1] ? parts[1].charAt(0) + '***' : '');
-    }
-    return String(value);
   };
 
   const renderLegalContent = () => {
@@ -1003,11 +1027,15 @@ export default function App() {
       <style>{`
         /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
         body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-        input, textarea, select { 
-          user-select: text !important; 
-          -webkit-user-select: text !important; 
+        
+        /* UNBLOCK INPUTS FOR MOBILE */
+        input, textarea, select, button { 
+          user-select: auto !important; 
+          -webkit-user-select: auto !important; 
           pointer-events: auto !important;
           touch-action: manipulation !important;
+          position: relative;
+          z-index: 50;
         }
 
         /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
@@ -1303,12 +1331,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* DASHBOARD DE REGISTROS */}
+              {/* DASHBOARD DE REGISTROS (CRM MASTER ADMIN / OPERATOR VIEW) */}
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
                  <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
                        {isMaster ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
-                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">{isMaster ? 'HIERARCHICAL NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">{isMaster ? 'PREMIUM CRM & NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
@@ -1319,7 +1347,7 @@ export default function App() {
                          <tr>
                            <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">SUBSCRIBER ALIAS (NICKNAME)</th>
                            <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center font-black">CAPTURED LEADS</th>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">MASTER ACTIONS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">MASTER FOLDER STATUS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
@@ -1339,8 +1367,7 @@ export default function App() {
                                        <span className={`bg-white/5 px-4 py-1.5 rounded-lg border border-white/10 ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500 border-amber-500/30' : ''}`}>{sub.leads.length} BASE</span>
                                    </td>
                                    <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
-                                      <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')} className="bg-[#25F4EE]/20 hover:bg-[#25F4EE]/40 text-[#25F4EE] px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-[#25F4EE]/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Gift size={12} className="sm:w-3.5 sm:h-3.5"/> $9</button>
-                                      <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Rocket size={12} className="sm:w-3.5 sm:h-3.5"/> $19.90</button>
+                                      <span className="text-[9px] sm:text-[10px] text-white/30 font-black tracking-widest">{expandedAdminRow === sub.id ? 'CLOSING VIEW' : 'EXPAND BASE VIEW'}</span>
                                    </td>
                                 </tr>
                                 {expandedAdminRow === sub.id && (
@@ -1354,7 +1381,7 @@ export default function App() {
                                                                <th className="pb-3 px-4 font-black">TARGET NUMBER</th>
                                                                <th className="pb-3 px-4 font-black">IDENTITY</th>
                                                                <th className="pb-3 px-4 font-black">FOLDER</th>
-                                                               <th className="pb-3 px-4 text-right font-black">ACTIONS</th>
+                                                               <th className="pb-3 px-4 text-right font-black">ACTIONS (CRM)</th>
                                                            </tr>
                                                        </thead>
                                                        <tbody className="divide-y divide-white/5">
@@ -1376,8 +1403,12 @@ export default function App() {
                                                                  </td>
                                                                  <td className="py-3 px-4 text-xs text-right">
                                                                     <div className="flex items-center justify-end gap-2">
-                                                                      <button onClick={(e)=>{e.stopPropagation(); setEditLeadModal({id: l.id, nome_cliente: l.nome_cliente, telefone_cliente: l.telefone_cliente, folderId: l.folderId || 'MANUAL'})}} className="text-white/30 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"><Edit size={13}/></button>
-                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminDeleteLead(l.id)}} className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-all"><Trash size={13}/></button>
+                                                                      {/* MIMOS INJECTED IN LEAD CRM ACTION ROW */}
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:bg-[#25F4EE]/20 p-1.5 rounded-md transition-all border border-transparent hover:border-[#25F4EE]/30"><Gift size={13}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:bg-amber-500/20 p-1.5 rounded-md transition-all border border-transparent hover:border-amber-500/30"><Rocket size={13}/></button>
+                                                                      <div className="w-px h-3 bg-white/20 mx-1"></div>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); setEditLeadModal({id: l.id, nome_cliente: l.nome_cliente, telefone_cliente: l.telefone_cliente, folderId: l.folderId || 'MANUAL'})}} title="Edit Lead Data" className="text-white/30 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"><Edit size={13}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminDeleteLead(l.id)}} title="Purge Lead" className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-all"><Trash size={13}/></button>
                                                                     </div>
                                                                  </td>
                                                               </tr>
