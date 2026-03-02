@@ -51,8 +51,8 @@ const db = getFirestore(firebaseApp);
 // --- MASTER ADMIN ACCESS ---
 const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 
-// --- ZERO TOLERANCE GLOBAL REGEX ---
-const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
+// --- ZERO TOLERANCE GLOBAL REGEX (ENHANCED COGNITION) ---
+const FORBIDDEN_WORDS_REGEX = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt)/i;
 
 // --- FAQ COMPONENT ---
 function FAQItem({ q, a }) {
@@ -595,7 +595,6 @@ export default function App() {
 
   const handleGenerate = async () => {
     if (!user) { 
-      // Seamlessly switch to Auth view to enforce Free Trial sign-up as a gift
       setIsWelcomeTrial(true);
       setIsLoginMode(false); 
       setView('auth'); 
@@ -767,13 +766,14 @@ export default function App() {
     setChatInput('');
     setIsChatLoading(true);
 
-    // HUMANIZED TYPING DELAY: Reduced to 600ms - 1.2s for fluid UX
+    // HUMANIZED TYPING DELAY: Reduced to 600ms - 1.4s for fluid UX
     await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 800));
 
     try {
         const generateHeuristicResponse = (input, historyList) => {
             const lower = input.toLowerCase();
             const userIsSubbed = userProfile?.isSubscribed || isPro;
+            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|n[ãa]o|j[áa]|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(input) || /[áàãâéêíóôõúç]/i.test(input);
 
             // LEAD CAPTURE FLOW (AIDA: Action trigger)
             if (!hasCapturedChatLead && !user) {
@@ -781,52 +781,93 @@ export default function App() {
                 if (phoneMatch) {
                     const digitsOnly = phoneMatch[0].replace(/\D/g, '');
                     if (digitsOnly.length < 8) {
-                        return { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
+                        return isPT
+                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
+                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
                     }
-                    let name = input.replace(phoneMatch[0], '').replace(/(my name is|i am|i'm|this is)/gi, '').trim();
-                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : 'Operator';
+                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome [ée]|sou o|sou a|aqui [ée]|chamo|me chamo|my name is|i am|i'm|this is)/gi, '').trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
                     const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     
+                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
-                      text: confirmEN,
-                      buttons: [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
+                      text: isPT ? confirmPT : confirmEN,
+                      buttons: isPT
+                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
+                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
                     };
                 }
                 
                 if (historyList.length <= 1) {
-                    return { text: `Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
+                    return isPT
+                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
+                      : { text: `Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
                 }
-                return { text: `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
+                return { text: isPT ? `Ainda não recebi o seu contato móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + contato móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*` : `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
             }
 
             // SUPPORT & NAVIGATION
-            if (user && historyList.length <= 1) {
-                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI online.\n\nYour terminal is active. Remember: every delayed campaign is reach you're handing to your competition. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize dispatch now.' : 'PRO upgrade not yet active — you are running at limited capacity.'}`;
-                return { text: greetEN, buttons: userIsSubbed ? [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '📖 SETUP GUIDE', action: 'GUIDE' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 SETUP GUIDE', action: 'GUIDE' }] };
+            
+            // 1. Greetings / Small talk
+            if (/^(oi|ol[áa]|hey|hello|hi|bom dia|boa tarde|boa noite|tudo bem|what's up|greetings)$/i.test(lower)) {
+                const greetingsPT = [
+                  `Olá, ${userProfile?.nickname || 'Operador'}! ⚡ NEXUS AI 100% operacional. O que vamos escalar hoje?`,
+                  `Tudo excelente por aqui! Sistemas blindados e prontos. Como posso otimizar a sua conversão hoje?`,
+                  `Bem-vindo de volta à linha da frente. Precisa de afinar alguma campanha ou quer rever o guia de instalação?`
+                ];
+                const greetingsEN = [
+                  `Hey, ${userProfile?.nickname || 'Operator'}! ⚡ NEXUS AI 100% operational. What are we scaling today?`,
+                  `All systems go! Fully shielded and ready. How can I optimize your conversions today?`,
+                  `Welcome back to the frontline. Need to fine-tune a campaign or check the setup guide?`
+                ];
+                const r = isPT ? greetingsPT[Math.floor(Math.random()*greetingsPT.length)] : greetingsEN[Math.floor(Math.random()*greetingsEN.length)];
+                return { text: r, buttons: [{ label: isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            if (/(trial|free|test|start)/i.test(lower)) {
-                return { text: `We offer 🎁 60 Free-Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'.\n\nBut remember: elite operators scale with PRO (Nexus Automation Engine active). Stop leaving money on the table.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
+            // 2. Support / Doubts
+            if (/(suporte|support|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help|erro|error|bug|não funciona|doesn't work)/i.test(lower)) {
+                return isPT
+                  ? { text: `Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O APK Android atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?`, buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : { text: `I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Android APK acts as a silent dispatch node.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            if (/(support|guide|how|tutorial|install|apk|download|setup|help)/i.test(lower)) {
-                return { text: `Need support? Here is how the tech works:\n\n*1.* The Nexus Engine rewrites each message in real-time — zero repetitive patterns that carriers can flag.\n*2.* The Android APK runs silently as a dispatch node on your phone.\n*3.* Immediate QR Code synchronization.\n\nReady to set up mass transmission?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            // 3. Pricing / Upgrades
+            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
+                return isPT
+                  ? { text: `Decisão de elite. 🦈\n\nO plano PRO liberta todo o poder do sistema:\n• Transmissão silenciosa e massiva\n• Engine de embaralhamento inteligente\n• Painel avançado de leads\n\nDeixar de converter um lead custa muito mais que o nosso pacote mais avançado.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
+                  : { text: `Elite decision. 🦈\n\nPRO unlocks the system's full power:\n• Silent and massive transmission\n• Smart shuffle engine\n• Advanced lead panel\n\nLosing a single lead costs way more than our most advanced pack.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
             }
 
-            if (/(upgrade|buy|pro|plan|pack|price|cost|subscribe)/i.test(lower)) {
-                return { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass transmission\n• Smart shuffle engine (each SMS is unique)\n• Unlimited transmission credits\n• Full lead panel with Folder Selection\n\nWhat does *not* having this cost you? Every escaped lead is revenue lost.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
+            // 4. Trial info
+            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
+                return isPT
+                  ? { text: `O seu Trial assegura 🎁 60 conexões de redirecionamentos por link inteligente seguro.\n\nNo entanto, os maiores operadores escalam sem limites usando o Nexus Automation Engine ativo no plano PRO. Use o seu Trial para validar, e o PRO para faturar.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                  : { text: `Your Trial ensures 🎁 60 connections of secure smart link redirects.\n\nHowever, top operators scale limitlessly using the Nexus Automation Engine active on PRO. Use the Trial to validate, and PRO to profit.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
             }
 
-            if (/(dashboard|dash|hub|panel|operator)/i.test(lower)) {
-                return { text: `Redirecting to your Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            // Dashboard / Panel navigation
+            if (/(dashboard|painel|dash|hub|panel|operador|operator)/i.test(lower)) {
+                return isPT ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            const fallbackEN = `While you read this, a competitor is running unblocked transmissions. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat is your next move?`;
+            // 5. Intelligent Fallback (Contextual)
+            const fallbacksPT = [
+              `Interessante. Compreendo o seu ponto.\n\nA nossa prioridade é garantir que as suas transmissões cruzam os filtros das operadoras. Quer afinar o seu painel de envio ou dar uma vista de olhos nos guias?`,
+              `Excelente observação.\n\nEnquanto conversamos, a sua vantagem técnica sobre a concorrência está ativa. Para mantermos o foco na conversão, como prefere avançar agora?`,
+              `Estou a processar essa informação.\n\nLembre-se que o Nexus Engine está pronto para embaralhar a sua carga útil e maximizar o seu ROI. Vamos ao Hub Operacional?`
+            ];
+            const fallbacksEN = [
+              `Interesting. I understand your point.\n\nOur priority is ensuring your transmissions bypass carrier filters. Want to fine-tune your dispatch panel or check the guides?`,
+              `Excellent observation.\n\nWhile we chat, your technical advantage over the competition is active. To keep our focus on conversions, how would you like to proceed?`,
+              `I am processing that information.\n\nRemember that the Nexus Engine is ready to shuffle your payload and maximize your ROI. Shall we head to the Operational Hub?`
+            ];
+
+            const f = isPT ? fallbacksPT[Math.floor(Math.random()*fallbacksPT.length)] : fallbacksEN[Math.floor(Math.random()*fallbacksEN.length)];
             return { 
-              text: fallbackEN,
-              buttons: [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
+              text: f,
+              buttons: isPT ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }, { label: '📖 SUPORTE TÉCNICO', action: 'GUIDE' }] : [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
             };
         };
 
@@ -961,8 +1002,13 @@ export default function App() {
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
         /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
-        body { user-select: none; -webkit-user-select: none; }
-        input, textarea { user-select: text; -webkit-user-select: text; }
+        body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        input, textarea, select { 
+          user-select: text !important; 
+          -webkit-user-select: text !important; 
+          pointer-events: auto !important;
+          touch-action: manipulation !important;
+        }
 
         /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
         *, *::before, *::after { 
@@ -970,7 +1016,10 @@ export default function App() {
           -webkit-hyphens: none !important; 
           -ms-hyphens: none !important; 
           word-break: normal !important;
-          overflow-wrap: break-word !important;
+          overflow-wrap: normal !important;
+        }
+        p, span, h1, h2, h3, h4, h5, h6, div {
+          text-wrap: pretty;
         }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
@@ -1893,7 +1942,7 @@ export default function App() {
                         ref={i === chatMessages.length - 1 ? latestMessageRef : null}
                         className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
                       >
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-left' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-left'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-line text-pretty shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-left' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-left'}`}>
                             {msg.text}
                          </div>
                          {/* Action Buttons Render */}
