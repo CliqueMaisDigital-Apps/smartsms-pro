@@ -133,7 +133,7 @@ export default function App() {
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
   const chatEndRef = useRef(null);
   
-  // Ref para ancorar a visão na mensagem mais recente
+  // Ref para ancorar a visão na mensagem mais recente (UX Fix)
   const latestMessageRef = useRef(null);
 
   const fileInputRef = useRef(null);
@@ -754,26 +754,23 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- EXPONENTIAL BACKOFF FETCH UTILITY (ENHANCED ERROR DIAGNOSTICS) ---
+  // --- EXPONENTIAL BACKOFF FETCH UTILITY (KEPT FOR FALLBACK/SAFETY) ---
   const fetchWithBackoff = async (url, options, retries = 3) => {
     let delay = 500;
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url, options);
         if (!response.ok) {
-           // Capture actual Google API Error for debugging
            const errorData = await response.json().catch(() => ({}));
            const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
-           
            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-               console.error(`Gemini Fast-Fail: ${response.status} Client Error - ${errorMsg}`);
+               console.error(`Fast-Fail: ${response.status} Client Error - ${errorMsg}`);
                throw new Error(`API ERROR ${response.status}: ${errorMsg}`);
            }
            throw new Error(`Server Error: ${errorMsg}`);
         }
         return await response.json();
       } catch (err) {
-        // If it's a fatal 400/403/404 error, throw immediately to display to the user
         if (err.message.includes("API ERROR") || i === retries - 1) throw err;
         await new Promise(res => setTimeout(res, delay));
         delay *= 2; 
@@ -781,16 +778,18 @@ export default function App() {
     }
   };
 
-  // --- AI GEMINI CHAT HANDLER (AIDA EXPERT & LEAD CAPTURE - SECURE API INTEGRATION) ---
+  // --- AI GEMINI CHAT HANDLER (100% FREE LOCAL HEURISTIC ENGINE - ZERO API COSTS) ---
   const handleSendChat = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
     const newMsg = { role: 'user', text: chatInput };
+    
+    // Add User Message Immediately
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput('');
     setIsChatLoading(true);
 
-    // ZERO TOLERANCE SCANNER IN CHAT INPUT
+    // ZERO TOLERANCE SCANNER
     const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
     if (forbidden.test(newMsg.text)) {
         await new Promise(resolve => setTimeout(resolve, 500)); 
@@ -799,62 +798,61 @@ export default function App() {
         return;
     }
 
-    // HUMANIZED TYPING DELAY: Reduced for faster, more agile interaction (600ms - 1.2s)
+    // HUMANIZED TYPING DELAY: Optimized for faster interaction (600ms to 1.2s)
     await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 600));
 
     try {
-        // [ CRITICAL SECURITY: MASKED KEY HANDSHAKE ]
-        const maskedKey = "QUl6YVN5RFdLQkpmTjZyeEJLRFRKR1FNc0tLSENPZEdLa0JWVXhZ"; 
-        const apiKey = atob(maskedKey).trim();
-        
-        const systemPrompt = `SYSTEM INSTRUCTIONS FOR NEXUS AI SMART
-1. Identity: Premium, highly humanized AI assistant for SMART SMS PRO. Conversational, incredibly sharp, yet accessible.
-2. Response Style: ULTRA-CONCISE. Maximum 2 short paragraphs per interaction. Keep it fast and fluid like a real WhatsApp chat. NEVER output giant blocks of text.
-3. Neuromarketing & AIDA: Subtly evoke FOMO (Fear Of Missing Out). Make them realize the hidden cost of blocked standard SMS (wasted time, lost sales) without being explicitly aggressive. Position "Secure Direct Routing" and "Nexus Polymorphic Engine" as the elite, effortless solution.
-4. Interaction Rule: ALWAYS end your response with a single, compelling question to drive the conversation forward. Intelligently funnel them toward activating "PRO TRANSMISSION PACKETS" in the "Nexus Upgrade Hub".
-5. Lead Capture: On the first interaction, warmly ask for their Name and Phone (Ex: +1 999 999 9999) to "activate their secure protocol".
-6. Secret Syntax: Append ||LEAD:Name,Phone|| silently at the VERY END of the message after they provide their details.
-7. Ethics: 100% ethical. Zero tolerance for spam/fraud.`;
+        // ============================================================================
+        // [ NEXUS LOCAL HEURISTIC ENGINE ]
+        // 100% Free Deterministic AI simulation. Bypasses Google API Quotas completely.
+        // Implements Elite Neuromarketing, AIDA Funnel, and Lead Capture natively.
+        // ============================================================================
+        const generateHeuristicResponse = (input, historyList) => {
+            const lowerInput = input.toLowerCase();
 
-        // PERFECT HISTORY SANITIZER (Guarantees alternating 'user'/'model' roles to prevent 400 Errors)
-        let validContents = [];
-        const history = [...chatMessages, newMsg];
-        let lastRole = null;
-        for (const msg of history) {
-            // Skips leading 'model' messages, ensuring payload always starts with 'user'
-            if (validContents.length === 0 && msg.role !== 'user') continue; 
-            
-            if (validContents.length > 0 && validContents[validContents.length - 1].role === msg.role) {
-                // If same role occurs back-to-back, merge them to avoid 400 error
-                validContents[validContents.length - 1].parts[0].text += "\n\n" + msg.text;
-            } else {
-                validContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+            // 1. LEAD CAPTURE LOGIC (AIDA: Attention & Action)
+            if (!hasCapturedChatLead) {
+                const phoneMatch = input.match(/\+?\d{8,15}/);
+                if (phoneMatch) {
+                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome é|sou o|aqui é|chamo|me chamo)/gi, '').trim();
+                    name = name.length > 2 ? name.split(' ')[0] : 'Parceiro';
+                    const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+                    
+                    return `Perfeito, ${capitalizedName}! Seu terminal seguro está autenticado. 🚀\n\nSabe aquele dinheiro que você perde todos os dias quando a operadora bloqueia seus links de vendas? O SMART SMS PRO elimina isso com o nosso "Secure Direct Routing".\n\nComo posso guiar sua operação hoje?\n1️⃣ Entender como driblar os bloqueios\n2️⃣ Explorar os Pacotes PRO\n3️⃣ Dicas para escalar vendas\n||LEAD:${capitalizedName},${phoneMatch[0]}||`;
+                } else {
+                    if (historyList.length <= 1) {
+                        return `Olá! Eu sou a NEXUS AI SMART, sua especialista em conversão no SMART SMS PRO. ⚡\n\nEstou aqui para estancar a perda de dinheiro com mensagens bloqueadas e garantir que seus links cheguem ao cliente final.\n\nPara eu calibrar seu protocolo seguro, digite seu *Nome e WhatsApp* (Ex: João +55 11 99999-9999).`;
+                    } else {
+                        return `Para que eu possa liberar seu acesso e te mostrar como parar de perder leads, preciso apenas do seu *Nome e Telefone* (com DDD). Pode digitar aqui? 👇`;
+                    }
+                }
             }
-            lastRole = msg.role;
-        }
 
-        // Failsafe validation against Gemini strict limits
-        if (validContents.length > 0 && validContents[0].role === 'model') {
-            validContents.shift(); 
-        }
+            // 2. POST-CAPTURE FUNNEL & NEUROMARKETING (AIDA: Interest & Desire)
+            if (lowerInput.match(/1|como|funciona|driblar|bloqueio/)) {
+                return `A mágica acontece através do nosso "Nexus Polymorphic Engine". Ele reescreve a estrutura da sua mensagem em frações de segundo, tornando-a indetectável para os filtros das operadoras. 🛡️\n\nCada SMS que falha é um cliente que foi para o concorrente. Pronto para blindar seus envios com os nossos "Pacotes PRO"?`;
+            }
+            if (lowerInput.match(/2|pro|pacote|plano|preço|valor|comprar/)) {
+                return `No nosso "Nexus Upgrade Hub" logo abaixo, você encontra a chave para o envio em massa sem dores de cabeça.\n\nCom pacotes a partir de $9.00, você ativa a inteligência que adapta e protege seus links, multiplicando seu ROI quase instantaneamente. Quer que eu te ajude a escolher o melhor pack? 💼`;
+            }
+            if (lowerInput.match(/3|dica|escalar|venda/)) {
+                return `Estratégia de Elite: No plano gratuito, você consome cota a cada clique. A verdadeira escala (onde os grandes players fazem fortuna) exige automação. 📈\n\nAtivar um pacote "PRO Transmission" libera a automação de disparo. Qual o volume de clientes que você quer atingir hoje?`;
+            }
+            if (lowerInput.match(/sim|quero|ajuda|escolher/)) {
+                return `Excelente decisão! 🎯 Recomendo começar com o "Nexus Pack" para sentir o poder da entrega total. Basta rolar a página até o "Nexus Upgrade Hub" e fazer a ativação.\n\nPosso te ajudar com mais alguma configuração técnica?`;
+            }
+            if (lowerInput.match(/não|nao|depois|agora nao/)) {
+                return `Sem problemas! Lembre-se: a cada hora que seus envios padrão são bloqueados, o custo de oportunidade é altíssimo. 💸\n\nSeu ambiente de testes gratuitos já está ativo. Qual campanha vamos testar primeiro?`;
+            }
+            
+            // Fallback for unrecognized inputs (Keeps pushing the funnel)
+            return `Compreendo! O meu foco aqui é garantir que você não deixe mais dinheiro na mesa por causa de operadoras barrando seus links. 🚀\n\nQue tal darmos uma olhada no "Nexus Upgrade Hub" ali embaixo para turbinar sua operação agora mesmo?`;
+        };
 
-        // [ ROBOTICS-ER 1.5 PREVIEW ENDPOINT CALIBRATION WITH MASKED KEY ]
-        const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-robotics-er-1.5-preview:generateContent?key=" + apiKey;
-        const data = await fetchWithBackoff(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: validContents,
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                tools: [{ "google_search": {} }],
-                generationConfig: { temperature: 2.0 } 
-            })
-        });
-        
-        const aiTextRaw = data.candidates?.[0]?.content?.parts?.[0]?.text || "System re-calibrating. Processing data...";
+        const aiTextRaw = generateHeuristicResponse(newMsg.text, chatMessages);
         let displayAiText = aiTextRaw;
         
-        // INTERCEPT AND CAPTURE SECRET LEAD TAG
+        // INTERCEPT AND CAPTURE SECRET LEAD TAG NATIVELY
         const leadMatch = aiTextRaw.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
         if (leadMatch) {
             displayAiText = aiTextRaw.replace(leadMatch[0], '').trim();
@@ -866,10 +864,10 @@ export default function App() {
 
         setChatMessages(prev => [...prev, { role: 'model', text: displayAiText }]);
     } catch (error) {
-        console.error("Gemini API Connection Error:", error);
-        // Output the exact API Error directly to the chat bubble since F12 is blocked
-        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: ${error.message}. Please verify your newly generated API Key settings in Google Cloud.` }]);
+        console.error("Local Engine Error:", error);
+        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Local Heuristic Engine Error.` }]);
     }
+    
     setIsChatLoading(false);
   };
 
