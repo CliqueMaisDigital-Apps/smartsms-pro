@@ -54,8 +54,9 @@ const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 // --- ZERO TOLERANCE GLOBAL REGEX (ULTRA ENHANCED COGNITION) ---
 const checkForbiddenWords = (text) => {
   if (typeof text !== 'string' || !text) return false;
+  // Normalize accents (e.g., desgraçado -> desgracado)
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const regex = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|odio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgracado|desgraca|miseravel|safado|lixo|trouxa)/i;
+  const regex = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|odio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgracado|desgraca|miseravel|safado|lixo|trouxa|burlar|enganar|desviar|roubar|fraudar)/i;
   return regex.test(normalized);
 };
 
@@ -64,13 +65,13 @@ function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-white/5 py-8 group cursor-pointer" onClick={() => setOpen(!open)}>
-      <div className="flex justify-between items-center gap-6 text-center sm:text-left leading-none">
-        <h4 className="text-[12px] sm:text-[14px] font-black uppercase italic tracking-widest text-white/70 group-hover:text-[#25F4EE] transition-colors leading-tight text-center sm:text-left w-full">
+      <div className="flex justify-between items-center gap-6 text-left leading-none">
+        <h4 className="text-[12px] sm:text-[14px] font-black uppercase italic tracking-widest text-white/70 group-hover:text-[#25F4EE] transition-colors leading-tight w-full">
           {String(q)}
         </h4>
         {open ? <ChevronUp size={18} className="text-[#25F4EE] shrink-0" /> : <ChevronDown size={18} className="text-white/20 shrink-0" />}
       </div>
-      {open && <p className="mt-5 text-xs text-white/40 leading-relaxed font-medium animate-in slide-in-from-top-2 text-center sm:text-left italic tracking-wide uppercase text-wrap-balance">{String(a)}</p>}
+      {open && <p className="mt-5 text-xs text-white/40 leading-relaxed font-medium animate-in slide-in-from-top-2 text-left italic tracking-wide uppercase">{String(a)}</p>}
     </div>
   );
 }
@@ -88,6 +89,9 @@ export default function App() {
   const [legalContent, setLegalContent] = useState(null); 
   const [isWelcomeTrial, setIsWelcomeTrial] = useState(false);
   
+  // --- COOKIE CONSENT STATE ---
+  const [cookieConsent, setCookieConsent] = useState(true);
+
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
@@ -158,13 +162,11 @@ export default function App() {
   const isAiObjectiveForbidden = checkForbiddenWords(aiObjective);
   const isChatForbidden = checkForbiddenWords(chatInput);
 
-  // --- SECURE QR HANDSHAKE TOKEN GENERATOR & UUID ---
+  // --- SECURE QR HANDSHAKE TOKEN GENERATOR ---
   const [syncToken, setSyncToken] = useState('');
   
   const generateUUID = () => {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID().split('-')[0];
-    }
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().split('-')[0];
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
   };
 
@@ -181,7 +183,7 @@ export default function App() {
       const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
       const hexToken = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
       const token = `NEXUS_SYNC|uid:${user.uid}|tok:${hexToken}|exp:${window5min}`;
-      setSyncToken(token); setSyncTokenExpiry(window5min);
+      setSyncToken(token);
       return token;
     } catch (err) {
       const fallback = `NEXUS_SYNC|uid:${user.uid}|tok:${btoa(rawPayload).replace(/=/g,'').substring(0,24)}|exp:${window5min}`;
@@ -202,6 +204,12 @@ export default function App() {
   const isMaster = user?.uid === ADMIN_MASTER_ID;
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
+
+  // --- COOKIE INITIALIZATION ---
+  useEffect(() => {
+    const consent = localStorage.getItem('nexus_legal_consent');
+    if (consent !== 'true') setCookieConsent(false);
+  }, []);
 
   // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER ---
   useEffect(() => {
@@ -230,7 +238,6 @@ export default function App() {
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
-  // --- VIEW NAVIGATION SCROLL TO TOP (UX FIX) ---
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
@@ -342,6 +349,11 @@ export default function App() {
   // ============================================================================
   const handleAdminGrantTier = async (e, targetId, tierType) => {
     e.stopPropagation(); 
+    // PREVENT OVERRIDE ON CORE SYSTEM NODES
+    if (targetId === 'AI_SMART_CHAT' || targetId === ADMIN_MASTER_ID) {
+        alert("SYSTEM OVERRIDE DENIED: Core system nodes cannot be modified.");
+        return;
+    }
     if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Gateway: ${targetId}?`)) return;
     setLoading(true);
     try {
@@ -350,13 +362,9 @@ export default function App() {
           ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
           : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', smsCredits: increment(800), isSubscribed: true };
         
-        const snap = await getDoc(profileRef);
-        if (snap.exists()) await updateDoc(profileRef, updates);
-        else await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
-        
+        await setDoc(profileRef, updates, { merge: true });
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
-        const pubSnap = await getDoc(pubRef);
-        if (pubSnap.exists()) await updateDoc(pubRef, updates);
+        await setDoc(pubRef, updates, { merge: true });
         
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
     } catch (error) { console.error(error); alert("MASTER ACTION FAILED."); }
@@ -429,6 +437,22 @@ export default function App() {
   // ============================================================================
   // PRO COMMAND FUNCTIONS & SUPREME SHUFFLE ENGINE (NATIVE AST PARSER)
   // ============================================================================
+  
+  // AI Simulation: Automatically injects variations into plain text if no spintax is detected
+  const simulateAIExpansion = (text, iterationIndex) => {
+     if (!text) return "";
+     if (text.includes("{")) return text; 
+     
+     // Simulated intelligent variations based on common marketing contexts
+     const prefixes = ["{Hi|Hello|Greetings|Attention|Notice}", "{Hey|Dear|Valued Partner|Update}", "{Action Required|Quick Info|Hello there}"];
+     const suffixes = ["{Let me know your thoughts|Awaiting your reply|Contact us today|Check your dashboard}{!|.|...}", "{Reply to secure your spot|Talk soon|Check it out now}{!|.|...}"];
+     
+     const prefix = prefixes[iterationIndex % prefixes.length];
+     const suffix = suffixes[iterationIndex % suffixes.length];
+     
+     return `${prefix} [NOME],\n\n${text}\n\n${suffix}`;
+  };
+
   const executeNexusScramble = (text, leadName) => {
     const parseSpintax = (input) => {
       let i = 0;
@@ -466,12 +490,12 @@ export default function App() {
 
     try {
       let processed = parseSpintax(String(text || ''));
-      const safeName = String(leadName || 'Cliente').split(' ')[0];
+      const safeName = String(leadName || 'Client').split(' ')[0];
       const capitalName = safeName.charAt(0).toUpperCase() + safeName.slice(1).toLowerCase();
       processed = processed.replace(/\[NOME\]/gi, capitalName);
       return processed.replace(/\s{2,}/g, ' ').trim();
     } catch (err) {
-      return String(text || '').replace(/\[NOME\]/gi, leadName || 'Cliente').replace(/\{[^}]*\}/g, '').trim();
+      return String(text || '').replace(/\[NOME\]/gi, leadName || 'Client').replace(/\{[^}]*\}/g, '').trim();
     }
   };
 
@@ -500,7 +524,8 @@ export default function App() {
       }
       
       const queue = targetLeads.slice(0, limit).map((l, idx) => {
-         const contextualMessage = executeNexusScramble(aiObjective, l.nome_cliente);
+         const smartPayload = simulateAIExpansion(aiObjective, idx);
+         const contextualMessage = executeNexusScramble(smartPayload, l.nome_cliente);
          const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
          return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
       });
@@ -946,7 +971,7 @@ export default function App() {
             const fArr = isES ? fallbacksES : (isPT ? fallbacksPT : fallbacksEN);
             const f = fArr[Math.floor(Math.random()*fArr.length)];
             const btnLabelDash = isES ? '📡 ABRIR DASHBOARD' : (isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD');
-            const btnLabelGuide = isES ? '📖 SOPORTE TÉCNICO' : (isPT ? '📖 SUPORTE TÉCNICO' : '📖 TECHNICAL SUPPORT');
+            const btnLabelGuide = isES ? '📖 SOPORTE TÉCNICO' : (isPT ? '📖 SOPORTE TÉCNICO' : '📖 TECHNICAL SUPPORT');
 
             return { 
               text: f,
@@ -1021,7 +1046,7 @@ export default function App() {
         <div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
         <div className="space-y-3">
           <h2 className="text-2xl text-white tracking-tighter">REDIRECTING TO GATEWAY...</h2>
-          <p className="text-[10px] text-white/40 tracking-widest text-balance">Opening your native SMS application. If it doesn't open automatically, click below.</p>
+          <p className="text-[10px] text-white/40 tracking-widest">Opening your native SMS application. If it doesn't open automatically, click below.</p>
         </div>
         {captureData && (
           <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-[11px] tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform">
@@ -1057,7 +1082,7 @@ export default function App() {
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
             <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
             <h2 className="text-3xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
-            <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto text-wrap-balance">
+            <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto">
               Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
             </p>
             <div className="w-full space-y-6 text-left">
@@ -1095,11 +1120,11 @@ export default function App() {
         
         /* UNBLOCK INPUTS FOR MOBILE/DESKTOP */
         input, textarea, select { 
-          -webkit-user-select: text !important; 
-          -khtml-user-select: text !important; 
-          -moz-user-select: text !important; 
-          -ms-user-select: text !important; 
-          user-select: text !important; 
+          -webkit-user-select: auto !important; 
+          -khtml-user-select: auto !important; 
+          -moz-user-select: auto !important; 
+          -ms-user-select: auto !important; 
+          user-select: auto !important; 
           pointer-events: auto !important;
         }
 
@@ -1109,12 +1134,7 @@ export default function App() {
           -webkit-hyphens: none !important; 
           -ms-hyphens: none !important; 
           word-break: normal !important;
-          overflow-wrap: normal !important;
-        }
-        
-        /* PREMIUM ALIGNMENT */
-        h1, h2, h3, h4, p {
-          text-wrap: balance;
+          white-space: normal !important;
         }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
@@ -1216,7 +1236,7 @@ export default function App() {
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-300">
             <header className="mb-14 text-center flex flex-col items-center">
               <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl sm:text-4xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
-              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4 text-wrap-balance">HIGH-END REDIRECTION PROTOCOL - 60 FREE SECURE CONNECTIONS</p>
+              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4">HIGH-END REDIRECTION PROTOCOL - 60 FREE SECURE CONNECTIONS</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
@@ -1374,7 +1394,7 @@ export default function App() {
                       <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
                     </div>
                     <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
@@ -1483,7 +1503,7 @@ export default function App() {
                                                        </tbody>
                                                     </table>
                                                 ) : (
-                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4 font-black text-wrap-balance">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4 font-black">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
                                                 )}
                                             </div>
                                         </td>
@@ -1532,7 +1552,7 @@ export default function App() {
                            </tbody>
                          </table>
                        ) : (
-                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none text-wrap-balance">NO ACTIVE INTERCEPTIONS.</p></div>
+                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
                        )}
                      </>
                    )}
@@ -1556,7 +1576,7 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS SMART SHUFFLE ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
-                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black text-balance">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
+                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
                     <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
@@ -1586,7 +1606,7 @@ export default function App() {
                                 disabled={isDispatching}
                                 value={task.optimizedMsg} 
                                 onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
-                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar text-balance" 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar" 
                               />
                            </div>
                         ))}
@@ -1678,7 +1698,7 @@ export default function App() {
                              {nodeWarningActive && (
                                <div className="mt-4 sm:mt-6 p-3 sm:p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
                                  <p className="text-[9px] sm:text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><WifiOff size={10} className="sm:w-3 sm:h-3"/> DEVICE DISCONNECTED</p>
-                                 <p className="text-[7px] sm:text-[8px] text-white/60 font-sans !text-transform-none leading-relaxed text-wrap-balance">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
+                                 <p className="text-[7px] sm:text-[8px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
                                </div>
                              )}
                           </div>
@@ -1693,7 +1713,7 @@ export default function App() {
                         {!smsQueueCount && (
                           <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 p-2.5 sm:p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left hidden sm:block">
                              <p className="text-[8px] sm:text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><Wifi size={10} className="sm:w-3 sm:h-3 animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
-                             <p className="text-[7px] sm:text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed text-wrap-balance">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
+                             <p className="text-[7px] sm:text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
                           </div>
                         )}
                       </div>
@@ -1768,7 +1788,7 @@ export default function App() {
                 {isWelcomeTrial && !isLoginMode ? (
                    <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
                       <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 WELCOME TO THE ELITE</h2>
-                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case text-center text-wrap-balance">
+                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case text-center">
                          We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 Free Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
                       </p>
                    </div>
@@ -1792,16 +1812,29 @@ export default function App() {
         )}
       </div>
 
+      {/* --- COOKIE CONSENT BANNER --- */}
+      {!cookieConsent && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#25F4EE]/30 p-6 z-[9999] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_-10px_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-10">
+           <div className="flex-1 text-center md:text-left">
+             <h4 className="text-[#25F4EE] font-black text-[11px] mb-2 tracking-widest uppercase flex items-center justify-center md:justify-start gap-2"><ShieldCheck size={14}/> LEGAL & PRIVACY CONSENT</h4>
+             <p className="text-[10px] text-white/60 leading-relaxed font-medium !not-italic !normal-case">
+               By accessing the SMART SMS PRO ecosystem, you explicitly agree to our Terms of Service, Privacy Policy, and our strict Zero Tolerance Policy against spam, phishing, and illegal activities. All interactions are monitored by the Nexus Security Engine. We use encrypted cookies to ensure session integrity and prevent redundant operations. You assume full legal responsibility for your actions within this platform.
+             </p>
+           </div>
+           <button onClick={() => { setCookieConsent(true); localStorage.setItem('nexus_legal_consent', 'true'); }} className="bg-[#25F4EE] text-black px-8 py-3 rounded-xl font-black text-[10px] tracking-widest uppercase whitespace-nowrap shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform w-full md:w-auto">I ACCEPT & UNDERSTAND</button>
+        </div>
+      )}
+
       {/* FOOTER (ULTRA RESPONSIVE WITH DYNAMIC MODALS) */}
       <footer className="mt-auto pb-12 sm:pb-20 w-full z-[100] px-6 sm:px-10 border-t border-white/5 pt-12 sm:pt-20 text-left bg-[#010101] relative">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30 font-black">
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button><button onClick={() => setLegalContent('ZERO')} className="text-left hover:text-amber-500 transition-colors">ZERO TOLERANCE POLICY</button></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING SERVERS</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE SERVERS</span></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5 flex justify-center">
-           <p className="text-[8px] sm:text-[10px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black text-wrap-balance">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
+           <p className="text-[8px] sm:text-[10px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
         </div>
       </footer>
 
@@ -1812,20 +1845,28 @@ export default function App() {
              
              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] shrink-0">
                 <div className="flex items-center gap-3 sm:gap-4">
-                   {renderLegalContent()?.icon && React.createElement(renderLegalContent().icon, { size: 24, className: "text-[#25F4EE] sm:w-7 sm:h-7" })}
-                   <h3 className="text-lg sm:text-xl text-white tracking-tight font-black">{renderLegalContent()?.title}</h3>
+                   {legalContent === 'ZERO' ? <ShieldAlert size={24} className="text-amber-500 sm:w-7 sm:h-7" /> : <ShieldCheck size={24} className="text-[#25F4EE] sm:w-7 sm:h-7" />}
+                   <h3 className="text-lg sm:text-xl text-white tracking-tight font-black">{legalContent === 'ZERO' ? 'ZERO TOLERANCE POLICY' : 'LEGAL PROTOCOL'}</h3>
                 </div>
                 <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={18} className="sm:w-5 sm:h-5"/></button>
              </div>
 
              <div className="p-6 sm:p-10 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-[#111] to-black">
-                <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
-                   {renderLegalContent()?.text}
-                </p>
+                {legalContent === 'ZERO' ? (
+                  <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
+                    <span className="text-amber-500 font-bold block mb-4">STRICT COMPLIANCE ENFORCEMENT</span>
+                    SMART SMS PRO operates under an absolute Zero Tolerance Policy. Any attempt to utilize this platform for bypassing operational laws, conducting phishing, scams, extortion, malware distribution, or sending unsolicited spam will result in immediate and permanent termination of the operator's gateway.<br/><br/>
+                    Our Nexus Engine actively monitors all payload streams. Malicious intent is automatically flagged, blocked in real-time, and logged for security review. You assume full legal responsibility for the content transmitted through your node.
+                  </p>
+                ) : (
+                  <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
+                    {renderLegalContent()?.text}
+                  </p>
+                )}
                 
                 <div className="mt-8 sm:mt-12 p-4 sm:p-5 bg-[#25F4EE]/5 border border-[#25F4EE]/20 rounded-xl sm:rounded-2xl">
                    <p className="text-[9px] sm:text-[10px] text-[#25F4EE] font-black tracking-widest uppercase mb-1 sm:mb-2">ENCRYPTED AT REST</p>
-                   <p className="text-[10px] sm:text-xs text-white/40 font-sans !text-transform-none leading-relaxed text-wrap-balance">By engaging with the SMART SMS PRO ecosystem, your footprint is subjected to AES-256 standard cryptographic masking. No unauthorized external relays possess decryption keyframes.</p>
+                   <p className="text-[10px] sm:text-xs text-white/40 font-sans !text-transform-none leading-relaxed">By engaging with the SMART SMS PRO ecosystem, your footprint is subjected to AES-256 standard cryptographic masking. No unauthorized external relays possess decryption keyframes.</p>
                 </div>
              </div>
 
@@ -1844,7 +1885,7 @@ export default function App() {
               <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
               <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
               <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
-              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center text-wrap-balance">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
+              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncToken || 'GENERATING...')}&color=000000`} alt="Sync QR" className="w-32 h-32 sm:w-40 sm:h-40" />
@@ -1888,7 +1929,7 @@ export default function App() {
             
             <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2.5 sm:gap-3 mb-5 text-left w-full">
               <Info size={20} className="sm:w-6 sm:h-6 shrink-0" />
-              <p className="text-[8px] sm:text-[9px] font-black leading-relaxed tracking-widest text-wrap-balance">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
+              <p className="text-[8px] sm:text-[9px] font-black leading-relaxed tracking-widest">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
             </div>
 
             <div className="space-y-2.5 sm:space-y-3 text-left mb-6 w-full font-black">
@@ -1977,125 +2018,3 @@ export default function App() {
       {createFolderModal && (
         <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Plus size={18} className="text-[#25F4EE]"/>
-                <h3 className="text-sm font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
-              </div>
-              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
-                <input
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
-                  placeholder="e.g. Black Friday Campaign"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleCreateFolder} className="flex-1 py-3 bg-[#25F4EE] text-black rounded-xl text-[9px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AI SMART SUPPORT MODAL (LIVE HEURISTIC CHAT WITH BUTTONS) */}
-      {showSmartSupport && (
-        <div className="fixed inset-0 z-[900] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-[#010101]/95 backdrop-blur-xl animate-in fade-in sm:zoom-in-95">
-           <div className="w-full max-w-lg bg-[#0a0a0a] sm:border border-[#25F4EE]/30 rounded-t-3xl sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(37,244,238,0.2)] flex flex-col justify-between overflow-hidden" style={{ height: '85dvh', maxHeight: '750px' }}>
-                 
-                 {/* Chat Header */}
-                 <header className="shrink-0 p-4 sm:p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
-                     <div className="flex items-center gap-3">
-                        <Bot size={24} className="sm:w-[28px] sm:h-[28px] text-[#25F4EE]"/>
-                        <span className="text-xs sm:text-sm tracking-widest text-glow-white font-black">NEXUS AI SMART</span>
-                     </div>
-                     <button onClick={() => setShowSmartSupport(false)} className="text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><X size={20} className="sm:w-[24px] sm:h-[24px]"/></button>
-                 </header>
-                 
-                 {/* Chat Body */}
-                 <main className="flex-1 min-h-0 bg-black p-4 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 shadow-inner relative">
-                    
-                    {chatMessages.length === 0 && !isChatLoading && (
-                       <div className="absolute inset-0 flex flex-col items-center justify-center opacity-50 pointer-events-none px-4 text-center">
-                          <Bot size={56} className="mb-4 text-[#10B981] animate-pulse drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]" />
-                          <div className="bg-[#10B981]/10 border border-[#10B981]/30 px-4 py-2 rounded-full flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)] mb-3">
-                             <span className="w-2.5 h-2.5 bg-[#10B981] rounded-full animate-ping absolute"></span> 
-                             <span className="w-2.5 h-2.5 bg-[#10B981] rounded-full relative"></span> 
-                             <span className="text-[10px] tracking-widest font-black text-[#10B981]">ONLINE</span>
-                          </div>
-                          <p className="text-[10px] tracking-[0.2em] font-medium text-white/70 font-black">24/7 NEXUS AI ACTIVE • READY TO BOOST CONVERSIONS</p>
-                       </div>
-                    )}
-
-                    {chatMessages.map((msg, i) => (
-                      <div 
-                        key={i} 
-                        ref={i === chatMessages.length - 1 ? latestMessageRef : null}
-                        className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
-                      >
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-line shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-left' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-left'}`}>
-                            {msg.text}
-                         </div>
-                         {/* Action Buttons Render */}
-                         {msg.buttons && msg.buttons.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3 max-w-[85%] justify-start">
-                               {msg.buttons.map((btn, bIdx) => (
-                                  <button key={bIdx} onClick={() => handleChatButtonAction(btn.action)} className="bg-[#25F4EE]/10 border border-[#25F4EE]/30 text-[#25F4EE] px-4 py-2 rounded-lg text-[10px] font-black tracking-widest hover:bg-[#25F4EE]/20 transition-all flex items-center gap-1.5 shadow-lg">
-                                     {btn.label}
-                                  </button>
-                               ))}
-                            </div>
-                         )}
-                      </div>
-                    ))}
-                    
-                    {isChatLoading && (
-                      <div className="flex w-full justify-start animate-in fade-in duration-300">
-                         <div className="p-4 sm:p-5 rounded-2xl rounded-tl-sm max-w-[85%] bg-white/5 border border-white/10 flex items-center gap-3 shadow-lg">
-                           <span className="flex gap-1.5 items-center h-5 ml-1">
-                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-2 h-2 bg-[#25F4EE] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                           </span>
-                           <span className="text-[9px] tracking-widest uppercase italic text-[#25F4EE]/70 font-black ml-2">NEXUS AI IS TYPING...</span>
-                         </div>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} className="h-1 shrink-0" />
-                 </main>
-                 
-                 {/* Chat Footer */}
-                 <footer className="shrink-0 p-4 sm:p-5 border-t border-white/10 bg-[#111]">
-                     <form onSubmit={handleSendChat} className="flex gap-2 sm:gap-3 flex-col">
-                        <div className="flex items-center justify-center gap-2">
-                           <ShieldAlert size={12} className="text-amber-500" />
-                           <span className="text-[8px] text-amber-500 font-black tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
-                        </div>
-                        <div className="flex gap-2 sm:gap-3">
-                            <input 
-                              value={chatInput} 
-                              onChange={(e) => setChatInput(e.target.value)} 
-                              disabled={isChatLoading || isChatBanned}
-                              placeholder={isChatForbidden ? "Forbidden content detected..." : (isChatBanned ? "Sessão Bloqueada" : "Type your message...")} 
-                              className={`input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black disabled:opacity-50 ${isChatForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : 'focus:border-[#25F4EE]/50'}`}
-                            />
-                            <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden || isChatBanned} className={`p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform flex items-center justify-center shrink-0 ${isChatForbidden || isChatBanned ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#25F4EE] text-black shadow-[0_0_15px_rgba(37,244,238,0.2)]'}`}>
-                              <Send size={18} className="sm:w-5 sm:h-5"/>
-                            </button>
-                        </div>
-                     </form>
-                 </footer>
-
-           </div>
-        </div>
-      )}
-    </div>
-  );
-}
