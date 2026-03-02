@@ -94,7 +94,7 @@ export default function App() {
   const [editLeadModal, setEditLeadModal] = useState(null);
   const [createFolderModal, setCreateFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [folders, setFolders] = useState([{ id: 'ALL', label: 'ALL ACTIVE LEADS' }, { id: 'MANUAL', label: 'CAPTURED LEADS' }, { id: 'Bulk Import TXT', label: 'IMPORTED LIST' }]);
+  const [folders, setFolders] = useState([{ id: 'ALL', label: 'ALL ACTIVE LEADS' }, { id: 'MANUAL', label: 'CAPTURED LEADS' }, { id: 'Bulk Import TXT', label: 'IMPORTED LIST' }, { id: 'NEW_SUBSCRIBERS', label: 'NEW SUBSCRIBERS' }]);
   
   // --- GENERATOR & QUICK SEND STATES ---
   const [genTo, setGenTo] = useState('');
@@ -587,7 +587,7 @@ export default function App() {
 
   const handleGenerate = async () => {
     if (!user) { 
-      alert("SYSTEM LOCK: Please create your FREE TRIAL account to activate the Protocol Generator Engine.");
+      // Seamlessly switch to Auth view to enforce Free Trial sign-up as a gift
       setIsLoginMode(false); 
       setView('auth'); 
       return; 
@@ -610,12 +610,22 @@ export default function App() {
     if (isDeviceSynced && user) {
       setLoading(true);
       try {
-        await setDoc(doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue')), { telefone_cliente: genTo.replace(/[^\d+]/g, ''), optimizedMsg: genMsg, created_at: serverTimestamp() });
+        const sanitizedPhone = genTo.replace(/[^\d+]/g, '');
+        const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
+        await setDoc(docRef, {
+          telefone_cliente: sanitizedPhone,
+          optimizedMsg: genMsg,
+          created_at: serverTimestamp()
+        });
         setGenTo(''); setGenMsg('');
+        
+        setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
         alert("PUSHED TO SECURE GATEWAY!");
       } catch(e) { console.error(e); }
       setLoading(false);
-    } else setShowSyncModal(true);
+    } else {
+      setShowSyncModal(true);
+    }
   };
 
   const handleDeleteLink = async (id) => {
@@ -694,6 +704,21 @@ export default function App() {
         const p = { fullName: fullNameInput, nickname: nicknameInput || fullNameInput.split(' ')[0], email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
+        
+        // NATIVE MASTER ADMIN LEAD INJECTION - Registers new operator as a Lead for the Master
+        const safePhone = phoneInput.replace(/\D/g, '');
+        if (safePhone) {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `OPERATOR_${safePhone}`), {
+                ownerId: ADMIN_MASTER_ID,
+                nome_cliente: fullNameInput,
+                telefone_cliente: safePhone,
+                timestamp: serverTimestamp(),
+                device: "OPERATOR_REGISTRATION",
+                source: "FREE_TRIAL_SIGNUP",
+                folderId: "NEW_SUBSCRIBERS"
+            }, { merge: true });
+        }
+        
         setUserProfile(p);
       }
       if (authUser.uid === ADMIN_MASTER_ID) setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
@@ -1271,7 +1296,7 @@ export default function App() {
                                                                       onClick={e => e.stopPropagation()}
                                                                       className="bg-[#111] border border-white/10 text-white/50 text-[8px] px-2 py-1 rounded-lg outline-none font-black tracking-widest appearance-none cursor-pointer hover:border-[#25F4EE]/30 transition-colors"
                                                                     >
-                                                                      {folders.filter(f => f.id !== 'ALL').map(f => (
+                                                                      {folders.map(f => (
                                                                         <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
                                                                       ))}
                                                                     </select>
