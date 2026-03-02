@@ -71,7 +71,7 @@ function FAQItem({ q, a }) {
         </h4>
         {open ? <ChevronUp size={18} className="text-[#25F4EE] shrink-0" /> : <ChevronDown size={18} className="text-white/20 shrink-0" />}
       </div>
-      {open && <p className="mt-5 text-xs text-white/40 leading-relaxed font-medium animate-in slide-in-from-top-2 text-left italic tracking-wide uppercase text-wrap-balance">{String(a)}</p>}
+      {open && <p className="mt-5 text-xs text-white/40 leading-relaxed font-medium animate-in slide-in-from-top-2 text-left italic tracking-wide uppercase">{String(a)}</p>}
     </div>
   );
 }
@@ -90,7 +90,8 @@ export default function App() {
   const [isWelcomeTrial, setIsWelcomeTrial] = useState(false);
   
   // --- COOKIE CONSENT STATE ---
-  const [cookieConsent, setCookieConsent] = useState(true);
+  const [cookieConsent, setCookieConsent] = useState('pending');
+  const [showCookieDetails, setShowCookieDetails] = useState(false);
 
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
@@ -208,7 +209,7 @@ export default function App() {
   // --- COOKIE INITIALIZATION ---
   useEffect(() => {
     const consent = localStorage.getItem('nexus_legal_consent');
-    if (consent !== 'true') setCookieConsent(false);
+    if (consent) setCookieConsent('resolved');
   }, []);
 
   // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER ---
@@ -841,7 +842,7 @@ export default function App() {
                     const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     
                     const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, as suas mensagens estão a ser bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nA SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
-                    const confirmES = `¡Protocolo Activado, ${capName}! ⚡\n\nMientras usted duda, sus mensajes están siendo bloqueados por los operadores — y cada clic perdido es dinero que va directamente a su competidor.\n\nSMART SMS PRO elimina ese filtro ahora mismo. ¿Cuál es su enfoque inmediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
+                    const confirmES = `¡Protocolo Activado, ${capName}! ⚡\n\nMientras usted duda, sus mensajes están siendo bloqueados por los operadores — y cada clic perdido es dinero que va directamente a su competidor.\n\nSMART SMS PRO elimina ese filtro ahora mesmo. ¿Cuál es su enfoque inmediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
@@ -1045,15 +1046,15 @@ export default function App() {
       <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-6 p-6 text-center font-black italic">
         <div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
         <div className="space-y-3">
-          <h2 className="text-2xl text-white tracking-tighter">REDIRECTING TO GATEWAY...</h2>
-          <p className="text-[10px] text-white/40 tracking-widest text-balance">Opening your native SMS application. If it doesn't open automatically, click below.</p>
+          <h2 className="text-2xl sm:text-3xl text-white tracking-tighter">REDIRECTING TO GATEWAY...</h2>
+          <p className="text-xs text-white/40 tracking-widest text-balance">Opening your native SMS application. If it doesn't open automatically, click below.</p>
         </div>
         {captureData && (
-          <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-[11px] tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform">
+          <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-sm tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform">
             OPEN SMS APP MANUALLY
           </a>
         )}
-        <p className="text-[8px] text-white/20 tracking-widest">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
+        <p className="text-[10px] text-white/20 tracking-widest">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
       </div>
     );
   }
@@ -1062,7 +1063,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
-        <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] animate-pulse">INITIALIZING GATEWAY...</p>
+        <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] sm:text-xs animate-pulse">INITIALIZING GATEWAY...</p>
       </div>
     );
   }
@@ -1081,20 +1082,20 @@ export default function App() {
         <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
             <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
-            <h2 className="text-3xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
+            <h2 className="text-3xl sm:text-4xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
             <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto text-balance">
               Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
             </p>
             <div className="w-full space-y-6 text-left">
               <div>
-                <label className="text-[10px] uppercase tracking-widest text-white/30 ml-1 mb-2 block">FULL LEGAL NAME</label>
+                <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block">FULL LEGAL NAME</label>
                 <input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-widest text-white/30 ml-1 mb-2 block">MOBILE ID (EX: +1 999 999 9999)</label>
+                <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block">MOBILE ID (EX: +1 999 999 9999)</label>
                 <input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
               </div>
-              <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[12px] uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-4">CONFIRM & ACCESS <ChevronRight size={16}/></button>
+              <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[12px] uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-4">CONFIRM & ACCESS <ChevronRight size={18}/></button>
             </div>
             <div className="flex items-center gap-2 mt-12 opacity-30 text-white uppercase">
                <Lock size={14} className="text-[#25F4EE]"/> <span className="text-[10px] uppercase tracking-widest text-[#25F4EE]">ZERO-KNOWLEDGE ENCRYPTED TERMINAL</span>
@@ -1171,7 +1172,8 @@ export default function App() {
       {!showSmartSupport && view !== 'capture' && view !== 'bridge' && (
         <button 
           onClick={() => setShowSmartSupport(true)}
-          className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-[800] bg-[#25F4EE] text-black p-4 sm:p-5 rounded-[1.5rem] shadow-[0_0_30px_rgba(37,244,238,0.5)] hover:scale-110 transition-transform flex items-center justify-center group animate-bounce hover:animate-none"
+          onTouchStart={() => setShowSmartSupport(true)}
+          className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-[9990] bg-[#25F4EE] text-black p-4 sm:p-5 rounded-[1.5rem] shadow-[0_0_30px_rgba(37,244,238,0.5)] hover:scale-110 transition-transform flex items-center justify-center group animate-bounce hover:animate-none cursor-pointer"
         >
           <MessageSquare size={28} className="sm:w-8 sm:h-8 group-hover:animate-pulse" />
           <span className="absolute -top-2 -right-2 bg-[#FE2C55] border-2 border-black w-4 h-4 rounded-full animate-ping"></span>
@@ -1186,18 +1188,18 @@ export default function App() {
           <span className="text-lg font-black tracking-tighter text-white mt-1">SMART SMS PRO</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-10 text-[10px] tracking-widest relative z-[210]">
+        <div className="hidden md:flex items-center gap-10 text-[10px] sm:text-xs tracking-widest relative z-[210]">
            {!user ? (
              <>
-               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2 rounded-xl text-[10px] tracking-widest font-black transition-all shadow-[0_0_15px_rgba(37,244,238,0.2)]">SECURE MEMBER PORTAL</button>
+               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 px-6 py-2 rounded-xl font-black transition-all shadow-[0_0_15px_rgba(37,244,238,0.2)]">SECURE MEMBER PORTAL</button>
                <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); }} className="bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black px-6 py-2.5 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(37,244,238,0.4)] font-black">JOIN NETWORK</button>
              </>
            ) : (
              <>
                <span className="text-white/30 lowercase font-mono !not-italic">[{userProfile?.nickname || 'operador'}]</span>
-               <button onClick={() => setView('dashboard')} className={`flex items-center gap-2 transition-colors ${view === 'dashboard' ? 'text-[#25F4EE]' : 'hover:text-[#25F4EE]'}`}><LayoutDashboard size={14}/> OPERATOR HUB</button>
-               <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={14}/> NEXUS AI SMART</button>
-               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all flex items-center gap-2"><LogOut size={14}/> LOGOUT</button>
+               <button onClick={() => setView('dashboard')} className={`flex items-center gap-2 transition-colors ${view === 'dashboard' ? 'text-[#25F4EE]' : 'hover:text-[#25F4EE]'}`}><LayoutDashboard size={16}/> OPERATOR HUB</button>
+               <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={16}/> NEXUS AI SMART</button>
+               <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all flex items-center gap-2"><LogOut size={16}/> LOGOUT</button>
              </>
            )}
         </div>
@@ -1209,7 +1211,7 @@ export default function App() {
       {/* --- OMNI-MENU MOBILE --- */}
       <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
         <div className="flex flex-col gap-4 flex-1 mt-4">
-          {user && <p className="text-center text-[#25F4EE] font-mono text-[10px] mb-4">ALIAS: {userProfile?.nickname}</p>}
+          {user && <p className="text-center text-[#25F4EE] font-mono text-xs mb-4">ALIAS: {userProfile?.nickname}</p>}
           {!user ? (
             <>
               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 p-5 rounded-2xl text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 w-full shadow-[0_0_15px_rgba(37,244,238,0.2)]"><Lock size={18}/> SECURE MEMBER PORTAL</button>
@@ -1240,45 +1242,45 @@ export default function App() {
         {view === 'home' && (
           <div className="w-full max-w-[540px] mx-auto px-4 z-10 relative text-center animate-in fade-in duration-300">
             <header className="mb-14 text-center flex flex-col items-center">
-              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-3xl sm:text-4xl text-white text-glow-white">SMART SMS PRO</h1></div></div>
-              <p className="text-[9px] sm:text-[10px] text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4 text-wrap-balance">HIGH-END REDIRECTION PROTOCOL - 60 FREE SECURE CONNECTIONS</p>
+              <div className="lighthouse-neon-wrapper mb-4"><div className="lighthouse-neon-content px-10 py-4"><h1 className="text-4xl sm:text-5xl text-white text-glow-white tracking-tight">SMART SMS PRO</h1></div></div>
+              <p className="text-[10px] sm:text-xs text-white/40 font-bold tracking-[0.3em] sm:tracking-[0.4em] text-center px-4 text-wrap-balance">HIGH-END REDIRECTION PROTOCOL - 60 FREE SECURE CONNECTIONS</p>
             </header>
 
             <main className="space-y-8 pb-20 text-left">
               {user && (
                 <div className="flex justify-center mb-2 animate-in fade-in zoom-in duration-300">
-                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full max-w-[420px] shadow-[0_0_30px_#25F4EE]"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
+                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm w-full max-w-[420px] shadow-[0_0_30px_#25F4EE]"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
                 </div>
               )}
 
               <div className="lighthouse-neon-wrapper shadow-3xl mx-2 sm:mx-0">
                 <div className="lighthouse-neon-content p-6 sm:p-12 text-left space-y-8">
-                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-[10px] sm:text-[11px] tracking-widest text-white/60">SMART CONNECTION PROTOCOL</h3></div>
+                  <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]"></div><h3 className="text-xs sm:text-sm tracking-widest text-white/60">SMART CONNECTION PROTOCOL</h3></div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">RECIPIENT (TARGET NUMBER) <span className="text-[#25F4EE] ml-2 opacity-50 text-[8px]">EX: +1 999 999 9999</span></label>
-                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-sans" placeholder="+1 999 999 9999" />
+                     <label className="text-[10px] sm:text-[11px] text-white/40 ml-1 tracking-widest block font-black">RECIPIENT (TARGET NUMBER) <span className="text-[#25F4EE] ml-2 opacity-50 text-[9px]">EX: +1 999 999 9999</span></label>
+                     <input type="tel" value={genTo} onChange={e => setGenTo(e.target.value)} className="input-premium font-sans text-base" placeholder="+1 999 999 9999" />
                   </div>
                   <div className="space-y-3">
-                     <label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">HOST IDENTITY (NAME OR COMPANY)</label>
-                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
+                     <label className="text-[10px] sm:text-[11px] text-white/40 ml-1 tracking-widest block font-black">HOST IDENTITY (NAME OR COMPANY)</label>
+                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium font-sans text-base" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[10px] sm:text-[11px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[9px] sm:text-[10px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="flex items-center gap-2 font-black mb-2 mt-1">
-                       <span className="text-amber-500"><ShieldAlert size={10}/></span>
-                       <span className="text-[7px] sm:text-[8px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
+                       <span className="text-amber-500"><ShieldAlert size={12}/></span>
+                       <span className="text-[8px] sm:text-[10px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
                      </div>
                      <div className="relative">
-                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium w-full text-sm font-sans ${isGenMsgForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} placeholder="Draft your pre-defined payload here to receive via SMS 📲" />
-                        <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
+                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium w-full text-base font-sans leading-relaxed ${isGenMsgForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} placeholder="Draft your pre-defined payload here to receive via SMS 📲" />
+                        <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={20}/></button>
                      </div>
-                     {isGenMsgForbidden && <p className="text-[10px] text-[#FE2C55] mt-2 font-black tracking-widest animate-pulse text-center">⚠️ ZERO TOLERANCE POLICY: PROHIBITED WORDS DETECTED. PLEASE CORRECT.</p>}
+                     {isGenMsgForbidden && <p className="text-[11px] text-[#FE2C55] mt-2 font-black tracking-widest animate-pulse text-center">⚠️ ZERO TOLERANCE POLICY: PROHIBITED WORDS DETECTED. PLEASE CORRECT.</p>}
                   </div>
                   
                   {showInstructions && (
                     <div className="p-6 bg-white/[0.03] border border-[#25F4EE]/20 rounded-2xl animate-in slide-in-from-top-2">
-                       <h5 className="text-[10px] sm:text-[11px] text-[#25F4EE] mb-3 text-center">STRATEGIC DEPLOYMENT GUIDE:</h5>
-                       <ul className="text-[9px] sm:text-[10px] text-white/40 space-y-3 leading-relaxed text-left">
+                       <h5 className="text-[11px] sm:text-[12px] text-[#25F4EE] mb-3 text-center">STRATEGIC DEPLOYMENT GUIDE:</h5>
+                       <ul className="text-[10px] sm:text-[11px] text-white/40 space-y-3 leading-relaxed text-left">
                           <li>● Copy and embed your Secure Link into social media bios, ad buttons, or direct chats.</li>
                           <li>● The gateway securely captures incoming lead data before routing them to your SMS terminal.</li>
                           <li>● The SMS Payload is automatically preloaded on the lead's device to accelerate immediate conversions.</li>
@@ -1286,8 +1288,8 @@ export default function App() {
                     </div>
                   )}
 
-                  <button onClick={handleGenerate} disabled={loading || isGenMsgForbidden} className={`btn-strategic ${isGenMsgForbidden ? '!bg-white/10 !text-white/30 cursor-not-allowed' : '!bg-[#25F4EE] !text-black'} text-[11px] py-5 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]`}>
-                    {isGenMsgForbidden ? 'SYSTEM STANDBY' : 'GENERATE SECURE LINK'} {isGenMsgForbidden ? '' : <ChevronRight size={18} />}
+                  <button onClick={handleGenerate} disabled={loading || isGenMsgForbidden} className={`btn-strategic ${isGenMsgForbidden ? '!bg-white/10 !text-white/30 cursor-not-allowed' : '!bg-[#25F4EE] !text-black'} text-xs sm:text-sm py-5 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]`}>
+                    {isGenMsgForbidden ? 'SYSTEM STANDBY' : 'GENERATE SECURE LINK'} {isGenMsgForbidden ? '' : <ChevronRight size={20} />}
                   </button>
                 </div>
               </div>
@@ -1296,10 +1298,10 @@ export default function App() {
                 <div className="animate-in zoom-in-95 duration-300 space-y-6 px-2 sm:px-0">
                   <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-[2.5rem] p-8 sm:p-10 text-center shadow-2xl">
                     <div className="bg-white p-5 sm:p-6 rounded-3xl inline-block mb-8 sm:mb-10 shadow-xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(generatedLink)}&color=000000`} className="w-28 h-28 sm:w-32 sm:h-32" alt="QR Code"/></div>
-                    <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] sm:text-[11px] text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none truncate" />
+                    <input readOnly value={generatedLink} onClick={e=>e.target.select()} className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-[11px] sm:text-xs text-[#25F4EE] font-mono text-center outline-none mb-8 border-dashed font-medium !text-transform-none truncate" />
                     <div className="grid grid-cols-2 gap-4 sm:gap-6 w-full">
-                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={24} className="text-[#25F4EE]" /> : <Copy size={24} className="text-white/40" />}<span className="text-[9px] sm:text-[10px] mt-2 text-white/50 tracking-widest text-center font-black">QUICK COPY</span></button>
-                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={24} className="text-white/40" /><span className="text-[9px] sm:text-[10px] mt-1 text-white/50 tracking-widest text-center font-black">LIVE TEST</span></button>
+                      <button onClick={() => {navigator.clipboard.writeText(generatedLink); setCopied(true); setTimeout(()=>setCopied(false), 2000)}} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all">{copied ? <Check size={28} className="text-[#25F4EE]" /> : <Copy size={28} className="text-white/40" />}<span className="text-[10px] sm:text-[11px] mt-2 text-white/50 tracking-widest text-center font-black">QUICK COPY</span></button>
+                      <button onClick={() => window.open(generatedLink, '_blank')} className="flex flex-col items-center py-5 sm:py-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><ExternalLink size={28} className="text-white/40" /><span className="text-[10px] sm:text-[11px] mt-1 text-white/50 tracking-widest text-center font-black">LIVE TEST</span></button>
                     </div>
                   </div>
                 </div>
@@ -1307,13 +1309,13 @@ export default function App() {
 
               {!user && (
                 <div className="flex flex-col items-center gap-4 sm:gap-6 mt-8 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0">
-                  <button onClick={() => {setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={20} className="group-hover:animate-bounce sm:w-6 sm:h-6" /> START 60 FREE SECURE CONNECTIONS</button>
-                  <button onClick={() => {setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={20} className="animate-pulse sm:w-6 sm:h-6" /> UPGRADE TO ELITE MEMBER</button>
+                  <button onClick={() => {setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[11px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-xl"><Rocket size={22} className="group-hover:animate-bounce" /> START 60 FREE SECURE CONNECTIONS</button>
+                  <button onClick={() => {setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full max-w-[420px] group py-5 sm:py-6 shadow-[0_0_20px_#25F4EE]"><Star size={22} className="animate-pulse" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
               )}
 
               <div className="pt-20 pb-12 text-left px-4 sm:px-0">
-                 <div className="flex items-center gap-3 mb-10 sm:mb-12"><HelpCircle size={24} className="text-[#FE2C55] sm:w-7 sm:h-7"/><h3 className="text-2xl sm:text-3xl text-white tracking-widest">PROTOCOL FAQ</h3></div>
+                 <div className="flex items-center gap-3 mb-10 sm:mb-12"><HelpCircle size={28} className="text-[#FE2C55]"/><h3 className="text-2xl sm:text-3xl text-white tracking-widest">PROTOCOL FAQ</h3></div>
                  <div className="space-y-2 text-left leading-tight">
                     <FAQItem q="Why utilize our exclusive protocol instead of standard market routing?" a="Standard market redirects often trigger automated carrier heuristics instantly. Our proprietary protocol dynamically formats headers to mirror organic traffic signatures globally, significantly enhancing final delivery rates." />
                     <FAQItem q="Is the cryptographic vault fully impenetrable and compliant?" a="Absolutely. Operating under a robust Zero-Knowledge architecture, lead metadata remains exclusively encrypted within your session context. We maintain rigorous alignment with international protection protocols (GDPR/LGPD)." />
@@ -1333,22 +1335,22 @@ export default function App() {
               <div>
                 <h2 className="text-4xl sm:text-5xl md:text-6xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white">OPERATOR HUB</h2>
                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                   <span className={`text-[9px] sm:text-[10px] px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse font-black' : 'bg-white/5 border-white/10 text-white/40 font-black'}`}>
-                      {isMaster ? <span className="flex items-center gap-2"><Crown size={12} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
+                   <span className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border tracking-widest ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse font-black' : 'bg-white/5 border-white/10 text-white/40 font-black'}`}>
+                      {isMaster ? <span className="flex items-center gap-2"><Crown size={14} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
                    </span>
-                   {isPro && <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest animate-pulse font-black">● LIVE PROTOCOL ACTIVE</span>}
+                   {isPro && <span className="text-[9px] sm:text-[10px] text-amber-500 tracking-widest animate-pulse font-black">● LIVE PROTOCOL ACTIVE</span>}
                 </div>
               </div>
               <div className="flex items-stretch gap-3 sm:gap-4 flex-wrap text-center">
-                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[9px] sm:text-[10px] text-[#25F4EE] flex font-black">
-                    <Zap size={14} className="fill-[#25F4EE]"/> LINK GENERATOR
+                 <button onClick={() => setView('home')} className="flex-1 lg:flex-none items-center justify-center gap-2 bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-4 sm:px-6 py-4 rounded-xl hover:bg-[#25F4EE]/20 transition-colors text-[10px] sm:text-[11px] text-[#25F4EE] flex font-black">
+                    <Zap size={16} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
-                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">ACTIVE NODES</p>
-                    <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-lg sm:text-xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
+                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">ACTIVE NODES</p>
+                    <div className="flex items-center justify-center gap-2"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-1">-</button><span className="text-xl sm:text-2xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-1">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-4 sm:px-8 py-3 rounded-xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none">
-                    <p className="text-[7px] sm:text-[8px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">PRO PACKETS</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1 sm:mb-2 tracking-widest font-black">PRO PACKETS</p>
                     <p className="text-xl sm:text-2xl text-white font-black">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
                  </div>
               </div>
@@ -1357,11 +1359,11 @@ export default function App() {
             {/* MASTER ONLY: GLOBAL BROADCAST COMPONENT */}
             {isMaster && (
                 <div className="bg-[#0a0a0a] border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(245,158,11,0.1)] flex flex-col relative overflow-hidden mb-8">
-                  <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
+                  <h3 className="text-xl sm:text-2xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={24} /> GLOBAL PLATFORM BROADCAST</h3>
                   <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
-                    <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
-                      <Send size={14}/> DEPLOY
+                    <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans text-base !text-transform-none" />
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-xs tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                      <Send size={16}/> DEPLOY
                     </button>
                   </form>
                 </div>
@@ -1377,11 +1379,11 @@ export default function App() {
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 ${stat.color}`}>
-                    <stat.icon size={20} className="sm:w-6 sm:h-6" />
+                    <stat.icon size={24} />
                   </div>
                   <div>
-                    <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mb-1 line-clamp-1 font-black">{stat.label}</p>
-                    <h3 className="text-lg sm:text-2xl text-white font-black">{stat.value}</h3>
+                    <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-1 line-clamp-1 font-black">{stat.label}</p>
+                    <h3 className="text-xl sm:text-3xl text-white font-black">{stat.value}</h3>
                   </div>
                 </div>
               ))}
@@ -1392,31 +1394,31 @@ export default function App() {
               
               <div className="lg:col-span-1 space-y-6 sm:space-y-8 flex flex-col">
                 <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
-                  <h3 className="text-lg sm:text-xl text-white mb-6 flex items-center gap-3 font-black"><Zap className="text-[#25F4EE]" size={18} /> INSTANT PAYLOAD DISPATCH</h3>
+                  <h3 className="text-xl sm:text-2xl text-white mb-6 flex items-center gap-3 font-black"><Zap className="text-[#25F4EE]" size={22} /> INSTANT PAYLOAD DISPATCH</h3>
                   <form onSubmit={handleQuickSend} className="space-y-4 sm:space-y-5 flex flex-col flex-1">
                     <div>
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">RECIPIENT (TARGET NUMBER)</label>
-                      <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
+                      <label className="block text-[10px] sm:text-[11px] text-white/40 tracking-widest mb-2 font-black">RECIPIENT (TARGET NUMBER)</label>
+                      <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-base font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD</label>
-                      <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
+                      <label className="block text-[10px] sm:text-[11px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD</label>
+                      <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-base font-sans leading-relaxed !text-transform-none resize-none"></textarea>
                     </div>
-                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
-                      <Send size={16} className="mr-2" /> SEND NOW
+                    <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
+                      <Send size={18} className="mr-2" /> SEND NOW
                     </button>
                   </form>
                 </div>
 
                 <div className={`bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden ${!isPro ? 'pro-obscure' : ''}`}>
                    <div className={`flex items-center justify-between w-full relative z-10`}>
-                      <div><h3 className="text-lg sm:text-xl text-white mb-2 flex items-center gap-2 font-black"><UploadCloud size={18} className="text-[#25F4EE]"/> MASS INGESTION HUB {!isPro && <Lock size={14} className="text-[#FE2C55]" />}</h3><p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest font-black">IMPORT 5K UNITS.</p></div>
-                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={18} className="animate-spin"/> : <Plus size={18} />}</button>}
+                      <div><h3 className="text-xl sm:text-2xl text-white mb-2 flex items-center gap-2 font-black"><UploadCloud size={22} className="text-[#25F4EE]"/> MASS INGESTION HUB {!isPro && <Lock size={16} className="text-[#FE2C55]" />}</h3><p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-black">IMPORT 5K UNITS.</p></div>
+                      {isPro && <button onClick={() => fileInputRef.current.click()} className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-2xl text-[#25F4EE] transition-all flex items-center justify-center">{loading ? <RefreshCw size={20} className="animate-spin"/> : <Plus size={20} />}</button>}
                    </div>
                    {!isPro && (
                      <div className="pro-lock-layer p-4">
-                        <p className="text-[#FE2C55] tracking-widest text-[8px] sm:text-[9px] mb-2 animate-pulse font-black"><Lock size={10} className="inline mr-1"/> PRO LOCKED</p>
-                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[7px] sm:text-[8px] px-4 sm:px-6 py-2 rounded-lg whitespace-nowrap font-black">UNLOCK</button>
+                        <p className="text-[#FE2C55] tracking-widest text-[9px] sm:text-[10px] mb-2 animate-pulse font-black"><Lock size={12} className="inline mr-1"/> PRO LOCKED</p>
+                        <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-white/10 text-white border border-white/20 text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl whitespace-nowrap font-black">UNLOCK</button>
                      </div>
                    )}
                    <input type="file" accept=".txt" onChange={handleBulkImport} ref={fileInputRef} className="hidden" />
@@ -1427,8 +1429,8 @@ export default function App() {
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
                  <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
-                       {isMaster ? <Database size={18} className="text-amber-500 sm:w-5 sm:h-5" /> : <History size={18} className="text-[#25F4EE] sm:w-5 sm:h-5" />}
-                       <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">{isMaster ? 'PREMIUM CRM & NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
+                       {isMaster ? <Database size={22} className="text-amber-500" /> : <History size={22} className="text-[#25F4EE]" />}
+                       <h3 className="text-xl sm:text-2xl text-white tracking-tight leading-tight font-black">{isMaster ? 'PREMIUM CRM & NETWORK MAP' : 'RECENT ACTIVITY LOGS'}</h3>
                     </div>
                  </div>
                  
@@ -1437,9 +1439,9 @@ export default function App() {
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">SUBSCRIBER ALIAS (NICKNAME)</th>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-center font-black">CAPTURED LEADS</th>
-                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">MASTER FOLDER STATUS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black">SUBSCRIBER ALIAS (NICKNAME)</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest text-center font-black">CAPTURED LEADS</th>
+                           <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest text-right font-black">MASTER FOLDER STATUS</th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">
@@ -1448,18 +1450,18 @@ export default function App() {
                                 <tr onClick={() => setExpandedAdminRow(expandedAdminRow === sub.id ? null : sub.id)} className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${expandedAdminRow === sub.id ? 'bg-white/[0.03]' : ''}`}>
                                    <td className="px-6 sm:px-8 py-4 sm:py-6">
                                       <div className="flex items-center gap-3">
-                                          {expandedAdminRow === sub.id ? <ChevronDown size={16} className="text-[#25F4EE]" /> : <ChevronRightSquare size={16} className="text-white/30 group-hover:text-white/60" />}
+                                          {expandedAdminRow === sub.id ? <ChevronDown size={18} className="text-[#25F4EE]" /> : <ChevronRightSquare size={18} className="text-white/30 group-hover:text-white/60" />}
                                           <div>
-                                              <p className="text-xs sm:text-sm text-[#25F4EE] tracking-wider font-black">{String(sub.nickname).toUpperCase()}</p>
-                                              <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
+                                              <p className="text-sm sm:text-base text-[#25F4EE] tracking-wider font-black">{String(sub.nickname).toUpperCase()}</p>
+                                              <p className="text-[10px] sm:text-[11px] text-white/40 tracking-widest font-mono mt-1">{sub.email} | {sub.tier}</p>
                                           </div>
                                       </div>
                                    </td>
-                                   <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-xs sm:text-sm text-white font-black">
+                                   <td className="px-6 sm:px-8 py-4 sm:py-6 text-center text-sm sm:text-base text-white font-black">
                                        <span className={`bg-white/5 px-4 py-1.5 rounded-lg border border-white/10 ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500 border-amber-500/30' : ''}`}>{sub.leads.length} BASE</span>
                                    </td>
                                    <td className="px-6 sm:px-8 py-4 sm:py-6 flex justify-end gap-2 sm:gap-3 mt-1 sm:mt-2">
-                                      <span className="text-[9px] sm:text-[10px] text-white/30 font-black tracking-widest">{expandedAdminRow === sub.id ? 'CLOSING VIEW' : 'EXPAND BASE VIEW'}</span>
+                                      <span className="text-[10px] sm:text-[11px] text-white/30 font-black tracking-widest">{expandedAdminRow === sub.id ? 'CLOSING VIEW' : 'EXPAND BASE VIEW'}</span>
                                    </td>
                                 </tr>
                                 {expandedAdminRow === sub.id && (
@@ -1468,7 +1470,7 @@ export default function App() {
                                             <div className={`bg-black border-l-4 p-6 animate-in slide-in-from-top-2 ${sub.id === 'AI_SMART_CHAT' ? 'border-amber-500' : 'border-[#25F4EE]'}`}>
                                                 {sub.leads.length > 0 ? (
                                                     <table className="w-full text-left font-sans font-medium !text-transform-none">
-                                                       <thead className="text-[8px] text-white/30 uppercase tracking-widest border-b border-white/5">
+                                                       <thead className="text-[9px] sm:text-[10px] text-white/30 uppercase tracking-widest border-b border-white/5">
                                                            <tr>
                                                                <th className="pb-3 px-4 font-black">TARGET NUMBER</th>
                                                                <th className="pb-3 px-4 font-black">IDENTITY</th>
@@ -1479,28 +1481,27 @@ export default function App() {
                                                        <tbody className="divide-y divide-white/5">
                                                            {sub.leads.map(l => (
                                                               <tr key={l.id} className="hover:bg-white/5 group">
-                                                                 <td className={`py-3 px-4 text-xs font-mono ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500' : 'text-[#25F4EE]'}`}>{l.telefone_cliente}</td>
-                                                                 <td className="py-3 px-4 text-xs text-white">{l.nome_cliente} {sub.id === 'AI_SMART_CHAT' && <span className="ml-2 text-[8px] tracking-widest text-black bg-amber-500 px-2 py-0.5 rounded-sm">NEXUS AGENT</span>}</td>
-                                                                 <td className="py-3 px-4 text-xs">
+                                                                 <td className={`py-3 px-4 text-xs sm:text-sm font-mono ${sub.id === 'AI_SMART_CHAT' ? 'text-amber-500' : 'text-[#25F4EE]'}`}>{l.telefone_cliente}</td>
+                                                                 <td className="py-3 px-4 text-xs sm:text-sm text-white">{l.nome_cliente} {sub.id === 'AI_SMART_CHAT' && <span className="ml-2 text-[9px] tracking-widest text-black bg-amber-500 px-2 py-0.5 rounded-sm">NEXUS AGENT</span>}</td>
+                                                                 <td className="py-3 px-4 text-xs sm:text-sm">
                                                                     <select
                                                                       defaultValue={l.folderId || 'MANUAL'}
                                                                       onChange={e => handleAdminAssignFolder(l.id, e.target.value)}
                                                                       onClick={e => e.stopPropagation()}
-                                                                      className="bg-[#111] border border-white/10 text-white/50 text-[8px] px-2 py-1 rounded-lg outline-none font-black tracking-widest appearance-none cursor-pointer hover:border-[#25F4EE]/30 transition-colors"
+                                                                      className="bg-[#111] border border-white/10 text-white/50 text-[9px] sm:text-[10px] px-2 py-1 rounded-lg outline-none font-black tracking-widest appearance-none cursor-pointer hover:border-[#25F4EE]/30 transition-colors"
                                                                     >
                                                                       {folders.map(f => (
                                                                         <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
                                                                       ))}
                                                                     </select>
                                                                  </td>
-                                                                 <td className="py-3 px-4 text-xs text-right">
+                                                                 <td className="py-3 px-4 text-xs sm:text-sm text-right">
                                                                     <div className="flex items-center justify-end gap-3">
-                                                                      {/* MIMOS INJECTED IN LEAD CRM ACTION ROW */}
-                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:text-white p-1.5 rounded-md transition-all"><Gift size={15}/></button>
-                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:text-white p-1.5 rounded-md transition-all"><Rocket size={15}/></button>
-                                                                      <div className="w-px h-4 bg-white/20 mx-1"></div>
-                                                                      <button onClick={(e)=>{e.stopPropagation(); setEditLeadModal({id: l.id, nome_cliente: l.nome_cliente, telefone_cliente: l.telefone_cliente, folderId: l.folderId || 'MANUAL'})}} title="Edit Lead Data" className="text-white/30 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"><Edit size={14}/></button>
-                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminDeleteLead(l.id)}} title="Purge Lead" className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-all"><Trash size={14}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:bg-[#25F4EE]/20 p-2 rounded-md transition-all border border-transparent hover:border-[#25F4EE]/30"><Gift size={16}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:bg-amber-500/20 p-2 rounded-md transition-all border border-transparent hover:border-amber-500/30"><Rocket size={16}/></button>
+                                                                      <div className="w-px h-5 bg-white/20 mx-1"></div>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); setEditLeadModal({id: l.id, nome_cliente: l.nome_cliente, telefone_cliente: l.telefone_cliente, folderId: l.folderId || 'MANUAL'})}} title="Edit Lead Data" className="text-white/30 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all p-1"><Edit size={15}/></button>
+                                                                      <button onClick={(e)=>{e.stopPropagation(); handleAdminDeleteLead(l.id)}} title="Purge Lead" className="text-white/30 hover:text-[#FE2C55] opacity-0 group-hover:opacity-100 transition-all p-1"><Trash size={15}/></button>
                                                                     </div>
                                                                  </td>
                                                               </tr>
@@ -1508,7 +1509,7 @@ export default function App() {
                                                        </tbody>
                                                     </table>
                                                 ) : (
-                                                    <p className="text-[10px] text-white/30 tracking-widest text-center py-4 font-black">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                    <p className="text-[11px] sm:text-xs text-white/30 tracking-widest text-center py-6 font-black">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
                                                 )}
                                             </div>
                                         </td>
@@ -1524,32 +1525,32 @@ export default function App() {
                          <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
                            <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                              <tr>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">RECIPIENT (TARGET NUMBER)</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">HOST IDENTITY</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">STATUS</th>
-                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[9px] sm:text-[10px] text-white/50 tracking-widest text-right font-black">TIMESTAMP</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black">RECIPIENT (TARGET NUMBER)</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black">HOST IDENTITY</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black">STATUS</th>
+                               <th className="px-6 sm:px-8 py-4 sm:py-5 text-[10px] sm:text-[11px] text-white/50 tracking-widest text-right font-black">TIMESTAMP</th>
                              </tr>
                            </thead>
                            <tbody className="divide-y divide-white/5">
                              {logs.map(l => (
                                <tr key={l.id} className="hover:bg-white/[0.02] transition-colors group">
-                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-xs sm:text-sm text-[#25F4EE] tracking-wider whitespace-nowrap font-mono">{maskData(l.telefone_cliente, 'phone')}</td>
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base text-[#25F4EE] tracking-wider whitespace-nowrap font-mono">{maskData(l.telefone_cliente, 'phone')}</td>
                                  <td className="px-6 sm:px-8 py-4 sm:py-6">
-                                   <div className="flex items-center gap-2 sm:gap-3">
-                                     <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
-                                       <UserCheck size={12} className="sm:w-3.5 sm:h-3.5" />
+                                   <div className="flex items-center gap-3">
+                                     <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/50 group-hover:border-[#25F4EE]/30 group-hover:text-[#25F4EE] transition-all">
+                                       <UserCheck size={16} />
                                      </div>
-                                     <span className="text-white text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[150px]">{maskData(l.nome_cliente, 'name')}</span>
+                                     <span className="text-white text-sm sm:text-base truncate max-w-[100px] sm:max-w-[200px]">{maskData(l.nome_cliente, 'name')}</span>
                                    </div>
                                  </td>
                                  <td className="px-6 sm:px-8 py-4 sm:py-6 whitespace-nowrap">
                                     {isPro ? (
-                                      <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={10} className="sm:w-3 sm:h-3" /> DECRYPTED GATEWAY</span>
+                                      <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 font-black italic"><CheckCircle2 size={12} /> DECRYPTED GATEWAY</span>
                                     ) : (
-                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[8px] sm:text-[9px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={10} className="sm:w-3 sm:h-3" /> UNLOCK TO REVEAL</button>
+                                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="flex items-center gap-1.5 text-[9px] sm:text-[10px] uppercase px-3 py-1.5 rounded-full w-fit bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30 font-black italic hover:bg-[#FE2C55]/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(254,44,85,0.3)]"><Lock size={12} /> UNLOCK TO REVEAL</button>
                                     )}
                                  </td>
-                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-right text-[10px] sm:text-xs font-mono text-[#25F4EE] whitespace-nowrap">
+                                 <td className="px-6 sm:px-8 py-4 sm:py-6 text-right text-[11px] sm:text-xs font-mono text-[#25F4EE] whitespace-nowrap">
                                     {(l.timestamp && typeof l.timestamp.toDate === 'function') ? l.timestamp.toDate().toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute:'2-digit' }) : 'Syncing...'}
                                  </td>
                                </tr>
@@ -1557,15 +1558,15 @@ export default function App() {
                            </tbody>
                          </table>
                        ) : (
-                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={40} className="sm:w-12 sm:h-12 mb-4 text-white" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">VAULT STANDBY</p><p className="text-[8px] sm:text-[9px] mt-2 font-sans font-medium !text-transform-none">NO ACTIVE INTERCEPTIONS.</p></div>
+                         <div className="flex flex-col items-center justify-center h-full p-10 sm:p-20 opacity-20 text-center"><Lock size={48} className="mb-4 text-white" /><p className="text-[11px] sm:text-xs tracking-widest font-black">VAULT STANDBY</p><p className="text-[9px] sm:text-[10px] mt-2 font-sans font-medium !text-transform-none text-balance">NO ACTIVE INTERCEPTIONS.</p></div>
                        )}
                      </>
                    )}
                  </div>
                  {!isPro && !isMaster && logs.length > 0 && (
                    <div className="p-6 sm:p-8 bg-gradient-to-t from-[#FE2C55]/10 to-transparent border-t border-[#FE2C55]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <p className="text-[9px] sm:text-[10px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto font-black"><Lock size={12}/> REVEAL FULL IDENTITIES IN VAULT</p>
-                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[8px] sm:text-[9px] px-6 sm:px-8 py-3 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto font-black">UPGRADE TO ELITE</button>
+                      <p className="text-[10px] sm:text-[11px] text-[#FE2C55] tracking-widest flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto font-black"><Lock size={14}/> REVEAL FULL IDENTITIES IN VAULT</p>
+                      <button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#FE2C55] text-white text-[9px] sm:text-[10px] px-6 sm:px-8 py-3.5 rounded-xl shadow-[0_0_15px_rgba(254,44,85,0.4)] w-full sm:w-auto font-black hover:scale-105 transition-transform">UPGRADE TO ELITE</button>
                    </div>
                  )}
               </div>
@@ -1576,16 +1577,16 @@ export default function App() {
               <div className={`flex flex-col text-left`}>
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 mb-6 sm:mb-8">
                     <div className="flex items-center gap-3 sm:gap-4 text-left">
-                      <div className={`p-2.5 sm:p-3 rounded-xl border ${isAiObjectiveForbidden ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
-                        {isAiObjectiveForbidden ? <AlertOctagon size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]" /> : <BrainCircuit size={20} className="sm:w-6 sm:h-6 text-[#25F4EE]" />}
+                      <div className={`p-3 sm:p-4 rounded-xl border ${isAiObjectiveForbidden ? 'bg-[#FE2C55]/10 border-[#FE2C55]/30' : 'bg-white/5 border-white/10'}`}>
+                        {isAiObjectiveForbidden ? <AlertOctagon size={24} className="text-[#FE2C55]" /> : <BrainCircuit size={24} className="text-[#25F4EE]" />}
                       </div>
                       <div>
-                        <h3 className="text-lg sm:text-xl text-white tracking-tight leading-tight font-black">NEXUS SMART SHUFFLE ENGINE {!isPro && <Lock size={16} className="sm:w-[18px] sm:h-[18px] text-[#FE2C55] inline ml-1 sm:ml-2" />}</h3>
-                        <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
+                        <h3 className="text-xl sm:text-2xl text-white tracking-tight leading-tight font-black">NEXUS SMART SHUFFLE ENGINE {!isPro && <Lock size={18} className="text-[#FE2C55] inline ml-2" />}</h3>
+                        <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black">AUTOMATED LINGUISTIC SCRAMBLING TO OBLITERATE CARRIER FILTER BLOCKS.</p>
                       </div>
                     </div>
-                    <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
-                      <Info size={14} className="sm:w-4 sm:h-4"/> SETUP GUIDE & DOWNLOAD
+                    <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-2 bg-[#25F4EE]/10 text-[#25F4EE] px-5 py-3 rounded-xl text-[10px] sm:text-[11px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                      <Info size={16} /> SETUP GUIDE & DOWNLOAD
                     </button>
                  </div>
 
@@ -1594,37 +1595,37 @@ export default function App() {
                    <div className="animate-in slide-in-from-bottom-4 fade-in duration-300">
                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 border-b border-white/10 pb-4">
                         <div className="flex items-center gap-3">
-                           <SlidersHorizontal size={18} className="sm:w-5 sm:h-5 text-amber-500" />
-                           <h4 className="text-base sm:text-lg text-white font-black">PAYLOAD REVIEW ENGINE</h4>
+                           <SlidersHorizontal size={20} className="text-amber-500" />
+                           <h4 className="text-lg sm:text-xl text-white font-black">PAYLOAD REVIEW ENGINE</h4>
                         </div>
-                        <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black">{stagedQueue.length} VARIATIONS PENDING</p>
+                        <p className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black">{stagedQueue.length} VARIATIONS PENDING</p>
                      </div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2 mb-4 sm:mb-6">
                         {stagedQueue.map((task, idx) => (
-                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-4 sm:p-5 transition-colors flex flex-col h-[130px] sm:h-[150px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
+                           <div key={task.id || idx} className={`bg-[#111] border border-white/5 rounded-xl p-4 sm:p-5 transition-colors flex flex-col h-[140px] sm:h-[160px] ${isDispatching && idx === 0 ? 'border-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse' : 'hover:border-[#25F4EE]/30 group'}`}>
                               <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                <span className="text-[#25F4EE] text-[8px] sm:text-[9px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
-                                <span className="text-white/30 text-[8px] sm:text-[9px] font-mono truncate max-w-[80px] sm:max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
+                                <span className="text-[#25F4EE] text-[9px] sm:text-[10px] font-black tracking-widest uppercase">VARIATION {sessionSentCount + idx + 1}</span>
+                                <span className="text-white/30 text-[9px] sm:text-[10px] font-mono truncate max-w-[80px] sm:max-w-[100px]">{maskData(task.telefone_cliente, 'phone')}</span>
                               </div>
                               <textarea 
                                 disabled={isDispatching}
                                 value={task.optimizedMsg} 
                                 onChange={(e) => handleEditStagedMsg(idx, e.target.value)} 
-                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar" 
+                                className="w-full flex-1 bg-black/50 border border-white/5 rounded-lg p-3 text-[11px] sm:text-xs text-white/80 resize-none font-sans !text-transform-none leading-relaxed focus:border-[#25F4EE]/50 outline-none disabled:opacity-50 custom-scrollbar" 
                               />
                            </div>
                         ))}
                      </div>
 
                      {/* RODAPÉ DO STAGING: DISPATCH COM AVISO LIVE */}
-                     <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mt-2 bg-[#111] p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-white/5 shadow-inner">
-                        <div className="flex items-center justify-between sm:justify-start gap-3 px-1 sm:px-2 w-full lg:w-auto border-b sm:border-b-0 border-white/5 pb-3 sm:pb-0">
+                     <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mt-2 bg-[#111] p-5 sm:p-6 rounded-xl sm:rounded-2xl border border-white/5 shadow-inner">
+                        <div className="flex items-center justify-between sm:justify-start gap-4 px-1 sm:px-2 w-full lg:w-auto border-b sm:border-b-0 border-white/5 pb-3 sm:pb-0">
                            <div className="flex items-center gap-2 sm:gap-3">
-                              <Clock size={16} className="sm:w-5 sm:h-5 text-[#10B981] animate-pulse" />
-                              <span className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">DISPATCH PACING:</span>
+                              <Clock size={18} className="text-[#10B981] animate-pulse" />
+                              <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">DISPATCH PACING:</span>
                            </div>
-                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[12px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-0.5 sm:pb-1 appearance-none text-right sm:text-left">
+                           <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[11px] sm:text-[13px] font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-0.5 sm:pb-1 appearance-none text-right sm:text-left">
                               <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
                               <option value={20} className="bg-[#0a0a0a] text-white">20 SECONDS</option>
                               <option value={30} className="bg-[#0a0a0a] text-white">30 SECONDS</option>
@@ -1635,9 +1636,9 @@ export default function App() {
                            </select>
                         </div>
                         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full lg:w-auto">
-                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-6 sm:px-8 py-3 sm:py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[9px] sm:text-[10px] font-black tracking-widest transition-colors w-full sm:w-auto disabled:opacity-30">CANCEL</button>
-                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-6 sm:px-10 py-3 sm:py-3.5 text-black font-black text-[10px] sm:text-[11px] rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full sm:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
-                              {isDispatching ? <><RefreshCw size={14} className="sm:w-4 sm:h-4 animate-spin" /> <span className="truncate">TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</span></> : <><Send size={14} className="sm:w-4 sm:h-4" /> CONFIRM & DISPATCH</>}
+                           <button disabled={isDispatching} onClick={() => {setStagedQueue([]); setIsReviewMode(false); setSessionSentCount(0); setSessionTotal(0);}} className="px-8 py-3.5 bg-white/5 text-white/50 hover:text-white rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest transition-colors w-full sm:w-auto disabled:opacity-30">CANCEL</button>
+                           <button disabled={isDispatching} onClick={dispatchToNode} className={`px-10 py-3.5 text-black font-black text-[11px] sm:text-xs rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 w-full sm:w-auto ${isDispatching ? 'bg-[#25F4EE] shadow-[0_0_30px_rgba(37,244,238,0.5)]' : 'bg-amber-500'}`}>
+                              {isDispatching ? <><RefreshCw size={16} className="animate-spin" /> <span className="truncate">TRANSMITTING: {sessionSentCount} / {sessionTotal} SENT...</span></> : <><Send size={16} /> CONFIRM & DISPATCH</>}
                            </button>
                         </div>
                      </div>
@@ -1645,125 +1646,125 @@ export default function App() {
                  ) : (
                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 text-left">
                       <div className="space-y-4 flex flex-col">
-                         <div className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 p-3 rounded-xl sm:rounded-2xl mb-2 flex-wrap">
+                         <div className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 p-4 rounded-xl sm:rounded-2xl mb-2 flex-wrap">
                            <div className="flex items-center gap-3">
-                             <Clock size={18} className="sm:w-5 sm:h-5 text-[#10B981]" />
+                             <Clock size={20} className="text-[#10B981]" />
                              <div>
-                               <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY</p>
-                               <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                               <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black uppercase mb-1">DISPATCH DELAY</p>
+                               <select disabled={!isPro} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[11px] sm:text-xs font-black outline-none cursor-pointer w-full appearance-none">
                                   <option value={15} className="bg-[#0a0a0a]">15 SECONDS</option>
                                   <option value={30} className="bg-[#0a0a0a]">30 SECONDS</option>
                                   <option value={60} className="bg-[#0a0a0a]">60 SECONDS</option>
                                </select>
                              </div>
                            </div>
-                           <div className="border-l border-white/10 pl-3">
-                             <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest font-black uppercase mb-1">TARGET BATCH FOLDER</p>
+                           <div className="border-l border-white/10 pl-4">
+                             <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest font-black uppercase mb-1">TARGET BATCH FOLDER</p>
                              <div className="flex items-center gap-2">
-                               <select disabled={!isPro} value={selectedFolder} onChange={e => setSelectedFolder(e.target.value)} className="bg-transparent text-amber-500 text-[10px] sm:text-[11px] font-black outline-none cursor-pointer w-full appearance-none">
+                               <select disabled={!isPro} value={selectedFolder} onChange={e => setSelectedFolder(e.target.value)} className="bg-transparent text-amber-500 text-[11px] sm:text-xs font-black outline-none cursor-pointer w-full appearance-none">
                                   {folders.map(f => (
                                     <option key={f.id} value={f.id} className="bg-[#0a0a0a]">{f.label}</option>
                                   ))}
                                </select>
                                {isMaster && (
-                                 <button onClick={() => setCreateFolderModal(true)} title="Create new folder" className="text-[#25F4EE]/50 hover:text-[#25F4EE] transition-colors shrink-0"><Plus size={13}/></button>
+                                 <button onClick={() => setCreateFolderModal(true)} title="Create new folder" className="text-[#25F4EE]/50 hover:text-[#25F4EE] transition-colors shrink-0 p-1"><Plus size={16}/></button>
                                )}
                              </div>
                            </div>
                          </div>
 
                          <div className="flex items-center gap-2 font-black pt-2">
-                           <span className="text-amber-500"><ShieldAlert size={14}/></span>
-                           <span className="text-[8px] sm:text-[9px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
+                           <span className="text-amber-500"><ShieldAlert size={16}/></span>
+                           <span className="text-[9px] sm:text-[10px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
                          </div>
-                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => setAiObjective(e.target.value)} placeholder="Enter your strategic high-conversion message up to 300 characters, and our smart engine will generate intelligent shuffle combinations. REVIEW THEM ⚠️" className={`input-premium h-[120px] sm:h-[140px] resize-none font-sans font-medium text-[12px] sm:text-[14px] !text-transform-none ${isAiObjectiveForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} />
+                         <textarea disabled={!isPro} value={aiObjective} onChange={(e) => setAiObjective(e.target.value)} placeholder="Enter your strategic high-conversion message up to 300 characters, and our smart engine will generate intelligent shuffle combinations. REVIEW THEM ⚠️" className={`input-premium h-[140px] sm:h-[160px] resize-none font-sans font-medium text-sm sm:text-base leading-relaxed !text-transform-none ${isAiObjectiveForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} />
                          
-                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || isAiObjectiveForbidden || isAiProcessing} className={`text-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 font-black ${isAiObjectiveForbidden ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
+                         <button onClick={handlePrepareBatch} disabled={!isPro || logs.length === 0 || isAiObjectiveForbidden || isAiProcessing} className={`text-black text-[11px] sm:text-xs py-5 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(37,244,238,0.2)] disabled:opacity-30 hover:scale-[1.02] transition-transform w-full mt-2 sm:mt-4 font-black ${isAiObjectiveForbidden ? 'bg-white/20 !text-white/50 cursor-not-allowed' : 'bg-[#25F4EE]'}`}>
                             {isAiObjectiveForbidden ? "SYSTEM STANDBY — CORRECT PAYLOAD" : (isAiProcessing ? "GENERATING BLOCKS..." : `SYNTHESIZE QUEUE`)}
                          </button>
                       </div>
                       
                       {/* PAINEL DE DISPARO REMOTO & DIAGNÓSTICO GHOST PROTOCOL */}
-                      <div className="bg-[#111] border border-white/5 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center p-6 sm:p-8 min-h-[180px] sm:min-h-[200px] text-center shadow-inner relative overflow-hidden mt-4 lg:mt-0">
+                      <div className="bg-[#111] border border-white/5 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center p-6 sm:p-8 min-h-[200px] sm:min-h-[220px] text-center shadow-inner relative overflow-hidden mt-4 lg:mt-0">
                         {smsQueueCount > 0 ? (
                           <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
-                             <div className="mb-4 sm:mb-6">
-                               <p className="text-4xl sm:text-5xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
-                               <p className="text-[8px] sm:text-[9px] text-white/40 tracking-widest mt-1 sm:mt-2 font-black">PENDING IN NODE QUEUE</p>
+                             <div className="mb-5 sm:mb-6">
+                               <p className="text-5xl sm:text-6xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
+                               <p className="text-[9px] sm:text-[10px] text-white/40 tracking-widest mt-2 font-black">PENDING IN NODE QUEUE</p>
                              </div>
-                             <div className="text-amber-500 flex flex-col items-center gap-2 sm:gap-3">
-                               <RefreshCw size={20} className="sm:w-6 sm:h-6 animate-spin" />
-                               <p className="text-[8px] sm:text-[9px] tracking-widest animate-pulse font-bold">{isDispatching ? "AWAITING MOBILE NODE DISPATCH..." : "TRANSMITTING VIA SECURE P2P GATEWAY..."}</p>
+                             <div className="text-amber-500 flex flex-col items-center gap-3">
+                               <RefreshCw size={24} className="animate-spin" />
+                               <p className="text-[9px] sm:text-[10px] tracking-widest animate-pulse font-bold">TRANSMITTING VIA SECURE P2P GATEWAY...</p>
                              </div>
                              
-                             <button onClick={handleClearQueue} disabled={loading} className="mt-4 sm:mt-6 text-[8px] sm:text-[9px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-1.5 border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-black font-black">
-                               <Trash2 size={10} className="sm:w-3 sm:h-3"/> PURGE QUEUE
+                             <button onClick={handleClearQueue} disabled={loading} className="mt-6 text-[9px] sm:text-[10px] text-white/30 hover:text-[#FE2C55] transition-colors uppercase tracking-widest flex items-center gap-2 border border-white/10 px-4 py-2 rounded-lg bg-black font-black">
+                               <Trash2 size={12}/> PURGE QUEUE
                              </button>
 
                              {nodeWarningActive && (
-                               <div className="mt-4 sm:mt-6 p-3 sm:p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
-                                 <p className="text-[9px] sm:text-[10px] text-[#FE2C55] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><WifiOff size={10} className="sm:w-3 sm:h-3"/> DEVICE DISCONNECTED</p>
-                                 <p className="text-[7px] sm:text-[8px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
+                               <div className="mt-6 p-4 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-xl text-left animate-in slide-in-from-bottom-2">
+                                 <p className="text-[10px] sm:text-[11px] text-[#FE2C55] font-black tracking-widest flex items-center gap-2 mb-1.5"><WifiOff size={12}/> DEVICE DISCONNECTED</p>
+                                 <p className="text-[8px] sm:text-[9px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
                                </div>
                              )}
                           </div>
                         ) : (
                           <div className="opacity-20 flex flex-col items-center">
-                            <ShieldAlert size={40} className="sm:w-[54px] sm:h-[54px] mb-3 sm:mb-4 text-white" />
-                            <p className="text-[10px] sm:text-[11px] font-black tracking-widest">SYSTEM STANDBY</p>
+                            <ShieldAlert size={48} className="mb-4 text-white" />
+                            <p className="text-[11px] sm:text-xs font-black tracking-widest">SYSTEM STANDBY</p>
                           </div>
                         )}
 
                         {/* HIGH-TECH GHOST PROTOCOL EXPLANATION BADGE */}
                         {!smsQueueCount && (
-                          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 p-2.5 sm:p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left hidden sm:block">
-                             <p className="text-[8px] sm:text-[9px] text-[#10B981] font-black tracking-widest flex items-center gap-1.5 sm:gap-2 mb-1"><Wifi size={10} className="sm:w-3 sm:h-3 animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
-                             <p className="text-[7px] sm:text-[8px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
+                          <div className="absolute bottom-4 left-4 right-4 p-3 sm:p-4 bg-white/[0.02] border border-white/5 rounded-xl text-left hidden sm:block">
+                             <p className="text-[9px] sm:text-[10px] text-[#10B981] font-black tracking-widest flex items-center gap-2 mb-1.5"><Wifi size={12} className="animate-pulse"/> GHOST PROTOCOL ACTIVE</p>
+                             <p className="text-[8px] sm:text-[9px] text-white/30 font-sans !text-transform-none leading-relaxed">Secure background routing active. To preserve operational stealth, transmissions operate independently and will not be visible in your device's native SMS outbox.</p>
                           </div>
                         )}
                       </div>
                    </div>
                  )}
               </div>
-              {!isPro && <div className="pro-lock-layer p-4"><p className="text-[#FE2C55] tracking-widest text-[10px] sm:text-[11px] mb-2 shadow-xl animate-pulse font-black"><Lock size={10} className="sm:w-3 sm:h-3 inline mr-1.5 sm:mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[8px] sm:text-[9px] px-6 sm:px-10 py-2.5 sm:py-3 rounded-xl whitespace-nowrap font-black">UNLOCK NEXUS AGENT</button></div>}
+              {!isPro && <div className="pro-lock-layer p-4"><p className="text-[#FE2C55] tracking-widest text-[11px] sm:text-xs mb-3 shadow-xl animate-pulse font-black"><Lock size={12} className="inline mr-2"/> PRO LOCKED</p><button onClick={() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'})} className="bg-[#25F4EE] text-black text-[9px] sm:text-[10px] px-8 py-3.5 rounded-xl whitespace-nowrap font-black">UNLOCK NEXUS AGENT</button></div>}
             </div>
 
             {/* PROTOCOL INVENTORY (LINKS) */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl sm:rounded-[2.5rem] overflow-hidden shadow-3xl mb-16 flex flex-col text-left">
-              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-2 sm:gap-3"><Radio size={18} className="sm:w-5 sm:h-5 text-[#25F4EE]" /><h3 className="text-base sm:text-lg tracking-tight font-black">ACTIVE PROTOCOLS INVENTORY</h3></div></div>
+              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111]"><div className="flex items-center gap-3"><Radio size={20} className="text-[#25F4EE]" /><h3 className="text-lg sm:text-xl tracking-tight font-black">ACTIVE PROTOCOLS INVENTORY</h3></div></div>
               <div className="min-h-[150px] sm:min-h-[200px] max-h-[40vh] overflow-y-auto bg-black custom-scrollbar">
                 {linksHistory.length > 0 ? linksHistory.map(l => (
-                  <div key={l.id} className="p-5 sm:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4 sm:gap-6 hover:bg-white/[0.02] transition-colors">
+                  <div key={l.id} className="p-6 sm:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4 sm:gap-6 hover:bg-white/[0.02] transition-colors">
                     <div className="flex-1 overflow-hidden">
-                       <p className="text-[9px] sm:text-[10px] text-white/30 mb-1 flex items-center gap-1.5 sm:gap-2 tracking-widest"><Calendar size={10}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Gateway...'}</p>
-                       <p className="text-xs sm:text-sm text-[#25F4EE] truncate font-sans !text-transform-none max-w-[280px] sm:max-w-[400px]">{l.url}</p>
-                       <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 sm:mt-1.5 leading-tight font-sans !text-transform-none truncate">HOST: {String(l.company)} | PAYLOAD: {String(l.msg).substring(0,40)}...</p>
+                       <p className="text-[10px] sm:text-[11px] text-white/30 mb-1.5 flex items-center gap-2 tracking-widest"><Calendar size={12}/> {l.created_at && typeof l.created_at.toDate === 'function' ? l.created_at.toDate().toLocaleString('en-US') : 'Syncing Gateway...'}</p>
+                       <p className="text-sm sm:text-base text-[#25F4EE] truncate font-sans !text-transform-none max-w-[280px] sm:max-w-[500px]">{l.url}</p>
+                       <p className="text-[9px] sm:text-[10px] text-white/40 mt-2 leading-relaxed font-sans !text-transform-none truncate">HOST: {String(l.company)} | PAYLOAD: {String(l.msg).substring(0,60)}...</p>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto mt-2 md:mt-0">
-                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Gateway Copied!");}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors flex justify-center"><Copy size={14} className="sm:w-4 sm:h-4"/></button>
-                       <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home'); window.scrollTo(0,0);}} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors flex justify-center"><Edit size={14} className="sm:w-4 sm:h-4"/></button>
-                       <button onClick={() => handleDeleteLink(l.id)} className="flex-1 md:flex-none p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors flex justify-center"><Trash size={14} className="sm:w-4 sm:h-4"/></button>
+                    <div className="flex items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
+                       <button onClick={() => {navigator.clipboard.writeText(l.url); alert("Handshake Gateway Copied!");}} className="flex-1 md:flex-none p-3 sm:p-3.5 bg-white/5 rounded-xl border border-white/10 hover:text-[#25F4EE] transition-colors flex justify-center"><Copy size={16}/></button>
+                       <button onClick={() => {setEditingLink(l); setGenTo(l.to); setCompanyName(l.company); setGenMsg(l.msg); setView('home'); window.scrollTo(0,0);}} className="flex-1 md:flex-none p-3 sm:p-3.5 bg-white/5 rounded-xl border border-white/10 hover:text-amber-500 transition-colors flex justify-center"><Edit size={16}/></button>
+                       <button onClick={() => handleDeleteLink(l.id)} className="flex-1 md:flex-none p-3 sm:p-3.5 bg-white/5 rounded-xl border border-white/10 hover:text-[#FE2C55] transition-colors flex justify-center"><Trash size={16}/></button>
                     </div>
                   </div>
-                )) : <div className="p-16 sm:p-20 text-center opacity-20"><Lock size={36} className="sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" /><p className="text-[9px] sm:text-[10px] tracking-widest font-black">NO PROTOCOLS ESTABLISHED</p></div>}
+                )) : <div className="p-16 sm:p-20 text-center opacity-20"><Lock size={40} className="mx-auto mb-4" /><p className="text-[10px] sm:text-[11px] tracking-widest font-black">NO PROTOCOLS ESTABLISHED</p></div>}
               </div>
             </div>
 
             {/* UPGRADE STATION */}
             <div id="marketplace-section" className="mb-12 sm:mb-16 mt-8 sm:mt-10 text-left">
-               <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-10"><ShoppingCart size={20} className="sm:w-6 sm:h-6 text-[#FE2C55]"/><h3 className="text-lg sm:text-xl text-white text-glow-white font-black">NEXUS UPGRADE HUB</h3></div>
+               <div className="flex items-center gap-3 mb-8 sm:mb-10"><ShoppingCart size={24} className="text-[#FE2C55]"/><h3 className="text-xl sm:text-2xl text-white text-glow-white font-black">NEXUS UPGRADE HUB</h3></div>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8 text-left">
-                 <div className="bg-[#111] border border-white/10 p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE]/50 transition-colors">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 font-black">NEXUS ROUTING PRO</h3>
-                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
-                    <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
+                 <div className="bg-[#111] border border-white/10 p-8 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-2xl hover:border-[#25F4EE]/50 transition-colors">
+                    <h3 className="text-3xl sm:text-4xl text-white mb-3 sm:mb-4 font-black tracking-tight">NEXUS ROUTING PRO</h3>
+                    <p className="text-4xl sm:text-5xl text-[#25F4EE] mb-6 sm:mb-8 font-black tracking-tighter">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
+                    <p className="text-[9px] sm:text-[10px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-4 sm:py-5 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[11px] sm:text-xs w-full py-4 sm:py-5 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
                  </div>
-                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-6 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
-                    <h3 className="text-2xl sm:text-3xl text-white mb-2 sm:mb-4 text-[#25F4EE] font-black">NEXUS AUTOMATION ENGINE</h3>
-                    <p className="text-3xl sm:text-4xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
-                    <p className="text-[8px] sm:text-[9px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-xs w-full py-3.5 sm:py-4 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
+                 <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-8 sm:p-10 rounded-3xl sm:rounded-[2.5rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
+                    <h3 className="text-3xl sm:text-4xl text-white mb-3 sm:mb-4 text-[#25F4EE] font-black tracking-tight">NEXUS AUTOMATION ENGINE</h3>
+                    <p className="text-4xl sm:text-5xl text-[#25F4EE] mb-6 sm:mb-8 font-black tracking-tighter">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
+                    <p className="text-[9px] sm:text-[10px] text-white/40 mb-8 sm:mb-10 leading-relaxed pr-4 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-4 sm:py-5 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-4 sm:py-5 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
                  </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
@@ -1773,11 +1774,11 @@ export default function App() {
                    { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
                  ].map(pack => (
                    <div key={pack.name} className="bg-white/5 border border-white/10 p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center shadow-xl flex flex-col items-center hover:bg-white/10 transition-colors">
-                     <p className="text-[9px] sm:text-[10px] text-[#25F4EE] mb-1.5 sm:mb-2 tracking-widest font-black">{pack.name}</p>
-                     <p className="text-2xl sm:text-3xl text-white mb-3 sm:mb-4 font-black">{pack.qty}</p>
-                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-3 sm:mb-4 font-black">PRO TRANSMISSION PACKETS</p>
-                     <p className="text-lg sm:text-xl text-[#25F4EE] mb-6 sm:mb-8 font-black">{pack.price}</p>
-                     <button className="w-full py-3 sm:py-3.5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[8px] sm:text-[9px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
+                     <p className="text-[10px] sm:text-[11px] text-[#25F4EE] mb-2 tracking-widest font-black">{pack.name}</p>
+                     <p className="text-3xl sm:text-4xl text-white mb-4 font-black">{pack.qty}</p>
+                     <p className="text-[9px] sm:text-[10px] text-white/50 tracking-[0.2em] mb-4 font-black">PRO TRANSMISSION PACKETS</p>
+                     <p className="text-xl sm:text-2xl text-[#25F4EE] mb-8 font-black">{pack.price}</p>
+                     <button className="w-full py-3.5 sm:py-4 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
                    </div>
                  ))}
               </div>
@@ -1792,24 +1793,24 @@ export default function App() {
               <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
                 {isWelcomeTrial && !isLoginMode ? (
                    <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
-                      <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 WELCOME TO THE ELITE</h2>
-                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case text-center text-wrap-balance">
+                      <h2 className="text-3xl sm:text-4xl font-black text-[#25F4EE] mb-3 tracking-tight">🎁 WELCOME TO THE ELITE</h2>
+                      <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-medium !not-italic !normal-case text-center">
                          We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 Free Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
                       </p>
                    </div>
                 ) : (
-                   <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
+                   <h2 className="text-3xl sm:text-4xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
                 )}
                 
                 <form onSubmit={handleAuthSubmit} className="space-y-5 sm:space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
-                  <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
+                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-xs sm:text-sm w-full font-sans font-medium !text-transform-none" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-xs sm:text-sm w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-xs sm:text-sm w-full font-sans font-medium !text-transform-none" /></>)}
+                  <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-xs sm:text-sm w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
+                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-xs sm:text-sm w-full font-sans font-medium !text-transform-none pr-12" />
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={18}/></button>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'UNLOCK MY 60 TRANSMISSIONS' : 'AUTHORIZE ACCESS')}</button>
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
+                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'UNLOCK MY 60 TRANSMISSIONS' : 'AUTHORIZE ACCESS')}</button>
+                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[10px] sm:text-[11px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
                 </form>
               </div>
             </div>
@@ -1817,29 +1818,56 @@ export default function App() {
         )}
       </div>
 
-      {/* --- COOKIE CONSENT BANNER --- */}
-      {!cookieConsent && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#25F4EE]/30 p-6 z-[9999] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_-10px_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-10">
-           <div className="flex-1 text-center md:text-left">
-             <h4 className="text-[#25F4EE] font-black text-[11px] mb-2 tracking-widest uppercase flex items-center justify-center md:justify-start gap-2"><ShieldCheck size={14}/> LEGAL & PRIVACY CONSENT</h4>
-             <p className="text-[10px] text-white/60 leading-relaxed font-medium !not-italic !normal-case">
-               By accessing the SMART SMS PRO ecosystem, you explicitly agree to our Terms of Service, Privacy Policy, and our strict Zero Tolerance Policy against spam, phishing, and illegal activities. All interactions are monitored by the Nexus Security Engine. We use encrypted cookies to ensure session integrity and prevent redundant operations. You assume full legal responsibility for your actions within this platform.
-             </p>
+      {/* --- COOKIE & LEGAL CONSENT BANNER (EXPANDABLE) --- */}
+      {cookieConsent === 'pending' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-white/10 p-6 sm:p-8 z-[9999] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-10 max-h-[85vh] overflow-y-auto custom-scrollbar">
+           <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
+              <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
+                 <div className="flex-1 text-left">
+                   <h4 className="text-[#25F4EE] font-black text-xs sm:text-sm mb-3 tracking-widest uppercase flex items-center gap-2"><ShieldCheck size={20}/> LEGAL & PRIVACY CONSENT</h4>
+                   <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-medium !not-italic !normal-case">
+                     We use strictly necessary cookies to ensure platform security and session integrity. Optional analytics help us improve your experience. You assume full legal responsibility by proceeding.
+                   </p>
+                 </div>
+                 <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto shrink-0">
+                    <button onClick={() => setShowCookieDetails(!showCookieDetails)} className="px-6 py-3.5 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest uppercase hover:bg-white/10 transition-colors w-full sm:w-auto">
+                      {showCookieDetails ? 'HIDE TERMS' : 'READ FULL TERMS'}
+                    </button>
+                    <button onClick={() => { localStorage.setItem('nexus_legal_consent', 'essential'); setCookieConsent('resolved'); }} className="px-6 py-3.5 bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest uppercase hover:bg-[#FE2C55]/20 transition-colors w-full sm:w-auto">
+                      REJECT (ESSENTIAL ONLY)
+                    </button>
+                    <button onClick={() => { localStorage.setItem('nexus_legal_consent', 'all'); setCookieConsent('resolved'); }} className="px-8 py-3.5 bg-[#25F4EE] text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest uppercase shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform w-full sm:w-auto">
+                      ACCEPT ALL
+                    </button>
+                 </div>
+              </div>
+              
+              {/* Expandable Terms Accordion */}
+              {showCookieDetails && (
+                 <div className="p-6 sm:p-8 bg-[#111] border border-white/5 rounded-2xl animate-in fade-in zoom-in-95 text-left mt-2">
+                    <p className="text-xs sm:text-sm text-white/60 font-sans !not-italic !normal-case leading-loose">
+                      <span className="text-amber-500 font-black block mb-2 uppercase tracking-widest text-[10px] sm:text-xs">ZERO TOLERANCE & COMPLIANCE PROTOCOL</span>
+                      SMART SMS PRO operates under an absolute Zero Tolerance Policy. Any attempt to utilize this platform for bypassing operational laws, conducting phishing, scams, extortion, malware distribution, or sending unsolicited spam will result in immediate and permanent termination of the operator's gateway. Our Nexus Engine actively monitors all payload streams. Malicious intent is automatically flagged, blocked in real-time, and logged for security review. You assume full legal responsibility for the content transmitted through your node.
+                      <br/><br/>
+                      <span className="text-[#25F4EE] font-black block mb-2 uppercase tracking-widest text-[10px] sm:text-xs">ESSENTIAL COOKIES (MANDATORY)</span>
+                      These cookies are required for basic site functionality, user authentication, and to prevent CSRF/XSS attacks. They cannot be disabled.
+                    </p>
+                 </div>
+              )}
            </div>
-           <button onClick={() => { setCookieConsent(true); localStorage.setItem('nexus_legal_consent', 'true'); }} className="bg-[#25F4EE] text-black px-8 py-3 rounded-xl font-black text-[10px] tracking-widest uppercase whitespace-nowrap shadow-[0_0_20px_rgba(37,244,238,0.3)] hover:scale-105 transition-transform w-full md:w-auto">I ACCEPT & UNDERSTAND</button>
         </div>
       )}
 
       {/* FOOTER (ULTRA RESPONSIVE WITH DYNAMIC MODALS) */}
       <footer className="mt-auto pb-12 sm:pb-20 w-full z-[100] px-6 sm:px-10 border-t border-white/5 pt-12 sm:pt-20 text-left bg-[#010101] relative">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-widest text-white/30 font-black">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-[10px] sm:text-[11px] tracking-[0.15em] sm:tracking-widest text-white/30 font-black">
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">LEGAL PROTOCOLS</span><button onClick={() => setLegalContent('PRIVACY')} className="text-left hover:text-[#25F4EE] transition-colors">PRIVACY POLICY</button><button onClick={() => setLegalContent('TERMS')} className="text-left hover:text-[#25F4EE] transition-colors">TERMS OF USE</button><button onClick={() => setLegalContent('ZERO')} className="text-left hover:text-amber-500 transition-colors">ZERO TOLERANCE POLICY</button></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">GLOBAL COMPLIANCE</span><button onClick={() => setLegalContent('LGPD')} className="text-left hover:text-[#FE2C55] transition-colors">LGPD PROTOCOL</button><button onClick={() => setLegalContent('GDPR')} className="text-left hover:text-[#FE2C55] transition-colors">GDPR NODE</button></div>
           <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">INFRASTRUCTURE</span><span className="text-left hover:text-white transition-colors cursor-default">U.S. ROUTING SERVERS</span><span className="text-left hover:text-white transition-colors cursor-default">EU SECURE SERVERS</span></div>
-          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={12} className="sm:w-3.5 sm:h-3.5"/></button></div>
+          <div className="flex flex-col gap-4 sm:gap-5"><span className="text-white/40 border-b border-white/5 pb-2">OPERATOR SUPPORT</span><button onClick={() => setShowSmartSupport(true)} className="text-left hover:text-[#25F4EE] flex items-center gap-2">SMART SUPPORT <Bot size={14}/></button></div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5 flex justify-center">
-           <p className="text-[8px] sm:text-[10px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black text-wrap-balance">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
+           <p className="text-[9px] sm:text-[11px] text-white/20 tracking-[0.3em] sm:tracking-[0.5em] text-center w-full px-4 text-glow-white font-black">© 2026 CLICKMORE DIGITAL | EXCLUSIVE SECURITY PROTOCOL</p>
         </div>
       </footer>
 
@@ -1850,33 +1878,33 @@ export default function App() {
              
              <div className="p-6 sm:p-8 border-b border-white/10 flex justify-between items-center bg-[#111] shrink-0">
                 <div className="flex items-center gap-3 sm:gap-4">
-                   {legalContent === 'ZERO' ? <ShieldAlert size={24} className="text-amber-500 sm:w-7 sm:h-7" /> : <ShieldCheck size={24} className="text-[#25F4EE] sm:w-7 sm:h-7" />}
-                   <h3 className="text-lg sm:text-xl text-white tracking-tight font-black">{legalContent === 'ZERO' ? 'ZERO TOLERANCE POLICY' : 'LEGAL PROTOCOL'}</h3>
+                   {legalContent === 'ZERO' ? <ShieldAlert size={28} className="text-amber-500" /> : <ShieldCheck size={28} className="text-[#25F4EE]" />}
+                   <h3 className="text-xl sm:text-2xl text-white tracking-tight font-black">{legalContent === 'ZERO' ? 'ZERO TOLERANCE POLICY' : 'LEGAL PROTOCOL'}</h3>
                 </div>
-                <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={18} className="sm:w-5 sm:h-5"/></button>
+                <button onClick={() => setLegalContent(null)} className="p-2 sm:p-2.5 bg-black border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-colors"><X size={20}/></button>
              </div>
 
              <div className="p-6 sm:p-10 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-[#111] to-black">
                 {legalContent === 'ZERO' ? (
-                  <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose text-wrap-balance">
+                  <p className="text-sm sm:text-base text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
                     <span className="text-amber-500 font-bold block mb-4">STRICT COMPLIANCE ENFORCEMENT</span>
                     SMART SMS PRO operates under an absolute Zero Tolerance Policy. Any attempt to utilize this platform for bypassing operational laws, conducting phishing, scams, extortion, malware distribution, or sending unsolicited spam will result in immediate and permanent termination of the operator's gateway.<br/><br/>
                     Our Nexus Engine actively monitors all payload streams. Malicious intent is automatically flagged, blocked in real-time, and logged for security review. You assume full legal responsibility for the content transmitted through your node.
                   </p>
                 ) : (
-                  <p className="text-[11px] sm:text-sm text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
+                  <p className="text-sm sm:text-base text-white/70 font-sans !text-transform-none leading-loose sm:leading-loose">
                     {renderLegalContent()?.text}
                   </p>
                 )}
                 
-                <div className="mt-8 sm:mt-12 p-4 sm:p-5 bg-[#25F4EE]/5 border border-[#25F4EE]/20 rounded-xl sm:rounded-2xl">
-                   <p className="text-[9px] sm:text-[10px] text-[#25F4EE] font-black tracking-widest uppercase mb-1 sm:mb-2">ENCRYPTED AT REST</p>
-                   <p className="text-[10px] sm:text-xs text-white/40 font-sans !text-transform-none leading-relaxed text-wrap-balance">By engaging with the SMART SMS PRO ecosystem, your footprint is subjected to AES-256 standard cryptographic masking. No unauthorized external relays possess decryption keyframes.</p>
+                <div className="mt-8 sm:mt-12 p-5 sm:p-6 bg-[#25F4EE]/5 border border-[#25F4EE]/20 rounded-xl sm:rounded-2xl">
+                   <p className="text-[10px] sm:text-[11px] text-[#25F4EE] font-black tracking-widest uppercase mb-2">ENCRYPTED AT REST</p>
+                   <p className="text-xs sm:text-sm text-white/40 font-sans !text-transform-none leading-relaxed">By engaging with the SMART SMS PRO ecosystem, your footprint is subjected to AES-256 standard cryptographic masking. No unauthorized external relays possess decryption keyframes.</p>
                 </div>
              </div>
 
              <div className="p-6 sm:p-8 border-t border-white/10 bg-black shrink-0 flex justify-end">
-                <button onClick={() => setLegalContent(null)} className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-3.5 bg-[#25F4EE] text-black text-[10px] sm:text-[11px] font-black tracking-widest rounded-xl hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACKNOWLEDGE & CLOSE</button>
+                <button onClick={() => setLegalContent(null)} className="w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 bg-[#25F4EE] text-black text-[11px] sm:text-xs font-black tracking-widest rounded-xl hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(37,244,238,0.3)]">ACKNOWLEDGE & CLOSE</button>
              </div>
           </div>
         </div>
@@ -1887,22 +1915,22 @@ export default function App() {
         <div className="fixed inset-0 z-[600] bg-[#010101]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95">
           <div className="lighthouse-neon-wrapper w-full max-w-sm shadow-[0_0_50px_rgba(37,244,238,0.3)]">
             <div className="lighthouse-neon-content p-8 sm:p-10 flex flex-col items-center relative">
-              <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
-              <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
-              <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
-              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center text-wrap-balance">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
+              <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={24}/></button>
+              <Smartphone size={48} className="text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
+              <h3 className="text-2xl sm:text-3xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
+              <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncToken || 'GENERATING...')}&color=000000`} alt="Sync QR" className="w-32 h-32 sm:w-40 sm:h-40" />
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncToken || 'GENERATING...')}&color=000000`} alt="Sync QR" className="w-36 h-36 sm:w-44 sm:h-44" />
               </div>
               
               {/* Token TTL Indicator */}
-              <div className="mb-4 flex items-center justify-center gap-2 text-[8px] tracking-widest text-[#10B981] font-black">
-                <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></div>
+              <div className="mb-5 flex items-center justify-center gap-2 text-[9px] tracking-widest text-[#10B981] font-black">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></div>
                 <span>SECURE TOKEN ACTIVE — ROTATES EVERY 5 MIN</span>
               </div>
               
-              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[9px] sm:text-[10px] w-full py-3.5 sm:py-4 shadow-xl mb-2 sm:mb-4 font-black">
+              <button onClick={() => { setIsDeviceSynced(true); setShowSyncModal(false); }} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full py-4 sm:py-5 shadow-xl mb-2 sm:mb-4 font-black">
                 CONFIRM DEVICE SYNC
               </button>
             </div>
@@ -1916,49 +1944,49 @@ export default function App() {
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/50 rounded-3xl sm:rounded-[2rem] p-6 sm:p-8 max-w-lg w-full relative shadow-[0_0_50px_rgba(37,244,238,0.2)] max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col items-center">
             
             <div className="absolute top-4 right-4 z-10">
-               <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 sm:p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors shadow-lg"><X size={18} className="sm:w-5 sm:h-5"/></button>
+               <button onClick={() => setShowHelpModal(false)} className="bg-black border border-white/10 p-2 sm:p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors shadow-lg"><X size={20}/></button>
             </div>
             
             <div className="flex justify-center mb-5 sm:mb-6 mt-4">
-              <div className="p-3 sm:p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
-                <DownloadCloud size={28} className="sm:w-8 sm:h-8 text-[#25F4EE]" />
+              <div className="p-4 bg-[#25F4EE]/10 rounded-full border border-[#25F4EE]/30 animate-pulse">
+                <DownloadCloud size={32} className="text-[#25F4EE]" />
               </div>
             </div>
             
-            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6 text-center">APK SETUP GUIDE</h2>
+            <h2 className="text-3xl sm:text-4xl font-black text-white italic tracking-tight mb-5 sm:mb-6 text-center">APK SETUP GUIDE</h2>
 
             {/* APK DOWNLOAD QR */}
             <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 shadow-[0_0_20px_#25F4EE]">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk")}&color=000000`} alt="Download APK QR" className="w-32 h-32 sm:w-40 sm:h-40" />
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk")}&color=000000`} alt="Download APK QR" className="w-36 h-36 sm:w-44 sm:h-44" />
             </div>
             
-            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2.5 sm:gap-3 mb-5 text-left w-full">
-              <Info size={20} className="sm:w-6 sm:h-6 shrink-0" />
-              <p className="text-[8px] sm:text-[9px] font-black leading-relaxed tracking-widest text-wrap-balance">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
+            <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-4 sm:px-5 py-3 sm:py-4 rounded-xl flex items-center gap-3 mb-6 text-left w-full">
+              <Info size={24} className="shrink-0" />
+              <p className="text-[9px] sm:text-[10px] font-black leading-relaxed tracking-widest text-pretty">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
             </div>
 
-            <div className="space-y-2.5 sm:space-y-3 text-left mb-6 w-full font-black">
-              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 1</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Scan the QR code above or use the buttons below to download the App.</p>
+            <div className="space-y-3 sm:space-y-4 text-left mb-8 w-full font-black">
+              <div className="bg-black border border-white/5 p-4 sm:p-5 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[9px] sm:text-[10px] tracking-widest mb-1.5">STEP 1</p>
+                <p className="text-white text-[11px] sm:text-xs font-medium font-sans !text-transform-none leading-relaxed">Scan the QR code above or use the buttons below to download the App.</p>
               </div>
-              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 2</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Open the app on your phone and grant the required SMS & Camera permissions.</p>
+              <div className="bg-black border border-white/5 p-4 sm:p-5 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[9px] sm:text-[10px] tracking-widest mb-1.5">STEP 2</p>
+                <p className="text-white text-[11px] sm:text-xs font-medium font-sans !text-transform-none leading-relaxed">Open the app on your phone and grant the required SMS & Camera permissions.</p>
               </div>
-              <div className="bg-black border border-white/5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[8px] sm:text-[9px] tracking-widest mb-1">STEP 3</p>
-                <p className="text-white text-[10px] sm:text-[11px] font-medium font-sans !text-transform-none">Click "SYNC MOBILE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
+              <div className="bg-black border border-white/5 p-4 sm:p-5 rounded-xl sm:rounded-2xl">
+                <p className="text-[#25F4EE] font-black text-[9px] sm:text-[10px] tracking-widest mb-1.5">STEP 3</p>
+                <p className="text-white text-[11px] sm:text-xs font-medium font-sans !text-transform-none leading-relaxed">Click "SYNC MOBILE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform text-center flex-1">
-                <DownloadCloud size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
+              <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[11px] sm:text-xs py-4 sm:py-5 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform text-center flex-1">
+                <DownloadCloud size={18} className="shrink-0" />
                 <span className="truncate">DOWNLOAD APK DIRECTLY</span>
               </a>
-              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("APK Link Copied!");}} className="bg-white/10 text-white font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-6 shrink-0">
-                <Copy size={16} /> COPY LINK
+              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("APK Link Copied!");}} className="bg-white/10 text-white font-black text-[11px] sm:text-xs py-4 sm:py-5 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-6 shrink-0">
+                <Copy size={18} /> COPY LINK
               </button>
             </div>
           </div>
@@ -1971,46 +1999,46 @@ export default function App() {
           <div className="bg-[#0a0a0a] border border-amber-500/40 rounded-[2rem] w-full max-w-md shadow-[0_0_40px_rgba(245,158,11,0.2)] overflow-hidden">
             <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <Edit size={18} className="text-amber-500"/>
-                <h3 className="text-sm font-black tracking-widest text-white">EDIT LEAD — MASTER OVERRIDE</h3>
+                <Edit size={20} className="text-amber-500"/>
+                <h3 className="text-sm sm:text-base font-black tracking-widest text-white">EDIT LEAD — MASTER OVERRIDE</h3>
               </div>
-              <button onClick={() => setEditLeadModal(null)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
+              <button onClick={() => setEditLeadModal(null)} className="text-white/30 hover:text-white p-1"><X size={20}/></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 sm:p-8 space-y-5">
               <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">IDENTITY (NAME)</label>
+                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2">IDENTITY (NAME)</label>
                 <input
                   value={editLeadModal.nome_cliente}
                   onChange={e => setEditLeadModal(prev => ({ ...prev, nome_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  className="input-premium w-full font-sans !text-transform-none text-base"
                   placeholder="Lead full name"
                 />
               </div>
               <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">TARGET NUMBER (PHONE)</label>
+                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2">TARGET NUMBER (PHONE)</label>
                 <input
                   type="tel"
                   value={editLeadModal.telefone_cliente}
                   onChange={e => setEditLeadModal(prev => ({ ...prev, telefone_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  className="input-premium w-full font-sans !text-transform-none text-base"
                   placeholder="+1 999 999 9999"
                 />
               </div>
               <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">ASSIGN FOLDER / CAMPAIGN</label>
+                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2">ASSIGN FOLDER / CAMPAIGN</label>
                 <select
                   value={editLeadModal.folderId || 'MANUAL'}
                   onChange={e => setEditLeadModal(prev => ({ ...prev, folderId: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm bg-[#111] appearance-none"
+                  className="input-premium w-full font-sans !text-transform-none text-base bg-[#111] appearance-none"
                 >
                   {folders.map(f => (
                     <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setEditLeadModal(null)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleAdminEditLead} disabled={loading} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[9px] font-black tracking-widest hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+              <div className="flex gap-4 pt-3">
+                <button onClick={() => setEditLeadModal(null)} className="flex-1 py-4 bg-white/5 text-white/50 rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
+                <button onClick={handleAdminEditLead} disabled={loading} className="flex-1 py-4 bg-amber-500 text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.3)]">
                   {loading ? 'SAVING...' : 'SAVE CHANGES'}
                 </button>
               </div>
@@ -2025,26 +2053,26 @@ export default function App() {
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
             <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <Plus size={18} className="text-[#25F4EE]"/>
-                <h3 className="text-sm font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
+                <Plus size={20} className="text-[#25F4EE]"/>
+                <h3 className="text-sm sm:text-base font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
               </div>
-              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
+              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={20}/></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 sm:p-8 space-y-5">
               <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
+                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
                 <input
                   value={newFolderName}
                   onChange={e => setNewFolderName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  className="input-premium w-full font-sans !text-transform-none text-base"
                   placeholder="e.g. Black Friday Campaign"
                   autoFocus
                 />
               </div>
-              <div className="flex gap-3">
-                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleCreateFolder} className="flex-1 py-3 bg-[#25F4EE] text-black rounded-xl text-[9px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
+              <div className="flex gap-4">
+                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-4 bg-white/5 text-white/50 rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
+                <button onClick={handleCreateFolder} className="flex-1 py-4 bg-[#25F4EE] text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
               </div>
             </div>
           </div>
