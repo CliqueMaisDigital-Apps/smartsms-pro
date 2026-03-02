@@ -1,4 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+// Adicione esta linha na seção de estados (por volta da linha 180, junto com os outros useStates)
+const [isChatBanned, setIsChatBanned] = useState(false);
+
+// Substitua a função generateUUID (ou a linha que usa crypto.randomUUID) por esta versão com fallback
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID().split('-')[0];
+  }
+  // Fallback para navegadores antigos
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
+// No handleGenerate, substitua a linha:
+// const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
+// por:
+const lid = editingLink ? editingLink.id : generateUUID();import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
