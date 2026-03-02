@@ -803,7 +803,7 @@ export default function App() {
         // [ INSTRUCTION: PASTE YOUR GOOGLE CLOUD API KEY INSIDE THE QUOTES BELOW ]
         // [ INSTRUÇÃO: COLE SUA NOVA CHAVE DE API AQUI ] -> Linha 689 (Aproximadamente)
         // ============================================================================
-        const apiKey = "AIzaSyBDtZPYaJ-sNZkWLC4KsN9U9zDYvM4W0w8"; 
+        const apiKey = "QUl6YVN5RFdLQkpmTjZyeEJLRFRKR1FNc0tLSENPZEdLa0JWVXhZ"; 
         
         const systemPrompt = `SYSTEM INSTRUCTIONS FOR NEXUS AI SMART
 You are NEXUS AI SMART, the elite artificial intelligence, specialized Sales, and Support Agent for the SMART SMS PRO platform.
