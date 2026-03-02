@@ -33,7 +33,7 @@ import {
   DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing
 } from 'lucide-react';
 
-// --- FIREBASE CONFIGURATION (SINTONIA FORÇADA COM O APK) ---
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyBI-JSC-FtVOz_r6p-XjN6fUrapMn_ad24",
   authDomain: "smartsmspro-4ee81.firebaseapp.com",
@@ -91,7 +91,7 @@ export default function App() {
   const [broadcastMsg, setBroadcastMsg] = useState('');
   
   // --- LEAD CRUD MODAL STATES (MASTER ADMIN) ---
-  const [editLeadModal, setEditLeadModal] = useState(null); // { id, nome_cliente, telefone_cliente, folderId }
+  const [editLeadModal, setEditLeadModal] = useState(null);
   const [createFolderModal, setCreateFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [folders, setFolders] = useState([{ id: 'ALL', label: 'ALL ACTIVE LEADS' }, { id: 'MANUAL', label: 'CAPTURED LEADS' }, { id: 'Bulk Import TXT', label: 'IMPORTED LIST' }]);
@@ -136,62 +136,44 @@ export default function App() {
   const [isDeviceSynced, setIsDeviceSynced] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
 
-  // --- AI CHAT SUPPORT STATES (ZERO-INIT) ---
+  // --- AI CHAT SUPPORT STATES ---
   const [chatMessages, setChatMessages] = useState([]); 
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
+  const [isChatBanned, setIsChatBanned] = useState(false); // ZERO TOLERANCE LOCK
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
 
-  // ============================================================================
-  // SECURE QR HANDSHAKE TOKEN GENERATOR
-  // Generates a time-bound (5min TTL) HMAC-style token for device pairing.
-  // Replaces the static UID-based payload that was vulnerable to UID spoofing.
-  // ============================================================================
+  // --- SECURE QR HANDSHAKE TOKEN GENERATOR ---
   const [syncToken, setSyncToken] = useState('');
   const [syncTokenExpiry, setSyncTokenExpiry] = useState(0);
 
   const generateSecureSyncToken = async () => {
     if (!user) return '';
     const now = Date.now();
-    // 5-minute window (300,000ms) — token rotates every 5 min
     const window5min = Math.floor(now / 300000);
     const rawPayload = `${user.uid}:${window5min}:SMARTSMS_SECURE`;
-    
     try {
-      // Use SubtleCrypto for HMAC-SHA256 derivation (available in all modern browsers)
       const encoder = new TextEncoder();
       const keyData = encoder.encode('NEXUS_SALT_KEY_2026');
       const msgData = encoder.encode(rawPayload);
-      
-      const cryptoKey = await crypto.subtle.importKey(
-        'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-      );
+      const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
       const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-      const hexToken = Array.from(new Uint8Array(signature))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-        .substring(0, 32); // truncate to 32 hex chars for QR readability
-      
+      const hexToken = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
       const token = `NEXUS_SYNC|uid:${user.uid}|tok:${hexToken}|exp:${window5min}`;
-      setSyncToken(token);
-      setSyncTokenExpiry(window5min);
+      setSyncToken(token); setSyncTokenExpiry(window5min);
       return token;
     } catch (err) {
-      // Fallback for environments without SubtleCrypto
-      console.warn('[SyncToken] SubtleCrypto unavailable, using fallback');
       const fallback = `NEXUS_SYNC|uid:${user.uid}|tok:${btoa(rawPayload).replace(/=/g,'').substring(0,24)}|exp:${window5min}`;
       setSyncToken(fallback);
       return fallback;
     }
   };
 
-  // Auto-regenerate token when sync modal opens or token window expires
   useEffect(() => {
     if (!showSyncModal || !user) return;
     generateSecureSyncToken();
-    // Refresh every 5 minutes
     const interval = setInterval(generateSecureSyncToken, 300000);
     return () => clearInterval(interval);
   }, [showSyncModal, user]);
@@ -202,26 +184,16 @@ export default function App() {
   const isPro = isMaster || ['MASTER', 'ELITE', 'ACTIVATION_9_USD', 'PRO_SUBSCRIPTION_19_USD'].includes(userProfile?.tier) || userProfile?.isSubscribed || userProfile?.isUnlimited;
   const MSG_LIMIT = 300;
 
-  // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER (ALLOWS NATIVE TRANSLATION) ---
+  // --- SHIELD PROTOCOL: ANTI-COPY & DEVTOOLS BLOCKER ---
   useEffect(() => {
-    // Contextmenu is explicitly kept open for native browser translation extensions.
-    // Text selection and keyboard copy/dev tools are strictly blocked via JS logic.
     const handleKeyDown = (e) => {
-       if (
-           e.key === 'F12' || 
-           (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || 
-           (e.ctrlKey && ['U','S','P','C','X'].includes(e.key.toUpperCase()))
-       ) {
+       if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && ['U','S','P','C','X'].includes(e.key.toUpperCase()))) {
            e.preventDefault();
        }
     };
     const handlePreventCopy = (e) => {
-      // Allow copy if inside an input, textarea or the chat content.
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-      }
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
     };
-    
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('copy', handlePreventCopy);
     document.addEventListener('cut', handlePreventCopy);
@@ -232,12 +204,10 @@ export default function App() {
     };
   }, []);
 
-  // --- AUTO SCROLL CHAT (FIXED DELAY FOR RELIABILITY & UX SCROLL TO START) ---
+  // --- UX: DYNAMIC SCROLL MANAGEMENT ---
   useEffect(() => {
     if (showSmartSupport && latestMessageRef.current) {
-       setTimeout(() => {
-          latestMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-       }, 150);
+       setTimeout(() => latestMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
@@ -262,90 +232,56 @@ export default function App() {
               setUserProfile(p);
             }
           } catch (e) {
-            console.error("Profile load error", e);
             setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
           }
         }
       } else {
-        setUser(null);
-        setUserProfile(null);
+        setUser(null); setUserProfile(null);
       }
       setAuthResolved(true);
     });
     return () => unsubscribe();
   }, []);
 
-  // --- CAPTURE PORTAL SENSOR (ULTRA FAST ROUTING & CACHE) ---
+  // --- CAPTURE PORTAL SENSOR & ULTRA FAST ROUTING ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('t'), m = params.get('m'), o = params.get('o');
     if (t && m && o && view !== 'capture' && view !== 'bridge') {
-      const isAlreadyRegistered = localStorage.getItem(`smartsms_registered_for_${o}`);
+      const isAlreadyRegistered = localStorage.getItem(`smartsms_registered_for_${o}_${t.replace(/\D/g, '')}`);
       setCaptureData({ to: t, msg: m, ownerId: o, company: params.get('c') || 'Verified Host' });
       
       if (isAlreadyRegistered) {
-         // BYPASS: Cookie detects Lead is already captured, bypass direct to SMS Terminal
          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-         const sep = isIOS ? '&' : '?';
          setView('bridge');
-         setTimeout(() => {
-           window.location.href = `sms:${t}${sep}body=${encodeURIComponent(m)}`;
-         }, 150); // ULTRA-FAST ROUTING
+         setTimeout(() => window.location.href = `sms:${t}${isIOS ? '&' : '?'}body=${encodeURIComponent(m)}`, 150); 
       } else {
          setView('capture');
       }
     }
   }, [view]);
 
-  // --- DATA SYNCHRONIZATION ---
+  // --- DATA SYNCHRONIZATION (TELEMETRY) ---
   useEffect(() => {
     if (!user || view !== 'dashboard') return;
     
-    const unsubLeads = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'leads'), 
-      (snap) => {
+    const unsubLeads = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'leads'), (snap) => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const myData = isMaster ? all : all.filter(l => l.ownerId === user.uid);
-        setLogs(myData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-      },
-      (error) => console.error("Leads Sync Error:", error)
-    );
-
-    const unsubLinks = onSnapshot(
-      collection(db, 'artifacts', appId, 'users', user.uid, 'links'), 
-      (snap) => {
+        setLogs(isMaster ? all.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)) : all.filter(l => l.ownerId === user.uid).sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
+    });
+    const unsubLinks = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'links'), (snap) => {
         setLinksHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-      },
-      (error) => console.error("Links Sync Error:", error)
-    );
-
-    const unsubQueue = onSnapshot(
-      collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'),
-      (snap) => {
-        setSmsQueueCount(snap.docs.length);
-        if (snap.docs.length > 5) setNodeWarningActive(true);
-        else setNodeWarningActive(false);
-      },
-      (error) => console.error("Queue Sync Error:", error)
-    );
-
-    const unsubNotifs = onSnapshot(
-      collection(db, 'artifacts', appId, 'public', 'data', 'notifications'),
-      (snap) => {
+    });
+    const unsubQueue = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'), (snap) => {
+        setSmsQueueCount(snap.docs.length); setNodeWarningActive(snap.docs.length > 5);
+    });
+    const unsubNotifs = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), (snap) => {
         setGlobalNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
-      }
-    );
+    });
 
-    // ============================================================================
-    // MODULE 4: REAL-TIME TELEMETRY ENGINE
-    // Subscribes to the user's private profile document via onSnapshot.
-    // Ensures smsCredits and dailySent counters update INSTANTLY in the UI
-    // after each Firestore increment/decrement — no polling, no refresh needed.
-    // ============================================================================
     let unsubProfile = () => {};
     if (!isMaster && user) {
-      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      unsubProfile = onSnapshot(profileRef, (snap) => {
+      unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (snap) => {
         if (snap.exists()) {
           setUserProfile(prev => ({
             ...prev,
@@ -353,26 +289,22 @@ export default function App() {
             dailySent: snap.data().dailySent ?? prev?.dailySent ?? 0,
             tier: snap.data().tier ?? prev?.tier,
             isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
-            isUnlimited: snap.data().isUnlimited ?? prev?.isUnlimited,
           }));
         }
-      }, (error) => console.error("Profile Live Sync Error:", error));
+      });
     }
 
     let unsubSubs = () => {};
     if (isMaster) {
-      unsubSubs = onSnapshot(
-        collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'),
-        (snap) => setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-        (error) => console.error("Subs Sync Error:", error)
-      );
+      unsubSubs = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'), (snap) => {
+        setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
     }
-
     return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); };
   }, [user, view, isMaster]);
 
   // ============================================================================
-  // ADMIN MASTER ACTION FUNCTIONS & ACCORDION DATA BUILDER
+  // ADMIN MASTER ACTION FUNCTIONS
   // ============================================================================
   const handleAdminGrantTier = async (e, targetId, tierType) => {
     e.stopPropagation(); 
@@ -380,35 +312,20 @@ export default function App() {
     setLoading(true);
     try {
         const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
-        const updates = {};
-        if (tierType === 'ACTIVATION_9_USD') {
-            updates.tier = 'ACTIVATION_9_USD';
-            updates.isUnlimited = true;
-            updates.canViewFullLeadData = true;
-        } else if (tierType === 'PRO_SUBSCRIPTION_19_USD') {
-            updates.tier = 'PRO_SUBSCRIPTION_19_USD';
-            updates.automationStatus = 'ACTIVE';
-            updates.smsCredits = increment(800);
-            updates.isSubscribed = true;
-        }
+        const updates = tierType === 'ACTIVATION_9_USD' 
+          ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
+          : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', smsCredits: increment(800), isSubscribed: true };
         
         const snap = await getDoc(profileRef);
-        if (snap.exists()) {
-            await updateDoc(profileRef, updates);
-        } else {
-            await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
-        }
-        // Sync public subscriber record
+        if (snap.exists()) await updateDoc(profileRef, updates);
+        else await setDoc(profileRef, { ...updates, created_at: serverTimestamp(), fullName: "Operator Gateway" });
+        
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
         const pubSnap = await getDoc(pubRef);
-        if (pubSnap.exists()) {
-            await updateDoc(pubRef, updates);
-        }
+        if (pubSnap.exists()) await updateDoc(pubRef, updates);
+        
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
-    } catch (error) {
-        console.error(error);
-        alert("MASTER ACTION FAILED.");
-    }
+    } catch (error) { console.error(error); alert("MASTER ACTION FAILED."); }
     setLoading(false);
   };
 
@@ -418,48 +335,31 @@ export default function App() {
      catch(e) { console.error(e); }
   };
 
-  // --- LEAD CRUD: EDIT (MASTER ADMIN) ---
   const handleAdminEditLead = async () => {
     if (!editLeadModal) return;
     const { id, nome_cliente, telefone_cliente, folderId } = editLeadModal;
     if (!nome_cliente.trim() || !telefone_cliente.trim()) return alert("NAME AND PHONE ARE REQUIRED.");
     setLoading(true);
     try {
-      const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', id);
-      await updateDoc(leadRef, {
-        nome_cliente: nome_cliente.trim(),
-        telefone_cliente: telefone_cliente.replace(/[^\d+]/g, ''),
-        folderId: folderId || 'MANUAL',
-        updated_at: serverTimestamp()
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', id), {
+        nome_cliente: nome_cliente.trim(), telefone_cliente: telefone_cliente.replace(/[^\d+]/g, ''),
+        folderId: folderId || 'MANUAL', updated_at: serverTimestamp()
       });
       setEditLeadModal(null);
-    } catch (e) {
-      console.error(e);
-      alert("LEAD UPDATE FAILED.");
-    }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
-  // --- FOLDER CRUD: CREATE (MASTER ADMIN) ---
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
     const newId = newFolderName.trim().toUpperCase().replace(/\s+/g, '_');
-    setFolders(prev => {
-      if (prev.find(f => f.id === newId)) return prev;
-      return [...prev, { id: newId, label: newFolderName.trim().toUpperCase() }];
-    });
-    setNewFolderName('');
-    setCreateFolderModal(false);
+    setFolders(prev => prev.find(f => f.id === newId) ? prev : [...prev, { id: newId, label: newFolderName.trim().toUpperCase() }]);
+    setNewFolderName(''); setCreateFolderModal(false);
   };
 
-  // --- LEAD CRUD: ASSIGN FOLDER (MASTER ADMIN) ---
   const handleAdminAssignFolder = async (leadId, newFolderId) => {
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadId), {
-        folderId: newFolderId,
-        updated_at: serverTimestamp()
-      });
-    } catch (e) { console.error(e); }
+    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadId), { folderId: newFolderId, updated_at: serverTimestamp() }); } 
+    catch (e) { console.error(e); }
   };
 
   const handleBroadcastPush = async (e) => {
@@ -467,11 +367,8 @@ export default function App() {
      if(!broadcastMsg.trim()) return;
      setLoading(true);
      try {
-       const notifId = `notif_${Date.now()}`;
-       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', notifId), {
-          message: broadcastMsg,
-          author: "MASTER COMMAND",
-          created_at: serverTimestamp()
+       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', `notif_${Date.now()}`), {
+          message: broadcastMsg, author: "MASTER COMMAND", created_at: serverTimestamp()
        });
        setBroadcastMsg('');
        alert("MASTER BROADCAST INJECTED TO ALL NODES.");
@@ -481,162 +378,72 @@ export default function App() {
 
   const subscribersMap = {};
   if (isMaster) {
-     subscribers.forEach(s => {
-        subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] };
-     });
-     
+     subscribers.forEach(s => { subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] }; });
      logs.forEach(l => {
         if (!subscribersMap[l.ownerId]) {
            let folderName = `GATEWAY ID: ${l.ownerId.substring(0,8)}...`;
-           let folderEmail = 'Legacy / Auto-Captured';
            let folderTier = 'FREE_TRIAL';
-           
-           if (l.ownerId === 'AI_SMART_CHAT') {
-               folderName = '⚡ NEXUS AI SMART (LEADS)';
-               folderEmail = 'Captured via Intelligent AI Conversation';
-               folderTier = 'NEXUS_AGENT';
-           }
-           if (l.ownerId === ADMIN_MASTER_ID) {
-               folderName = 'MASTER ADMIN';
-               folderEmail = 'System Core';
-               folderTier = 'MASTER';
-           }
-           
-           subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, nickname: 'System', email: folderEmail, tier: folderTier, leads: [] };
+           if (l.ownerId === 'AI_SMART_CHAT') { folderName = '⚡ NEXUS AI SMART (LEADS)'; folderTier = 'NEXUS_AGENT'; }
+           if (l.ownerId === ADMIN_MASTER_ID) { folderName = 'MASTER ADMIN'; folderTier = 'MASTER'; }
+           subscribersMap[l.ownerId] = { id: l.ownerId, name: folderName, nickname: 'System', email: 'Legacy', tier: folderTier, leads: [] };
         }
         subscribersMap[l.ownerId].leads.push(l);
      });
   }
   const subscribersList = Object.values(subscribersMap).sort((a,b) => b.leads.length - a.leads.length); 
 
-
   // ============================================================================
-  // PRO COMMAND FUNCTIONS
+  // PRO COMMAND FUNCTIONS & SUPREME POLYMORPHIC ENGINE (NATIVE AST PARSER)
   // ============================================================================
-  
   const validateAIContent = (text) => {
     setAiObjective(text);
-    const forbidden = /(hack|scam|fraud|phishing|hate|racism|murder|porn|malware|virus|golpe|ódio|spam|illegal)/i;
-    if (forbidden.test(text)) {
-      setAiWarning("ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. SYSTEM LOCKED.");
-    } else {
-      setAiWarning('');
-    }
+    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal)/i;
+    if (forbidden.test(text)) setAiWarning("ZERO TOLERANCE POLICY ACTIVATED: PROHIBITED KEYWORDS DETECTED. SYSTEM LOCKED.");
+    else setAiWarning('');
   };
 
-  // ============================================================================
-  // NEXUS POLYMORPHIC ENGINE v2.0 — RECURSIVE AST PARSER
-  // Handles deeply nested spintax: {Hi|{Hey|Hello}|Greetings}
-  // Thread-safe for 5000+ mutations per batch session.
-  // ============================================================================
   const executeNexusScramble = (text, leadName) => {
-    // --- RECURSIVE SPINTAX TOKENIZER ---
     const parseSpintax = (input) => {
       let i = 0;
-
-      // Main recursive parser — returns a resolved string from the AST node
       const parseNode = () => {
         let result = '';
         while (i < input.length) {
-          if (input[i] === '{') {
-            i++; // skip '{'
-            result += parseGroup();
-          } else if (input[i] === '}' || input[i] === '|') {
-            break; // signal end of current alternative to parent
-          } else {
-            result += input[i++];
-          }
+          if (input[i] === '{') { i++; result += parseGroup(); } 
+          else if (input[i] === '}' || input[i] === '|') break; 
+          else result += input[i++];
         }
         return result;
       };
-
-      // Parse a {option1|option2|...} group — picks one branch at random
       const parseGroup = () => {
-        const alternatives = [];
-        let current = '';
-
+        const alts = []; let cur = '';
         while (i < input.length) {
-          if (input[i] === '{') {
-            i++;
-            current += parseGroup();
-          } else if (input[i] === '|') {
-            alternatives.push(current);
-            current = '';
-            i++;
-          } else if (input[i] === '}') {
-            alternatives.push(current);
-            i++;
-            // Pick a random alternative from this group
-            const chosen = alternatives[Math.floor(Math.random() * alternatives.length)];
-            // Recursively parse the chosen branch (it may itself contain {|} groups)
-            const savedI = i;
-            i = 0;
-            const subResult = (() => {
-              const subParser = (src) => {
+          if (input[i] === '{') { i++; cur += parseGroup(); } 
+          else if (input[i] === '|') { alts.push(cur); cur = ''; i++; } 
+          else if (input[i] === '}') {
+            alts.push(cur); i++;
+            const chosen = alts[Math.floor(Math.random() * alts.length)];
+            const savedI = i; i = 0;
+            const subResult = ((src) => {
                 let si = 0;
-                const subParseNode = () => {
-                  let r = '';
-                  while (si < src.length) {
-                    if (src[si] === '{') {
-                      si++;
-                      r += subParseGroup();
-                    } else if (src[si] === '}' || src[si] === '|') {
-                      break;
-                    } else {
-                      r += src[si++];
-                    }
-                  }
-                  return r;
-                };
-                const subParseGroup = () => {
-                  const alts = [];
-                  let cur = '';
-                  while (si < src.length) {
-                    if (src[si] === '{') { si++; cur += subParseGroup(); }
-                    else if (src[si] === '|') { alts.push(cur); cur = ''; si++; }
-                    else if (src[si] === '}') {
-                      alts.push(cur); si++;
-                      const pick = alts[Math.floor(Math.random() * alts.length)];
-                      return subParser(pick);
-                    } else { cur += src[si++]; }
-                  }
-                  alts.push(cur);
-                  return alts[Math.floor(Math.random() * alts.length)];
-                };
-                return subParseNode();
-              };
-              return subParser(chosen);
-            })();
-            i = savedI;
-            return subResult;
-          } else {
-            current += input[i++];
-          }
+                const subNode = () => { let r = ''; while(si < src.length) { if(src[si]==='{') { si++; r+=subGroup(); } else if(src[si]==='}'||src[si]==='|') break; else r+=src[si++]; } return r; };
+                const subGroup = () => { const a=[]; let c=''; while(si<src.length){ if(src[si]==='{') { si++; c+=subGroup(); } else if(src[si]==='|') { a.push(c); c=''; si++; } else if(src[si]==='}') { a.push(c); si++; return ((pk) => { let _si=si; si=0; let rr=subNode(); si=_si; return pk; })(a[Math.floor(Math.random()*a.length)]); } else c+=src[si++]; } a.push(c); return a[Math.floor(Math.random()*a.length)]; };
+                return subNode();
+            })(chosen);
+            i = savedI; return subResult;
+          } else cur += input[i++];
         }
-
-        // Malformed: no closing '}' — return what we have
-        alternatives.push(current);
-        return alternatives[Math.floor(Math.random() * alternatives.length)];
+        alts.push(cur); return alts[Math.floor(Math.random() * alts.length)];
       };
-
       return parseNode();
     };
 
     try {
-      // Step 1: Resolve all spintax groups recursively
       let processed = parseSpintax(String(text || ''));
-
-      // Step 2: Map [NOME] tag — supports [NOME], [nome], [Nome]
       const safeName = String(leadName || 'Cliente').split(' ')[0];
       const capitalName = safeName.charAt(0).toUpperCase() + safeName.slice(1).toLowerCase();
       processed = processed.replace(/\[NOME\]/gi, capitalName);
-
-      // Step 3: Collapse excess whitespace from optional branches
-      processed = processed.replace(/\s{2,}/g, ' ').trim();
-
-      return processed;
+      return processed.replace(/\s{2,}/g, ' ').trim();
     } catch (err) {
-      console.error('[NexusScramble] Parser error — falling back to raw text:', err);
       return String(text || '').replace(/\[NOME\]/gi, leadName || 'Cliente').replace(/\{[^}]*\}/g, '').trim();
     }
   };
@@ -646,13 +453,10 @@ export default function App() {
     setIsAiProcessing(true);
     
     setTimeout(() => {
-      // === REFACTORED FILTER: uses folderId field (with fallback to legacy device field) ===
       let targetLeads = logs;
       if (selectedFolder !== 'ALL') {
         targetLeads = logs.filter(l => {
-          // Primary: match explicit folderId (new schema)
           if (l.folderId) return l.folderId === selectedFolder;
-          // Fallback: legacy device-based matching for existing records
           if (selectedFolder === 'Bulk Import TXT') return l.device === 'Bulk Import TXT';
           if (selectedFolder === 'MANUAL') return l.device !== 'Bulk Import TXT' && l.device !== 'AI_AGENT_CONVERSATION';
           return false;
@@ -670,20 +474,11 @@ export default function App() {
       
       const queue = targetLeads.slice(0, limit).map((l, idx) => {
          const contextualMessage = executeNexusScramble(aiObjective, l.nome_cliente);
-         // Zero-width char bypass — rotates across 4 invisible unicode chars
          const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
-         return { 
-           id: l.id || Math.random().toString(),
-           telefone_cliente: l.telefone_cliente, 
-           nome_cliente: l.nome_cliente || 'Customer',
-           optimizedMsg: contextualMessage + byteBypass 
-         };
+         return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
       });
       
-      setStagedQueue(queue);
-      setIsReviewMode(true);
-      setIsAiProcessing(false);
-      
+      setStagedQueue(queue); setIsReviewMode(true); setIsAiProcessing(false);
     }, 1200);
   };
 
@@ -695,11 +490,7 @@ export default function App() {
 
   const dispatchToNode = async () => {
     if (stagedQueue.length === 0 || !user) return;
-    
-    if (!isDeviceSynced) {
-       setShowSyncModal(true);
-       return;
-    }
+    if (!isDeviceSynced) { setShowSyncModal(true); return; }
 
     setIsDispatching(true);
     const queueCopy = [...stagedQueue];
@@ -709,44 +500,19 @@ export default function App() {
     try {
       for (let i = 0; i < queueCopy.length; i++) {
         const task = queueCopy[i];
-        
-        const sanitizedPhone = (task.telefone_cliente || '').replace(/[^\d+]/g, ''); 
-        
         const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
-        await setDoc(docRef, {
-          telefone_cliente: sanitizedPhone,
-          optimizedMsg: task.optimizedMsg,
-          created_at: serverTimestamp()
-        });
-
+        await setDoc(docRef, { telefone_cliente: (task.telefone_cliente || '').replace(/[^\d+]/g, ''), optimizedMsg: task.optimizedMsg, created_at: serverTimestamp() });
         setStagedQueue(prev => prev.slice(1));
         setSessionSentCount(i + 1);
 
         if (!isMaster) {
-          const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-          try {
-             // MODULE 4: Firestore atomic increment — onSnapshot listener updates UI in real-time
-             await updateDoc(profileRef, { 
-               smsCredits: increment(-1),
-               dailySent: increment(1)
-             });
-             // No manual setUserProfile needed — the live onSnapshot handles the UI update
-          } catch(e) { console.error('[Dispatch] Quota deduct error:', e); }
-        } else {
-          setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
+          try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { smsCredits: increment(-1), dailySent: increment(1) }); } 
+          catch(e) { console.error('[Dispatch] Quota deduct error:', e); }
         }
-
-        if (i < queueCopy.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, sendDelay * 1000));
-        }
+        if (i < queueCopy.length - 1) await new Promise(r => setTimeout(r, sendDelay * 1000));
       }
-    } catch (error) {
-      console.error("Dispatch Error:", error);
-      alert("Failed to push protocol to Gateway.");
-    }
-    
-    setIsDispatching(false);
-    setIsReviewMode(false);
+    } catch (error) { alert("Failed to push protocol to Gateway."); }
+    setIsDispatching(false); setIsReviewMode(false);
   };
 
   const handleClearQueue = async () => {
@@ -758,10 +524,7 @@ export default function App() {
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to clear queue.");
-    }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
@@ -771,58 +534,259 @@ export default function App() {
     setLoading(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target.result;
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      const lines = event.target.result.split('\n').map(l => l.trim()).filter(l => l);
       try {
-        let batch = writeBatch(db);
-        let count = 0;
-        let totalImported = 0;
+        let batch = writeBatch(db); let count = 0; let totalImported = 0;
         for (const line of lines) {
-          let name = "Imported Lead";
-          let phone = line;
-          if (line.includes(',')) {
-            const parts = line.split(',');
-            name = parts[0].trim();
-            phone = parts[1].trim();
-          }
-          
+          let name = "Imported Lead", phone = line;
+          if (line.includes(',')) { const parts = line.split(','); name = parts[0].trim(); phone = parts[1].trim(); }
           const safeId = phone.replace(/\D/g, '');
           if (!safeId) continue;
-          
-          const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
-          
-          const leadDocId = `${user.uid}_${safeId}`;
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          batch.set(leadRef, {
-            ownerId: user.uid,
-            nome_cliente: name,
-            telefone_cliente: sanitizedPhone,
-            timestamp: serverTimestamp(),
-            device: 'Bulk Import TXT',
-            folderId: 'Bulk Import TXT'
+          batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `${user.uid}_${safeId}`), {
+            ownerId: user.uid, nome_cliente: name, telefone_cliente: safeId, timestamp: serverTimestamp(), device: 'Bulk Import TXT', folderId: 'Bulk Import TXT'
           }, { merge: true });
-          
-          count++;
-          totalImported++;
-          if (count === 400) {
-            await batch.commit();
-            batch = writeBatch(db);
-            count = 0;
-          }
+          count++; totalImported++;
+          if (count === 400) { await batch.commit(); batch = writeBatch(db); count = 0; }
         }
-        if (count > 0) { await batch.commit(); }
+        if (count > 0) await batch.commit();
         alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED INTO THE VAULT.`);
-      } catch (error) {
-        console.error(error);
-        alert("ERROR DURING BULK INGESTION.");
-      }
-      setLoading(false);
-      e.target.value = '';
+      } catch (error) { alert("ERROR DURING BULK INGESTION."); }
+      setLoading(false); e.target.value = '';
     };
     reader.readAsText(file);
   };
 
-  // --- DATA MASKING UTILITY (PRO GATE FOR LEAD PRIVACY) ---
+  const handleGenerate = async () => {
+    if (!user) { setIsLoginMode(false); setView('auth'); return; }
+    const to = genTo || (editingLink ? editingLink.to : '');
+    const msg = genMsg || (editingLink ? editingLink.msg : '');
+    const company = companyName || (editingLink ? editingLink.company : 'Verified Host');
+    if (!to) return alert("RECIPIENT NUMBER IS REQUIRED.");
+    setLoading(true);
+    const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
+    const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { url: link, to, msg, company, created_at: serverTimestamp(), status: 'active' }, { merge: true });
+    if (!editingLink) setGeneratedLink(link);
+    setEditingLink(null); setGenTo(''); setGenMsg(''); setCompanyName(''); setLoading(false);
+  };
+
+  const handleQuickSend = async (e) => {
+    e.preventDefault();
+    if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
+    if (isDeviceSynced && user) {
+      setLoading(true);
+      try {
+        await setDoc(doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue')), { telefone_cliente: genTo.replace(/[^\d+]/g, ''), optimizedMsg: genMsg, created_at: serverTimestamp() });
+        setGenTo(''); setGenMsg('');
+        alert("PUSHED TO SECURE GATEWAY!");
+      } catch(e) { console.error(e); }
+      setLoading(false);
+    } else setShowSyncModal(true);
+  };
+
+  const handleDeleteLink = async (id) => {
+    if(window.confirm("DELETE THIS PROTOCOL?")) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
+  };
+
+  // --- SEPARATION OF DB LOGIC AND REDIRECT (REAL-TIME QUOTA DEDUCTION) ---
+  const handleProtocolHandshake = async () => {
+    if(!captureForm.name || !captureForm.phone) return;
+    const phoneDigits = captureForm.phone.replace(/\D/g, '');
+    if(phoneDigits.length < 8) return alert("PLEASE USE A VALID MOBILE FORMAT.");
+
+    setLoading(true);
+    const ownerId = captureData.ownerId;
+    let allowRedirect = true;
+
+    try {
+      const leadDocId = `${ownerId}_${phoneDigits}`;
+      const cookieMark = `nexus_lead_${leadDocId}`;
+      if (document.cookie.includes(cookieMark)) {
+         console.log("[SYS-LOG] Device already registered via Cookie.");
+      } else {
+          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+          const leadSnap = await getDoc(leadRef);
+          if (!leadSnap.exists()) {
+            await setDoc(leadRef, { ownerId, nome_cliente: String(captureForm.name), telefone_cliente: phoneDigits, timestamp: serverTimestamp(), device: navigator.userAgent, folderId: 'MANUAL' }, { merge: true });
+            document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
+            if (ownerId !== ADMIN_MASTER_ID) {
+              try {
+                 const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+                 const opSnap = await getDoc(pubRef);
+                 if (opSnap.exists()) {
+                     const data = opSnap.data();
+                     const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+                     if (!isUnlimited) {
+                         if (Number(data.smsCredits) <= 0) { 
+                             alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE."); allowRedirect = false; 
+                         } else await updateDoc(pubRef, { smsCredits: increment(-1) });
+                     }
+                 }
+              } catch(err) { console.error("[SYS-LOG] Quota check failed.", err); }
+            }
+          }
+      }
+    } catch (e) { console.error("Database connection exception:", e); } 
+    finally {
+       setLoading(false);
+       if (allowRedirect) {
+           localStorage.setItem(`smartsms_registered_for_${ownerId}_${phoneDigits}`, 'true');
+           const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
+           setView('bridge');
+           setTimeout(() => { window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`; }, 150); 
+       }
+    }
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault(); setLoading(true);
+    try {
+      const emailLower = email.toLowerCase().trim();
+      let authUser;
+      if (isLoginMode) {
+        const cred = await signInWithEmailAndPassword(auth, emailLower, password);
+        authUser = cred.user;
+      } else {
+        const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
+        authUser = cred.user;
+        const p = { fullName: fullNameInput, nickname: nicknameInput || fullNameInput.split(' ')[0], email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
+        await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
+        setUserProfile(p);
+      }
+      if (authUser.uid === ADMIN_MASTER_ID) setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
+      setView('dashboard');
+    } catch (e) { alert("IDENTITY DENIED: " + e.message); }
+    setLoading(false);
+  };
+
+  const saveChatLead = async (name, phone) => {
+      try {
+          const safeId = phone.replace(/\D/g, '');
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `CHAT_BOT_${safeId}`), { ownerId: "AI_SMART_CHAT", nome_cliente: String(name), telefone_cliente: safeId, timestamp: serverTimestamp(), device: "AI_AGENT_CONVERSATION", source: "CHAT_BOT" }, { merge: true });
+      } catch (e) { console.error("Chat lead capture error", e); }
+  };
+
+  // --- AI GEMINI CHAT HANDLER (100% FREE LOCAL HEURISTIC ENGINE WITH UX ACTIONS) ---
+  const handleSendChat = async (e, directText = null) => {
+    if(e) e.preventDefault();
+    const textToSend = directText || chatInput;
+    if (!textToSend.trim() || isChatBanned) return;
+    
+    const newMsg = { role: 'user', text: textToSend };
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    // ============================================================================
+    // MODULE 4: ZERO TOLERANCE SCANNER — STRICT TERMINATION
+    // ============================================================================
+    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
+    if (forbidden.test(textToSend)) {
+        await new Promise(resolve => setTimeout(resolve, 400)); 
+        setChatMessages(prev => [...prev, { role: 'model', text: `🚨 ZERO TOLERANCE PROTOCOL — SESSION TERMINATED\n\nProhibited content or intent detected. This interaction has been flagged and logged. Your session is now permanently locked.\n\nIf this was a mistake, please contact support through official channels.` }]);
+        setIsChatBanned(true); // Locks input permanently
+        setIsChatLoading(false);
+        return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 800));
+
+    try {
+        const generateHeuristicResponse = (input, historyList) => {
+            const lower = input.toLowerCase();
+            const userIsSubbed = userProfile?.isSubscribed || isPro;
+            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|não|já|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(input);
+
+            // LEAD CAPTURE FLOW (AIDA: Action trigger)
+            if (!hasCapturedChatLead && !user) {
+                const phoneMatch = input.match(/\+?[\d\s\-().]{8,20}/);
+                if (phoneMatch) {
+                    const digitsOnly = phoneMatch[0].replace(/\D/g, '');
+                    if (digitsOnly.length < 8) {
+                        return isPT
+                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
+                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
+                    }
+                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome é|sou o|sou a|aqui é|chamo|me chamo|my name is|i am|i'm|this is)/gi, '').trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
+                    const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                    
+                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
+                    const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
+                    
+                    return { 
+                      text: isPT ? confirmPT : confirmEN,
+                      buttons: isPT
+                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
+                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 SUPPORT / GUIDE', action: 'GUIDE' }]
+                    };
+                }
+                
+                if (historyList.length <= 1) {
+                    return isPT
+                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
+                      : { text: `Hello! I'm *NEXUS AI SMART*, your elite conversion and persuasion specialist. ⚡\n\nEvery link blocked by a carrier is real profit you're losing right now. Our platform was built to destroy that barrier and scale your transmissions.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
+                }
+                return { text: isPT ? `Ainda não recebi o seu contato móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + contato móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*` : `I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*` };
+            }
+
+            // SUPPORT & NAVIGATION
+            if (user && historyList.length <= 1) {
+                const greetPT = `Olá, *${userProfile?.nickname || 'Operador'}*! ⚡ NEXUS AI pronta.\n\nSeu terminal está ativo. Lembre-se: cada transmissão atrasada é alcance que você cede ao mercado. Vamos escalar?\n\n${userIsSubbed ? 'Seu plano PRO está ativo — maximize a transmissão de SMS agora.' : 'Upgrade PRO ainda não ativado — você está operando com capacidade limitada.'}`;
+                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI ready.\n\nYour terminal is active. Remember: every delayed transmission is reach you're handing to the market. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize SMS transmission now.' : 'PRO upgrade not yet active — you\'re running at limited capacity.'}`;
+                return { text: isPT ? greetPT : greetEN, buttons: userIsSubbed ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }] : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }] };
+            }
+
+            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
+                return isPT
+                  ? { text: `Seu Trial libera *60 conexões blindadas*. Mas atenção: operadores que ficam no Trial perdem negócio para quem usa o PRO — capacidade ilimitada, transmissão automática, Nexus Engine ativa.\n\nDecida antes que seu concorrente decida por você.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
+                  : { text: `Your Trial unlocks *60 shielded connections*. But remember: operators who stay on Trial lose ground to those running PRO — unlimited capacity, automated transmission, Nexus Engine active.\n\nDecide before your competitor does.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
+            }
+
+            if (/(suporte|support|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help)/i.test(lower)) {
+                return isPT
+                  ? { text: `Precisa de suporte? A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada SMS para que as operadoras não vejam padrão.\n*2.* O APK Android opera silenciosamente como nó de transmissão.\n*3.* Sincronização imediata via QR Code.\n\nPronto para configurar o envio em massa?`, buttons: [{ label: '📲 SUPORTE / BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  : { text: `Need support? Here's how the tech works:\n\n*1.* The Nexus Engine rewrites each message so carriers see no pattern.\n*2.* The Android APK runs silently as a transmission node.\n*3.* Immediate QR Code synchronization.\n\nReady to set up mass transmission?`, buttons: [{ label: '📲 SUPPORT / DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            }
+
+            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
+                return isPT
+                  ? { text: `Decisão de elite. 🦈\n\nO PRO ativa:\n• Transmissão silenciosa em massa\n• Engine Nexus polimórfica (cada SMS único)\n• Painel de leads com Seleção de Pastas\n\nQuanto custa *não* ter isso? Cada lead que escapa é receita que nunca volta.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
+                  : { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass transmission\n• Polymorphic Nexus Engine (each SMS is unique)\n• Lead panel with Folder Selection\n\nWhat does *not* having this cost you? Every escaped lead is revenue lost.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
+            }
+
+            if (/(dashboard|painel|dash|hub|panel)/i.test(lower)) {
+                return isPT ? { text: `Redirecionando para o Hub Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } : { text: `Redirecting to Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            }
+
+            const fallbackPT = `Enquanto você lê isso, algum concorrente está disparando transmissões sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo estratégico?`;
+            const fallbackEN = `While you read this, a competitor is running unblocked transmissions. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat's your next strategic move?`;
+            return { 
+              text: isPT ? fallbackPT : fallbackEN,
+              buttons: isPT ? [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 SUPORTE TÉCNICO', action: 'GUIDE' }] : [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
+            };
+        };
+
+        const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
+        let displayAiText = aiResponse.text;
+        
+        const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
+        if (leadMatch) {
+            displayAiText = displayAiText.replace(leadMatch[0], '').trim();
+            if (!hasCapturedChatLead) {
+                saveChatLead(leadMatch[1].trim(), leadMatch[2].trim());
+                setHasCapturedChatLead(true);
+            }
+        }
+
+        setChatMessages(prev => [...prev, { role: 'model', text: displayAiText, buttons: aiResponse.buttons }]);
+    } catch (error) {
+        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Engine Offline.` }]);
+    }
+    setIsChatLoading(false);
+  };
+
   const maskData = (value, type) => {
     if (!value) return '—';
     if (isPro || isMaster) return String(value);
@@ -837,426 +801,14 @@ export default function App() {
     return String(value);
   };
 
-  // --- LEGAL CONTENT RENDERER ---
   const renderLegalContent = () => {
     const contents = {
-      PRIVACY: {
-        icon: FileLock2,
-        title: 'PRIVACY POLICY',
-        text: `SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL ("we", "us", or "our") collects, uses, and shares information about you when you use our services.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email address, and phone number when you create an account or use our services.\n\nHOW WE USE YOUR INFORMATION: We use the information we collect to provide, maintain, and improve our services, process transactions, and comply with legal obligations.\n\nDATA RETENTION: We retain your personal data for as long as necessary to fulfill the purposes outlined in this policy, unless a longer retention period is required by law.\n\nSECURITY: We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.\n\nCONTACT: For any privacy-related concerns, please contact our Data Protection Officer through our support channels.`
-      },
-      TERMS: {
-        icon: Scale,
-        title: 'TERMS OF USE',
-        text: `SMART SMS PRO — TERMS OF USE\n\nBy accessing or using SMART SMS PRO, you agree to be bound by these Terms of Use.\n\nACCEPTABLE USE: You agree to use the service only for lawful purposes and in accordance with these Terms. You shall not use the service to send unsolicited messages (spam), harass individuals, or engage in any fraudulent activity.\n\nZERO TOLERANCE POLICY: Any attempt to use the platform for scams, phishing, hate speech, or illegal activities will result in immediate account termination and may be reported to the appropriate authorities.\n\nINTELLECTUAL PROPERTY: The service and its original content, features, and functionality are owned by CLICKMORE DIGITAL and are protected by international copyright and trademark laws.\n\nLIMITATION OF LIABILITY: CLICKMORE DIGITAL shall not be liable for any indirect, incidental, or consequential damages resulting from your use of the service.\n\nGOVERNING LAW: These Terms shall be governed by the laws applicable in the jurisdiction where CLICKMORE DIGITAL operates.`
-      },
-      LGPD: {
-        icon: ShieldCheck,
-        title: 'LGPD PROTOCOL (Lei Geral de Proteção de Dados)',
-        text: `CONFORMIDADE COM A LGPD — LEI 13.709/2018\n\nO SMART SMS PRO opera em total conformidade com a Lei Geral de Proteção de Dados Pessoais (LGPD), Lei nº 13.709/2018.\n\nBASES LEGAIS: O tratamento de dados pessoais é realizado com base no consentimento do titular, cumprimento de obrigação legal, ou legítimo interesse da empresa, conforme art. 7º da LGPD.\n\nDIREITOS DO TITULAR: Você tem direito à confirmação da existência de tratamento, acesso aos dados, correção, anonimização, portabilidade, eliminação e informação sobre compartilhamento.\n\nENCARREGADO (DPO): Nosso Encarregado de Proteção de Dados está disponível para atender às solicitações dos titulares através dos canais de suporte oficiais.\n\nINCIDENTES: Em caso de incidentes de segurança com dados pessoais, notificaremos a ANPD e os titulares afetados dentro do prazo legal estabelecido.`
-      },
-      GDPR: {
-        icon: Globe,
-        title: 'GDPR COMPLIANCE NODE',
-        text: `GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the General Data Protection Regulation (GDPR) for all users in the European Economic Area.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, legal obligation, or legitimate interests as outlined in Article 6 of the GDPR.\n\nDATA SUBJECT RIGHTS: As a data subject, you have the right to access, rectify, erase, restrict processing, data portability, and object to processing of your personal data.\n\nINTERNATIONAL TRANSFERS: Any transfer of personal data outside the EEA is conducted using appropriate safeguards such as Standard Contractual Clauses.\n\nDATA PROTECTION OFFICER: Our DPO can be contacted through our official support channels for any GDPR-related inquiries.\n\nSUPERVISORY AUTHORITY: You have the right to lodge a complaint with your local supervisory authority if you believe we have not complied with applicable data protection laws.`
-      }
+      PRIVACY: { icon: FileLock2, title: 'PRIVACY POLICY', text: `SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL collects, uses, and shares information.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email, and phone number.\n\nHOW WE USE YOUR INFORMATION: We use the information to provide, maintain, and improve our services.\n\nSECURITY: We implement appropriate technical measures to protect your personal information against unauthorized access.` },
+      TERMS: { icon: Scale, title: 'TERMS OF USE', text: `SMART SMS PRO — TERMS OF USE\n\nACCEPTABLE USE: You agree to use the service only for lawful purposes. You shall not use the service to send spam.\n\nZERO TOLERANCE POLICY: Any attempt to use the platform for scams, phishing, or illegal activities will result in immediate account termination.\n\nLIMITATION OF LIABILITY: CLICKMORE DIGITAL shall not be liable for any indirect damages resulting from your use of the service.` },
+      LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL (Lei Geral de Proteção de Dados)', text: `CONFORMIDADE COM A LGPD — LEI 13.709/2018\n\nO SMART SMS PRO opera em total conformidade com a LGPD.\n\nBASES LEGAIS: O tratamento de dados pessoais é realizado com base no consentimento, cumprimento de obrigação legal ou legítimo interesse.\n\nDIREITOS DO TITULAR: Você tem direito à confirmação da existência de tratamento, acesso, correção e eliminação dos dados.` },
+      GDPR: { icon: Globe, title: 'GDPR COMPLIANCE NODE', text: `GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the GDPR.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, or legal obligation.\n\nDATA SUBJECT RIGHTS: You have the right to access, rectify, erase, and restrict processing of your personal data.` }
     };
     return contents[legalContent] || null;
-  };
-
-  const handleGenerate = async () => {
-    if (!user) { 
-      setIsLoginMode(false); 
-      setView('auth'); 
-      return; 
-    }
-    const to = genTo || (editingLink ? editingLink.to : '');
-    const msg = genMsg || (editingLink ? editingLink.msg : '');
-    const company = companyName || (editingLink ? editingLink.company : 'Verified Host');
-    if (!to) return alert("RECIPIENT NUMBER IS REQUIRED.");
-    setLoading(true);
-    const lid = editingLink ? editingLink.id : crypto.randomUUID().split('-')[0];
-    const link = `${window.location.origin}?t=${encodeURIComponent(to)}&m=${encodeURIComponent(msg)}&o=${user.uid}&c=${encodeURIComponent(company)}`;
-    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', lid), { 
-      url: link, to, msg, company, created_at: serverTimestamp(), status: 'active'
-    }, { merge: true });
-    if (!editingLink) setGeneratedLink(link);
-    setEditingLink(null);
-    setGenTo(''); setGenMsg(''); setCompanyName('');
-    setLoading(false);
-  };
-
-  const handleQuickSend = async (e) => {
-    e.preventDefault();
-    if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
-    if (isDeviceSynced && user) {
-      setLoading(true);
-      try {
-        const sanitizedPhone = genTo.replace(/[^\d+]/g, '');
-        const docRef = doc(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
-        await setDoc(docRef, {
-          telefone_cliente: sanitizedPhone,
-          optimizedMsg: genMsg,
-          created_at: serverTimestamp()
-        });
-        setGenTo(''); setGenMsg('');
-        
-        setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
-        alert("PUSHED TO SECURE GATEWAY!");
-      } catch(e) { console.error(e); }
-      setLoading(false);
-    } else {
-      setShowSyncModal(true);
-    }
-  };
-
-  const handleDeleteLink = async (id) => {
-    if(window.confirm("DELETE THIS PROTOCOL?")) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
-    }
-  };
-
-  // --- SEPARATION OF DB LOGIC AND REDIRECT (ULTRA FAST & SECURE QUOTA DEDUCTION) ---
-  const handleProtocolHandshake = async () => {
-    if(!captureForm.name || !captureForm.phone) return;
-    
-    // Validates basic minimum phone size
-    const phoneDigits = captureForm.phone.replace(/\D/g, '');
-    if(phoneDigits.length < 8) return alert("PLEASE USE A VALID MOBILE FORMAT.");
-
-    setLoading(true);
-    const ownerId = captureData.ownerId;
-    let allowRedirect = true;
-
-    try {
-      const leadDocId = `${ownerId}_${phoneDigits}`;
-      
-      // Cookie Deduplication Check: Prevents DB hits if browser already triggered this specific gateway
-      const cookieMark = `nexus_lead_${leadDocId}`;
-      if (document.cookie.includes(cookieMark)) {
-         console.log("[SYS-LOG] Device already registered via Cookie.");
-      } else {
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          const leadSnap = await getDoc(leadRef);
-          
-          if (!leadSnap.exists()) {
-            await setDoc(leadRef, {
-              ownerId,
-              nome_cliente: String(captureForm.name),
-              telefone_cliente: phoneDigits,
-              timestamp: serverTimestamp(),
-              device: navigator.userAgent,
-              folderId: 'MANUAL'
-            }, { merge: true });
-            
-            // Mark Cookie to prevent future DB hits from this browser for this lead (1 Year)
-            document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
-
-            if (ownerId !== ADMIN_MASTER_ID) {
-              try {
-                 const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-                 const opSnap = await getDoc(pubRef);
-                 if (opSnap.exists()) {
-                     const data = opSnap.data();
-                     const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
-                     
-                     if (!isUnlimited) {
-                         if (Number(data.smsCredits) <= 0) { 
-                             alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE.");
-                             allowRedirect = false; 
-                         } else {
-                             await updateDoc(pubRef, { smsCredits: increment(-1) });
-                         }
-                     }
-                 }
-              } catch(err) {
-                 console.error("[SYS-LOG] Quota check failed.", err);
-              }
-            }
-          } else {
-            console.log("[SYS-LOG] Duplicate Lead Detected in DB.");
-          }
-      }
-    } catch (e) {
-       console.error("Database connection exception:", e);
-    } finally {
-       setLoading(false);
-       if (allowRedirect) {
-           localStorage.setItem(`smartsms_registered_for_${ownerId}`, 'true');
-           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-           const sep = isIOS ? '&' : '?';
-           setView('bridge');
-           setTimeout(() => {
-             window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`;
-           }, 150); 
-       }
-    }
-  };
-
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const emailLower = email.toLowerCase().trim();
-      let authUser;
-      if (isLoginMode) {
-        const cred = await signInWithEmailAndPassword(auth, emailLower, password);
-        authUser = cred.user;
-      } else {
-        const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
-        authUser = cred.user;
-        const p = { 
-            fullName: fullNameInput, 
-            nickname: nicknameInput || fullNameInput.split(' ')[0],
-            email: emailLower,
-            phone: phoneInput,
-            tier: 'FREE_TRIAL', 
-            smsCredits: 60, 
-            dailySent: 0, 
-            created_at: serverTimestamp() 
-        };
-        await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
-        setUserProfile(p);
-      }
-      if (authUser.uid === ADMIN_MASTER_ID) {
-        setUserProfile({ fullName: "Alex Master", nickname: "NEXUS_PRIME", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true });
-      }
-      setView('dashboard');
-    } catch (e) { alert("IDENTITY DENIED: " + e.message); }
-    setLoading(false);
-  };
-
-  // --- SAVE LEAD CAPTURED EXCLUSIVELY VIA AI CHAT ---
-  const saveChatLead = async (name, phone) => {
-      try {
-          const safeId = phone.replace(/\D/g, '');
-          const sanitizedPhone = phone.replace(/[^\d+]/g, '');
-          const leadDocId = `CHAT_BOT_${safeId}`;
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          await setDoc(leadRef, {
-              ownerId: "AI_SMART_CHAT",
-              nome_cliente: String(name),
-              telefone_cliente: sanitizedPhone,
-              timestamp: serverTimestamp(),
-              device: "AI_AGENT_CONVERSATION",
-              source: "CHAT_BOT"
-          }, { merge: true });
-          console.log("[SYS-LOG] Chat Lead Successfully Registered.");
-      } catch (e) { console.error("Chat lead capture error", e); }
-  };
-
-  // --- AI GEMINI CHAT HANDLER (100% FREE LOCAL HEURISTIC ENGINE WITH UX ACTIONS) ---
-  const handleSendChat = async (e, directText = null) => {
-    if(e) e.preventDefault();
-    const textToSend = directText || chatInput;
-    if (!textToSend.trim()) return;
-    
-    const newMsg = { role: 'user', text: textToSend };
-    setChatMessages(prev => [...prev, newMsg]);
-    setChatInput('');
-    setIsChatLoading(true);
-
-    // ============================================================================
-    // MODULE 5: ZERO TOLERANCE SCANNER — ENHANCED REGEX
-    // Expanded to catch obfuscated variants (sp4m, ph1shing, h4ck etc.)
-    // Immediately terminates the session and logs the violation.
-    // ============================================================================
-    const forbidden = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|ódio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack)/i;
-    if (forbidden.test(textToSend)) {
-        await new Promise(resolve => setTimeout(resolve, 400)); 
-        setChatMessages(prev => [...prev, { 
-          role: 'model', 
-          text: `🚨 ZERO TOLERANCE PROTOCOL — SESSION TERMINATED\n\nProhibited content or intent detected. This interaction has been flagged and logged. Your session is now locked.\n\nIf this was a mistake, please contact support through official channels.` 
-        }]);
-        setIsChatLoading(false);
-        return;
-    }
-
-    // HUMANIZED TYPING DELAY — variable 600ms–1.4s for authentic feel
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 800));
-
-    try {
-        // ============================================================================
-        // MODULE 5: NEXUS LOCAL HEURISTIC ENGINE v3.0
-        // ─────────────────────────────────────────────────────────────────────────
-        // ARCHITECTURE: Deterministic finite-state conversational AI.
-        // PSYCHOLOGY: AIDA funnel (Attention → Interest → Desire → Action).
-        //   - FOMO triggers: "você está perdendo dinheiro AGORA"
-        //   - Social proof: implicit authority language & urgency framing
-        //   - Neuromarketing: loss aversion > benefit framing
-        // MULTILINGUAL: Detects Portuguese vs English via keyword heuristics.
-        //   Responds in the detected language naturally.
-        // LEAD CAPTURE: Accepts ONLY +DDI format mobile contacts. Never "WhatsApp".
-        // DEDUP: Cookie + hasCapturedChatLead flag prevents double capture.
-        // ============================================================================
-        const generateHeuristicResponse = (input, historyList) => {
-            const lower = input.toLowerCase();
-            const userIsSubbed = userProfile?.isSubscribed || isPro;
-            
-            // === LANGUAGE DETECTION (heuristic — Portuguese vs English) ===
-            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|não|já|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto)/i.test(input);
-
-            // ======================================================
-            // PHASE 1: LEAD CAPTURE FLOW (AIDA: Action trigger)
-            // Only fires if no lead yet captured AND user not logged in.
-            // ======================================================
-            if (!hasCapturedChatLead && !user) {
-                // Attempt to extract phone number from input
-                const phoneMatch = input.match(/\+?[\d\s\-().]{8,20}/);
-                
-                if (phoneMatch) {
-                    const digitsOnly = phoneMatch[0].replace(/\D/g, '');
-                    
-                    if (digitsOnly.length < 8) {
-                        return isPT
-                          ? { text: `Esse número parece incompleto. 🔴\n\nPreciso de um número com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso.` }
-                          : { text: `That number looks incomplete. 🔴\n\nI need a valid Mobile ID with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access.` };
-                    }
-                    
-                    // Extract name from remaining text
-                    let name = input
-                      .replace(phoneMatch[0], '')
-                      .replace(/(meu nome é|sou o|sou a|aqui é|chamo|me chamo|my name is|i am|i'm|this is)/gi, '')
-                      .trim();
-                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : 'Operator');
-                    const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-                    
-                    // AIDA: Action — confirm capture with FOMO + urgency
-                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, suas mensagens estão sendo bloqueadas pelas operadoras — e cada lead perdido é dinheiro que vai direto para o concorrente.\n\nO SMART SMS PRO elimina esse filtro agora. Qual é o próximo passo?\n||LEAD:${capName},${phoneMatch[0]}||`;
-                    const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier. What's your move?\n||LEAD:${capName},${phoneMatch[0]}||`;
-                    
-                    return { 
-                      text: isPT ? confirmPT : confirmEN,
-                      buttons: isPT
-                        ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 GUIA DE INÍCIO', action: 'GUIDE' }]
-                        : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
-                    };
-                }
-                
-                // No phone detected yet — AIDA: Attention → Interest
-                if (historyList.length <= 1) {
-                    // First message: bold opening — Attention phase
-                    return isPT
-                      ? { text: `Olá! Eu sou a *NEXUS AI SMART*, especialista em conversão de elite. ⚡\n\nCada link bloqueado pela operadora é dinheiro que você perde agora — em tempo real. Nosso sistema foi criado para eliminar esse bloqueio e escalar seus envios.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contato móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)` }
-                      : { text: `Hello! I'm *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you're losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)` };
-                }
-                
-                // Subsequent turns without phone — AIDA: Interest escalation + FOMO
-                const fomoMsgPT = `Ainda não recebi o seu contato. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para liberar o terminal, preciso apenas do seu *nome + número com DDI*:\n\n*Ex: Maria +55 21 98888-7777*`;
-                const fomoMsgEN = `I still haven't received your contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + number with country code*:\n\n*Ex: Mark +1 646 888 7777*`;
-                return { text: isPT ? fomoMsgPT : fomoMsgEN };
-            }
-
-            // ======================================================
-            // PHASE 2: AUTHENTICATED / POST-CAPTURE FLOWS
-            // AIDA: Interest, Desire, Action — drive toward conversion
-            // ======================================================
-
-            // First message from logged-in user — personalized FOMO greeting
-            if (user && historyList.length <= 1) {
-                const greetPT = `Olá, *${userProfile?.nickname || 'Operador'}*! ⚡ NEXUS AI online.\n\nSeu terminal está ativo. Lembre-se: cada campanha atrasada é alcance que você cede ao concorrente. Vamos escalar?\n\n${userIsSubbed ? 'Seu plano PRO está ativo — maximize o disparo agora.' : 'Upgrade PRO ainda não ativado — você está operando com capacidade limitada.'}`;
-                const greetEN = `Hey, *${userProfile?.nickname || 'Operator'}*! ⚡ NEXUS AI online.\n\nYour terminal is active. Remember: every delayed campaign is reach you're handing to your competition. Ready to scale?\n\n${userIsSubbed ? 'Your PRO plan is active — maximize dispatch now.' : 'PRO upgrade not yet active — you\'re running at limited capacity.'}`;
-                
-                return { 
-                  text: isPT ? greetPT : greetEN,
-                  buttons: userIsSubbed 
-                    ? [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] 
-                    : [{ label: '💳 UPGRADE PRO', action: 'UPGRADE' }, { label: '📖 GUIA RÁPIDO', action: 'GUIDE' }]
-                };
-            }
-
-            // --- Keyword Intent Router ---
-
-            // Trial / Free intent
-            if (/(trial|free|gratis|gratuito|teste|experimentar|começar|start)/i.test(lower)) {
-                return isPT
-                  ? { text: `Seu Trial libera *60 conexões blindadas* imediatamente.\n\nMas atenção: o volume é rei nesse mercado. Operadores que ficam no Trial perdem negócio para quem usa o PRO — capacidade ilimitada, envio automático, engine polimórfica ativa.\n\nDecida antes que seu concorrente decida por você.`, buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                  : { text: `Your Trial unlocks *60 shielded connections* immediately.\n\nBut remember: volume is king. Operators who stay on Trial lose ground to those running PRO — unlimited capacity, automated dispatch, polymorphic engine active.\n\nDecide before your competitor decides for you.`, buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
-            }
-
-            // Guide / How-to intent
-            if (/(guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar)/i.test(lower)) {
-                return isPT
-                  ? { text: `A tecnologia funciona assim:\n\n*1.* O Nexus Engine reescreve cada mensagem em tempo real — zero padrões repetidos que as operadoras possam bloquear.\n*2.* O APK Android opera em background no seu celular como nó de disparo.\n*3.* O QR Code sincroniza tudo em segundos.\n\nPronto para configurar?`, buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : { text: `Here's how the technology works:\n\n*1.* The Nexus Engine rewrites each message in real-time — zero repetitive patterns that carriers can flag.\n*2.* The Android APK runs silently as a dispatch node on your phone.\n*3.* The QR Code syncs everything in seconds.\n\nReady to configure?`, buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
-            }
-
-            // Upgrade / Price / Plan intent
-            if (/(upgrade|comprar|buy|pro|plano|plan|pacote|pack|valor|price|preco|preço|quanto|cost|assinar|subscribe)/i.test(lower)) {
-                return isPT
-                  ? { text: `Decisão de elite. 🦈\n\nO PRO ativa:\n• Automação silenciosa em massa\n• Engine polimórfica (cada SMS é único)\n• Créditos ilimitados de envio\n• Painel de leads completo com CRUD\n\nQuanto custa *não* ter isso? Cada lead que escapa é receita que nunca volta.`, buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
-                  : { text: `Elite decision. 🦈\n\nPRO unlocks:\n• Silent mass automation\n• Polymorphic engine (each SMS is unique)\n• Unlimited send credits\n• Full lead panel with CRUD\n\nWhat does *not* having this cost you? Every escaped lead is revenue that never comes back.`, buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
-            }
-
-            // Dashboard / Panel navigation
-            if (/(dashboard|painel|dash|hub|panel|operador|operator)/i.test(lower)) {
-                return isPT
-                  ? { text: `Redirecionando para o Hub de Comando Operacional...`, buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : { text: `Redirecting to your Operational Command Hub...`, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
-            }
-
-            // APK / Android / Sync intent
-            if (/(apk|android|sync|sincronizar|phone|celular|dispositivo|device)/i.test(lower)) {
-                return isPT
-                  ? { text: `Para ativar o nó de disparo no seu Android:\n\n1. Baixe o APK via QR Code no dashboard\n2. Conceda permissões de SMS e Câmera\n3. Sincronize via QR Code no painel\n\nO sistema passa a operar em modo ghost — invisível na caixa de saída do celular.`, buttons: [{ label: '📲 SETUP GUIDE', action: 'APK' }] }
-                  : { text: `To activate the dispatch node on your Android:\n\n1. Download the APK via QR Code in the dashboard\n2. Grant SMS & Camera permissions\n3. Sync via QR Code in the panel\n\nThe system then operates in ghost mode — invisible in your phone's outbox.`, buttons: [{ label: '📲 SETUP GUIDE', action: 'APK' }] };
-            }
-
-            // ======================================================
-            // PHASE 3: FALLBACK — FOMO Neuromarketing Ping
-            // Loss aversion > benefit: remind the user what they're
-            // actively losing every second they delay action.
-            // ======================================================
-            const fallbackPT = `Enquanto você lê isso, algum concorrente está disparando campanhas sem bloqueio. 🛡️\n\nO filtro das operadoras não para de evoluir — e sua janela de vantagem técnica está aberta agora.\n\nQual é o seu próximo passo?`;
-            const fallbackEN = `While you read this, a competitor is running unblocked campaigns. 🛡️\n\nCarrier filters keep evolving — and your technical advantage window is open right now.\n\nWhat's your next move?`;
-            return { 
-              text: isPT ? fallbackPT : fallbackEN,
-              buttons: isPT
-                ? [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 VER O GUIA', action: 'GUIDE' }]
-                : [{ label: '💳 UPGRADE HUB', action: 'UPGRADE' }, { label: '📖 READ GUIDE', action: 'GUIDE' }]
-            };
-        };
-
-        const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
-        let displayAiText = aiResponse.text;
-        
-        // INTERCEPT AND CAPTURE SECRET LEAD TAG NATIVELY
-        // The ||LEAD:Name,Phone|| tag is embedded in AI response text and stripped before display.
-        const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
-        if (leadMatch) {
-            displayAiText = displayAiText.replace(leadMatch[0], '').trim();
-            if (!hasCapturedChatLead) {
-                saveChatLead(leadMatch[1].trim(), leadMatch[2].trim());
-                setHasCapturedChatLead(true);
-            }
-        }
-
-        setChatMessages(prev => [...prev, { role: 'model', text: displayAiText, buttons: aiResponse.buttons }]);
-    } catch (error) {
-        console.error("Local Engine Error:", error);
-        setChatMessages(prev => [...prev, { role: 'model', text: `[DIAGNOSTIC SYSTEM ALERT]: Nexus Heuristic Engine temporarily offline. Please try again.` }]);
-    }
-    
-    setIsChatLoading(false);
-  };
-
-  // --- BUTTON ACTION ROUTER ---
-  const handleChatButtonAction = (action) => {
-      setShowSmartSupport(false);
-      if(action === 'UPGRADE') {
-          if (user) {
-            setView('dashboard');
-            setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);
-          } else {
-            setIsLoginMode(false);
-            setView('auth');
-          }
-      } else if (action === 'DASH' || action === 'TRIAL') {
-          if(user) setView('dashboard'); else { setIsLoginMode(false); setView('auth'); }
-      } else if (action === 'APK' || action === 'GUIDE') {
-          if(user) { setView('dashboard'); setShowHelpModal(true); } else { setIsLoginMode(false); setView('auth'); }
-      }
   };
 
   if (view === 'bridge') {
@@ -1286,9 +838,6 @@ export default function App() {
     );
   }
 
-  // ============================================================================
-  // CAPTURE PORTAL (ISOLATED)
-  // ============================================================================
   if (view === 'capture') {
     return (
       <div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center p-6 text-center font-black italic selection:bg-[#25F4EE] selection:text-black">
@@ -1299,7 +848,7 @@ export default function App() {
           .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
-          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; overflow-wrap: break-word; }
+          *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; overflow-wrap: break-word; word-break: break-word; }
         `}</style>
         <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
@@ -1328,24 +877,12 @@ export default function App() {
     );
   }
 
-  // ============================================================================
-  // MAIN APP VIEW
-  // ============================================================================
   return (
     <div className="min-h-screen bg-[#010101] text-white font-sans selection:bg-[#25F4EE] selection:text-black antialiased flex flex-col relative overflow-x-hidden font-black italic uppercase">
       <style>{`
-        /* SHIELD PROTOCOL: ACTIVE. User Select is blocked to prevent copy. Right-click is allowed for browser translation. */
         body { user-select: none; -webkit-user-select: none; }
         input, textarea { user-select: text; -webkit-user-select: text; }
-
-        /* COMMANDMENT 3: Global Typography — ZERO hyphenation across all containers */
-        *, *::before, *::after { 
-          hyphens: none !important; 
-          -webkit-hyphens: none !important; 
-          -ms-hyphens: none !important; 
-          overflow-wrap: break-word;
-          word-break: break-word;
-        }
+        *, *::before, *::after { hyphens: none !important; -webkit-hyphens: none !important; -ms-hyphens: none !important; overflow-wrap: break-word; word-break: break-word; }
 
         @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
         .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -1363,7 +900,6 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #25F4EE; border-radius: 10px; }
       `}</style>
 
-      {/* MASTER GLOBAL NOTIFICATION BANNER */}
       {globalNotifications.length > 0 && (
          <div className="bg-[#FE2C55] text-black w-full text-center py-2 px-4 flex items-center justify-center gap-3 z-[300] relative">
             <BellRing size={16} className="animate-bounce shrink-0"/>
@@ -1372,8 +908,7 @@ export default function App() {
          </div>
       )}
 
-      {/* --- FLOATING AI CHAT BUBBLE --- */}
-      {view !== 'capture' && view !== 'bridge' && !showSmartSupport && (
+      {!showSmartSupport && view !== 'capture' && view !== 'bridge' && (
         <button 
           onClick={() => setShowSmartSupport(true)}
           className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-[800] bg-[#25F4EE] text-black p-4 sm:p-5 rounded-[1.5rem] shadow-[0_0_30px_rgba(37,244,238,0.5)] hover:scale-110 transition-transform flex items-center justify-center group animate-bounce hover:animate-none"
@@ -1384,7 +919,6 @@ export default function App() {
         </button>
       )}
 
-      {/* --- TOP NAV --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[200] px-6 flex justify-between items-center transition-all">
         <div className="flex items-center gap-3 cursor-pointer relative z-[210]" onClick={() => { setView('home'); setIsMenuOpen(false); }}>
           <div className="bg-[#25F4EE]/10 p-1.5 rounded-lg border border-[#25F4EE]/30"><Zap size={20} className="text-[#25F4EE] fill-[#25F4EE]" /></div>
@@ -1406,13 +940,11 @@ export default function App() {
              </>
            )}
         </div>
-
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-white/50 hover:text-white transition-all z-[210] relative">
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </nav>
 
-      {/* --- OMNI-MENU MOBILE --- */}
       <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
         <div className="flex flex-col gap-4 flex-1 mt-4">
           {user && <p className="text-center text-[#25F4EE] font-mono text-[10px] mb-4">ALIAS: {userProfile?.nickname}</p>}
@@ -1428,8 +960,6 @@ export default function App() {
             </>
           )}
         </div>
-        
-        {/* MOBILE ONLY: LOGOUT POSITIONED AT BOTTOM */}
         {user && (
            <div className="mt-auto pt-8 border-t border-white/5">
               <button onClick={() => { signOut(auth).then(()=>{setView('home'); setIsMenuOpen(false);}) }} className="w-full p-5 rounded-2xl border bg-[#FE2C55]/10 border-[#FE2C55]/30 text-[#FE2C55] hover:bg-[#FE2C55]/20 text-[11px] tracking-[0.15em] font-black transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(254,44,85,0.1)]"><LogOut size={18}/> DISCONNECT SECURITY GATEWAY</button>
@@ -1437,7 +967,6 @@ export default function App() {
         )}
       </div>
 
-      {/* --- CONTENT HUB --- */}
       <div className="pt-28 flex-1 pb-10 relative z-[100]">
         <div className="fixed top-0 left-0 w-[50vw] h-[50vh] bg-[#FE2C55] opacity-[0.03] blur-[150px] pointer-events-none"></div>
         <div className="fixed bottom-0 right-0 w-[50vw] h-[50vh] bg-[#25F4EE] opacity-[0.03] blur-[150px] pointer-events-none"></div>
@@ -1469,7 +998,7 @@ export default function App() {
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">PAYLOAD CONTENT</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
@@ -1557,9 +1086,9 @@ export default function App() {
             {isMaster && (
                 <div className="bg-[#0a0a0a] border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(245,158,11,0.1)] flex flex-col relative overflow-hidden mb-8">
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
-                  <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row sm:items-center">
+                  <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-4 rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="shrink-0 bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
                       <Send size={14}/> DEPLOY
                     </button>
                   </form>
@@ -1569,7 +1098,7 @@ export default function App() {
             {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
               {[
-                { label: "DISPATCHED SMS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "SMS TRANSMISSIONS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
                 { label: "ACTIVE CONTACTS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
                 { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
@@ -1598,7 +1127,7 @@ export default function App() {
                       <input type="tel" value={genTo} onChange={e=>setGenTo(e.target.value)} placeholder="+1 000 000 0000" className="input-premium text-sm font-sans !text-transform-none" />
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">PAYLOAD CONTENT (WRITE HERE THE PRE-DEFINED MESSAGE)</label>
+                      <label className="block text-[9px] sm:text-[10px] text-white/40 tracking-widest mb-2 font-black">SMS MESSAGE PAYLOAD</label>
                       <textarea rows="4" value={genMsg} onChange={e=>setGenMsg(e.target.value)} placeholder="Draft your SMS here..." className="input-premium flex-1 text-sm font-sans !text-transform-none resize-none"></textarea>
                     </div>
                     <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] w-full mt-4 py-4 sm:py-5 shadow-[0_0_15px_rgba(37,244,238,0.2)] font-black">
@@ -1622,7 +1151,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* DASHBOARD DE REGISTROS (NETWORK PAI E FILHO OU LEADS PADRÃO) */}
+              {/* DASHBOARD DE REGISTROS */}
               <div className="lg:col-span-2 bg-[#0a0a0a] rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden flex flex-col h-full min-h-[400px] sm:min-h-[500px]">
                  <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#111]">
                     <div className="flex items-center gap-3">
@@ -1633,7 +1162,6 @@ export default function App() {
                  
                  <div className="flex-1 overflow-x-auto custom-scrollbar bg-black/40">
                    {isMaster ? (
-                     /* ADMIN MASTER: ACCORDION NETWORK VIEW (SUBSCRIBERS ONLY) */
                      <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[650px]">
                        <thead className="bg-[#111] sticky top-0 z-10 uppercase border-b border-white/5">
                          <tr>
@@ -1663,7 +1191,6 @@ export default function App() {
                                       <button onClick={(e) => handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')} className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-500 px-3 sm:px-4 py-2 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest border border-amber-500/30 flex items-center gap-1.5 sm:gap-2 transition-all shadow-xl"><Rocket size={12} className="sm:w-3.5 sm:h-3.5"/> $19.90</button>
                                    </td>
                                 </tr>
-                                {/* ACORDEÃO: TABELA INTERNA DE LEADS DO ASSINANTE */}
                                 {expandedAdminRow === sub.id && (
                                     <tr>
                                         <td colSpan="3" className="p-0 border-b border-white/5">
@@ -1717,7 +1244,6 @@ export default function App() {
                        </tbody>
                      </table>
                    ) : (
-                     /* STANDARD LEADS VIEW */
                      <>
                        {logs.length > 0 ? (
                          <table className="w-full text-left font-sans font-medium !text-transform-none min-w-[500px]">
@@ -1994,11 +1520,11 @@ export default function App() {
               <div className="lighthouse-neon-content p-8 sm:p-12 md:p-16 relative">
                 <h2 className="text-2xl sm:text-3xl mt-4 sm:mt-8 mb-8 sm:mb-12 text-white text-center text-glow-white tracking-tighter font-black">SECURE MEMBER PORTAL</h2>
                 <form onSubmit={handleAuthSubmit} className="space-y-5 sm:space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="OPERATOR ALIAS (NICKNAME)" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
+                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" /></>)}
                   <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none" />
                   <div className="relative">
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-[11px] sm:text-xs w-full font-sans font-medium !text-transform-none pr-12" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2">{showPass ? <EyeOff size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Eye size={16} className="sm:w-[18px] sm:h-[18px]"/>}</button>
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={16} className="sm:w-[18px] sm:h-[18px]"/></button>
                   </div>
                   <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[10px] sm:text-[11px] mt-4 shadow-xl w-full tracking-widest py-4 sm:py-5 font-black">{loading ? 'VERIFYING GATEWAY...' : 'AUTHORIZE ACCESS'}</button>
                   <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[9px] sm:text-[10px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.4em] mt-8 sm:mt-10 text-center transition-all px-2 font-black">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
@@ -2136,92 +1662,6 @@ export default function App() {
         </div>
       )}
 
-      {/* === MASTER ADMIN: LEAD EDIT MODAL === */}
-      {editLeadModal && (
-        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-          <div className="bg-[#0a0a0a] border border-amber-500/40 rounded-[2rem] w-full max-w-md shadow-[0_0_40px_rgba(245,158,11,0.2)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Edit size={18} className="text-amber-500"/>
-                <h3 className="text-sm font-black tracking-widest text-white">EDIT LEAD — MASTER OVERRIDE</h3>
-              </div>
-              <button onClick={() => setEditLeadModal(null)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">IDENTITY (NAME)</label>
-                <input
-                  value={editLeadModal.nome_cliente}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, nome_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
-                  placeholder="Lead full name"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">TARGET NUMBER (PHONE)</label>
-                <input
-                  type="tel"
-                  value={editLeadModal.telefone_cliente}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, telefone_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
-                  placeholder="+1 999 999 9999"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">ASSIGN FOLDER / CAMPAIGN</label>
-                <select
-                  value={editLeadModal.folderId || 'MANUAL'}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, folderId: e.target.value }))}
-                  className="input-premium w-full font-sans !text-transform-none text-sm bg-[#111] appearance-none"
-                >
-                  {folders.filter(f => f.id !== 'ALL').map(f => (
-                    <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setEditLeadModal(null)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleAdminEditLead} disabled={loading} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[9px] font-black tracking-widest hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                  {loading ? 'SAVING...' : 'SAVE CHANGES'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* === MASTER ADMIN: CREATE FOLDER MODAL === */}
-      {createFolderModal && (
-        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-          <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Plus size={18} className="text-[#25F4EE]"/>
-                <h3 className="text-sm font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
-              </div>
-              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
-                <input
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
-                  className="input-premium w-full font-sans !text-transform-none text-sm"
-                  placeholder="e.g. Black Friday Campaign"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleCreateFolder} className="flex-1 py-3 bg-[#25F4EE] text-black rounded-xl text-[9px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* AI SMART SUPPORT MODAL (LIVE HEURISTIC CHAT WITH BUTTONS) */}
       {showSmartSupport && (
         <div className="fixed inset-0 z-[900] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-[#010101]/95 backdrop-blur-xl animate-in fade-in sm:zoom-in-95">
@@ -2294,11 +1734,11 @@ export default function App() {
                         <input 
                           value={chatInput} 
                           onChange={(e) => setChatInput(e.target.value)} 
-                          disabled={isChatLoading}
-                          placeholder="Type your message..." 
+                          disabled={isChatLoading || isChatBanned}
+                          placeholder={isChatBanned ? "Sessão Bloqueada" : "Type your message..."} 
                           className="input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black focus:border-[#25F4EE]/50 disabled:opacity-50"
                         />
-                        <button type="submit" disabled={isChatLoading || !chatInput.trim()} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)] flex items-center justify-center shrink-0">
+                        <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatBanned} className="bg-[#25F4EE] text-black p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(37,244,238,0.2)] flex items-center justify-center shrink-0">
                           <Send size={18} className="sm:w-5 sm:h-5"/>
                         </button>
                      </form>
