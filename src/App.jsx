@@ -232,11 +232,19 @@ export default function App() {
               setUserProfile(p);
             }
           } catch (e) {
+            console.error("Profile load error", e);
             setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
           }
         }
       } else {
-        setUser(null); setUserProfile(null);
+        setUser(null); 
+        setUserProfile(null);
+        setGeneratedLink('');
+        setGenTo('');
+        setGenMsg('');
+        setStagedQueue([]);
+        setLogs([]);
+        setLinksHistory([]);
       }
       setAuthResolved(true);
     });
@@ -542,22 +550,48 @@ export default function App() {
           if (line.includes(',')) { const parts = line.split(','); name = parts[0].trim(); phone = parts[1].trim(); }
           const safeId = phone.replace(/\D/g, '');
           if (!safeId) continue;
-          batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `${user.uid}_${safeId}`), {
-            ownerId: user.uid, nome_cliente: name, telefone_cliente: safeId, timestamp: serverTimestamp(), device: 'Bulk Import TXT', folderId: 'Bulk Import TXT'
+          
+          const sanitizedPhone = phone.replace(/[^\d+]/g, ''); 
+          
+          const leadDocId = `${user.uid}_${safeId}`;
+          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+          batch.set(leadRef, {
+            ownerId: user.uid,
+            nome_cliente: name,
+            telefone_cliente: sanitizedPhone,
+            timestamp: serverTimestamp(),
+            device: 'Bulk Import TXT',
+            folderId: 'Bulk Import TXT',
+            source: 'MASS_IMPORT_TOOL'
           }, { merge: true });
-          count++; totalImported++;
-          if (count === 400) { await batch.commit(); batch = writeBatch(db); count = 0; }
+          
+          count++;
+          totalImported++;
+          if (count === 400) {
+            await batch.commit();
+            batch = writeBatch(db);
+            count = 0;
+          }
         }
-        if (count > 0) await batch.commit();
+        if (count > 0) { await batch.commit(); }
         alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED INTO THE VAULT.`);
-      } catch (error) { alert("ERROR DURING BULK INGESTION."); }
-      setLoading(false); e.target.value = '';
+      } catch (error) {
+        console.error(error);
+        alert("ERROR DURING BULK INGESTION.");
+      }
+      setLoading(false);
+      e.target.value = '';
     };
     reader.readAsText(file);
   };
 
   const handleGenerate = async () => {
-    if (!user) { setIsLoginMode(false); setView('auth'); return; }
+    if (!user) { 
+      alert("SYSTEM LOCK: Please create your FREE TRIAL account to activate the Protocol Generator Engine.");
+      setIsLoginMode(false); 
+      setView('auth'); 
+      return; 
+    }
     const to = genTo || (editingLink ? editingLink.to : '');
     const msg = genMsg || (editingLink ? editingLink.msg : '');
     const company = companyName || (editingLink ? editingLink.company : 'Verified Host');
@@ -607,7 +641,15 @@ export default function App() {
           const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
           const leadSnap = await getDoc(leadRef);
           if (!leadSnap.exists()) {
-            await setDoc(leadRef, { ownerId, nome_cliente: String(captureForm.name), telefone_cliente: phoneDigits, timestamp: serverTimestamp(), device: navigator.userAgent, folderId: 'MANUAL' }, { merge: true });
+            await setDoc(leadRef, { 
+              ownerId, 
+              nome_cliente: String(captureForm.name), 
+              telefone_cliente: phoneDigits, 
+              timestamp: serverTimestamp(), 
+              device: navigator.userAgent, 
+              folderId: 'MANUAL',
+              source: 'SECURE_LINK_GATEWAY' 
+            }, { merge: true });
             document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
             if (ownerId !== ADMIN_MASTER_ID) {
               try {
@@ -663,7 +705,19 @@ export default function App() {
   const saveChatLead = async (name, phone) => {
       try {
           const safeId = phone.replace(/\D/g, '');
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `CHAT_BOT_${safeId}`), { ownerId: "AI_SMART_CHAT", nome_cliente: String(name), telefone_cliente: safeId, timestamp: serverTimestamp(), device: "AI_AGENT_CONVERSATION", source: "CHAT_BOT" }, { merge: true });
+          const sanitizedPhone = phone.replace(/[^\d+]/g, '');
+          const leadDocId = `CHAT_BOT_${safeId}`;
+          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+          await setDoc(leadRef, { 
+            ownerId: "AI_SMART_CHAT", 
+            nome_cliente: String(name), 
+            telefone_cliente: sanitizedPhone, 
+            timestamp: serverTimestamp(), 
+            device: "AI_AGENT_CONVERSATION", 
+            source: "CHAT_BOT",
+            folderId: "NEXUS_AGENT"
+          }, { merge: true });
+          console.log("[SYS-LOG] Chat Lead Successfully Registered.");
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
@@ -998,7 +1052,7 @@ export default function App() {
                      <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="input-premium text-sm font-sans" placeholder="Your Organization Name" />
                   </div>
                   <div className="space-y-3">
-                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD (PRE-DEFINED TRANSMISSION MESSAGE)</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
                      <div className="relative">
                         <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className="input-premium w-full text-sm font-sans" placeholder="Draft your intelligent payload..." />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
