@@ -144,6 +144,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
+  const [isChatBanned, setIsChatBanned] = useState(false);
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
 
@@ -220,7 +221,7 @@ export default function App() {
 
   // --- VIEW NAVIGATION SCROLL TO TOP (UX FIX) ---
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
 
   // --- IDENTITY BOOTSTRAP ---
@@ -932,7 +933,7 @@ export default function App() {
           <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
             <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
             <h2 className="text-3xl uppercase tracking-tighter text-white mb-4">SECURITY VALIDATION</h2>
-            <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4">
+            <p className="text-[12px] text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto">
               Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
             </p>
             <div className="w-full space-y-6 text-left">
@@ -1093,8 +1094,12 @@ export default function App() {
                   </div>
                   <div className="space-y-3">
                      <div className="flex justify-between items-center"><label className="text-[9px] sm:text-[10px] text-white/40 ml-1 tracking-widest block font-black">SMS MESSAGE PAYLOAD</label><span className="text-[8px] sm:text-[9px] text-white/20">{genMsg.length}/{MSG_LIMIT}</span></div>
+                     <div className="flex items-center gap-2 font-black mb-2 mt-1">
+                       <span className="text-amber-500"><ShieldAlert size={10}/></span>
+                       <span className="text-[7px] sm:text-[8px] text-amber-500 tracking-widest uppercase">⚠️ ZERO TOLERANCE POLICY MONITORING ACTIVE</span>
+                     </div>
                      <div className="relative">
-                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium w-full text-sm font-sans ${isGenMsgForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} placeholder="Draft your intelligent payload..." />
+                        <textarea value={genMsg} onChange={e => setGenMsg(e.target.value)} rows="3" className={`input-premium w-full text-sm font-sans ${isGenMsgForbidden ? '!text-[#FE2C55] !border-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]' : ''}`} placeholder="Draft your pre-defined payload here to receive via SMS 📲" />
                         <button onClick={()=>setShowInstructions(!showInstructions)} className="absolute right-3 bottom-4 p-2 bg-[#25F4EE]/10 rounded-lg text-[#25F4EE] hover:bg-[#25F4EE]/20 transition-all"><HelpCircle size={16}/></button>
                      </div>
                      {isGenMsgForbidden && <p className="text-[10px] text-[#FE2C55] mt-2 font-black tracking-widest animate-pulse">⚠️ ZERO TOLERANCE POLICY: PROHIBITED WORDS DETECTED. PLEASE CORRECT.</p>}
@@ -1185,7 +1190,7 @@ export default function App() {
                   <h3 className="text-lg sm:text-xl text-white mb-4 flex items-center gap-3 font-black"><BellRing className="text-amber-500 animate-pulse" size={18} /> GLOBAL PLATFORM BROADCAST</h3>
                   <form onSubmit={handleBroadcastPush} className="flex gap-4 flex-col sm:flex-row items-stretch sm:items-center">
                     <input type="text" value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} placeholder="Enter push notification for all users..." className="input-premium flex-1 font-sans !text-transform-none" />
-                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-[1.1rem] rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="shrink-0 h-fit bg-amber-500 text-black font-black text-[10px] tracking-widest px-8 py-4 rounded-xl hover:bg-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
                       <Send size={14}/> DEPLOY
                     </button>
                   </form>
@@ -1615,7 +1620,7 @@ export default function App() {
                 {isWelcomeTrial && !isLoginMode ? (
                    <div className="mb-8 text-center animate-in slide-in-from-bottom-2">
                       <h2 className="text-2xl sm:text-3xl font-black text-[#25F4EE] mb-2">🎁 WELCOME TO THE ELITE</h2>
-                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case">
+                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-medium !not-italic !normal-case text-center">
                          We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 Free-Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
                       </p>
                    </div>
@@ -1691,14 +1696,14 @@ export default function App() {
               <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={20}/></button>
               <Smartphone size={40} className="sm:w-12 sm:h-12 text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
               <h3 className="text-xl sm:text-2xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
-              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
+              <p className="text-[8px] sm:text-[9px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncToken || 'GENERATING...')}&color=000000`} alt="Sync QR" className="w-32 h-32 sm:w-40 sm:h-40" />
               </div>
               
               {/* Token TTL Indicator */}
-              <div className="mb-4 flex items-center gap-2 text-[8px] tracking-widest text-[#10B981] font-black">
+              <div className="mb-4 flex items-center justify-center gap-2 text-[8px] tracking-widest text-[#10B981] font-black">
                 <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></div>
                 <span>SECURE TOKEN ACTIVE — ROTATES EVERY 5 MIN</span>
               </div>
@@ -1726,7 +1731,7 @@ export default function App() {
               </div>
             </div>
             
-            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6">APK SETUP GUIDE</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-5 sm:mb-6 text-center">APK SETUP GUIDE</h2>
 
             {/* APK DOWNLOAD QR */}
             <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 shadow-[0_0_20px_#25F4EE]">
@@ -1761,6 +1766,92 @@ export default function App() {
               <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("APK Link Copied!");}} className="bg-white/10 text-white font-black text-[10px] sm:text-[11px] py-4 sm:py-5 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-6 shrink-0">
                 <Copy size={16} /> COPY LINK
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MASTER ADMIN: LEAD EDIT MODAL === */}
+      {editLeadModal && (
+        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[#0a0a0a] border border-amber-500/40 rounded-[2rem] w-full max-w-md shadow-[0_0_40px_rgba(245,158,11,0.2)] overflow-hidden">
+            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Edit size={18} className="text-amber-500"/>
+                <h3 className="text-sm font-black tracking-widest text-white">EDIT LEAD — MASTER OVERRIDE</h3>
+              </div>
+              <button onClick={() => setEditLeadModal(null)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">IDENTITY (NAME)</label>
+                <input
+                  value={editLeadModal.nome_cliente}
+                  onChange={e => setEditLeadModal(prev => ({ ...prev, nome_cliente: e.target.value }))}
+                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  placeholder="Lead full name"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">TARGET NUMBER (PHONE)</label>
+                <input
+                  type="tel"
+                  value={editLeadModal.telefone_cliente}
+                  onChange={e => setEditLeadModal(prev => ({ ...prev, telefone_cliente: e.target.value }))}
+                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  placeholder="+1 999 999 9999"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">ASSIGN FOLDER / CAMPAIGN</label>
+                <select
+                  value={editLeadModal.folderId || 'MANUAL'}
+                  onChange={e => setEditLeadModal(prev => ({ ...prev, folderId: e.target.value }))}
+                  className="input-premium w-full font-sans !text-transform-none text-sm bg-[#111] appearance-none"
+                >
+                  {folders.filter(f => f.id !== 'ALL').map(f => (
+                    <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setEditLeadModal(null)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
+                <button onClick={handleAdminEditLead} disabled={loading} className="flex-1 py-3 bg-amber-500 text-black rounded-xl text-[9px] font-black tracking-widest hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                  {loading ? 'SAVING...' : 'SAVE CHANGES'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MASTER ADMIN: CREATE FOLDER MODAL === */}
+      {createFolderModal && (
+        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
+            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Plus size={18} className="text-[#25F4EE]"/>
+                <h3 className="text-sm font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
+              </div>
+              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={18}/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-[9px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
+                <input
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+                  className="input-premium w-full font-sans !text-transform-none text-sm"
+                  placeholder="e.g. Black Friday Campaign"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl text-[9px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
+                <button onClick={handleCreateFolder} className="flex-1 py-3 bg-[#25F4EE] text-black rounded-xl text-[9px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1801,7 +1892,7 @@ export default function App() {
                         ref={i === chatMessages.length - 1 ? latestMessageRef : null}
                         className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}
                       >
-                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-right' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-center'}`}>
+                         <div className={`p-4 sm:p-5 rounded-2xl max-w-[85%] font-sans !text-transform-none !not-italic font-normal text-[13.5px] sm:text-[15px] leading-relaxed tracking-wide whitespace-pre-wrap shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black font-medium rounded-tr-sm text-left' : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-sm text-left'}`}>
                             {msg.text}
                          </div>
                          {/* Action Buttons Render */}
@@ -1844,7 +1935,7 @@ export default function App() {
                               value={chatInput} 
                               onChange={(e) => setChatInput(e.target.value)} 
                               disabled={isChatLoading || isChatBanned}
-                              placeholder={isChatBanned ? "Sessão Bloqueada" : "Type your message..."} 
+                              placeholder={isChatForbidden ? "Forbidden content detected..." : "Type your message..."} 
                               className={`input-premium flex-1 font-sans !text-transform-none text-xs sm:text-sm bg-black disabled:opacity-50 ${isChatForbidden ? '!text-[#FE2C55] !border-[#FE2C55]' : 'focus:border-[#25F4EE]/50'}`}
                             />
                             <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden || isChatBanned} className={`p-3 sm:p-4 rounded-xl hover:scale-105 transition-transform flex items-center justify-center shrink-0 ${isChatForbidden || isChatBanned ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#25F4EE] text-black shadow-[0_0_15px_rgba(37,244,238,0.2)]'}`}>
