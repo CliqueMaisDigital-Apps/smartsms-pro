@@ -500,7 +500,7 @@ export default function App() {
     }
   };
 
-  const handlePrepareBatch = () => {// --- FUNÇÃO AUXILIAR DE PAUSA ---
+  // --- FUNÇÃO AUXILIAR DE PAUSA ---
   // (Esta linha garante que a pausa funciona sem erros de sintaxe)
   const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
@@ -534,6 +534,13 @@ export default function App() {
        const smartPayload = simulateAIExpansion(aiObjective, idx);
        const contextualMessage = executeNexusScramble(smartPayload, l.nome_cliente);
        const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
+       return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
+    });
+    
+    setStagedQueue(queue); 
+    setIsReviewMode(true); 
+    setIsAiProcessing(false);
+  };       const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
        return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
     });
     
