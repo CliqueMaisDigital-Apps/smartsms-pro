@@ -500,7 +500,8 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÃO AUXILIAR DE PAUSA ---
+  const handlePrepareBatch = () => {
+    // --- FUNÇÃO AUXILIAR DE PAUSA ---
   // (Esta linha garante que a pausa funciona sem erros de sintaxe)
   const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
