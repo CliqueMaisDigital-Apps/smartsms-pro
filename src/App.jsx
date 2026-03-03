@@ -2133,4 +2133,33 @@ export default function App() {
       {createFolderModal && (
         <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
           <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-
+            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Plus size={20} className="text-[#25F4EE]"/>
+                <h3 className="text-sm sm:text-base font-black tracking-widest text-white">NEW CAMPAIGN FOLDER</h3>
+              </div>
+              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={20}/></button>
+            </div>
+            <div className="p-6 sm:p-8 space-y-5">
+              <div>
+                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2">FOLDER / CAMPAIGN NAME</label>
+                <input
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+                  className="input-premium w-full font-sans !text-transform-none text-base"
+                  placeholder="e.g. Black Friday Campaign"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-4">
+                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-4 bg-white/5 text-white/50 rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
+                <button onClick={handleCreateFolder} className="flex-1 py-4 bg-[#25F4EE] text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
