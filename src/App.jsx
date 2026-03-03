@@ -1187,7 +1187,8 @@ export default function App() {
           <span className="absolute -top-2 -right-2 bg-[#FE2C55] border-2 border-black w-4 h-4 rounded-full animate-ping"></span>
           <span className="absolute -top-2 -right-2 bg-[#FE2C55] border-2 border-black w-4 h-4 rounded-full"></span>
         </div>
-      )}{/* --- JANELA DO NEXUS AI SMART CHAT --- */}
+      )}
+      {/* --- JANELA DO NEXUS AI SMART CHAT --- */}
       {showSmartSupport && (
         <div className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 w-full max-w-[380px] h-[500px] bg-[#0a0a0a] border border-[#25F4EE]/30 rounded-[2rem] shadow-[0_0_40px_rgba(37,244,238,0.2)] z-[9990] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4">
           
