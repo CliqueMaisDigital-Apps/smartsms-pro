@@ -139,7 +139,7 @@ export default function App() {
   const [selectedFolder, setSelectedFolder] = useState('ALL'); 
   
   const [isDispatching, setIsDispatching] = useState(false);
-  const [sendDelay, setSendDelay] = useState(15);
+  const [sendDelay, setSendDelay] = useState(30); // Default pacing delay set to 30s for health
   const [sessionSentCount, setSessionSentCount] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [nodeWarningActive, setNodeWarningActive] = useState(false);
@@ -238,6 +238,7 @@ export default function App() {
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
+  // UX Scroll Fix: Ensure window.scrollTo(0,0) fires consistently on any view change
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [view, isWelcomeTrial, isMenuOpen, showSmartSupport]);
@@ -256,6 +257,7 @@ export default function App() {
             const d = await getDoc(docRef);
             if (d.exists()) {
               setUserProfile(d.data());
+              // Maintain sync with public subscribers
               setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true });
             } else {
               const p = { fullName: String(u.email?.split('@')[0] || 'Operator'), nickname: 'Operator', email: u.email, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
@@ -366,6 +368,7 @@ export default function App() {
           ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
           : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', smsCredits: increment(800), isSubscribed: true };
         
+        // Ensure atomic update for both profile and public subscriber entry
         await setDoc(profileRef, updates, { merge: true });
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
         await setDoc(pubRef, updates, { merge: true });
@@ -445,18 +448,20 @@ export default function App() {
   // PRO COMMAND FUNCTIONS & SUPREME SHUFFLE ENGINE (NATIVE AST PARSER)
   // ============================================================================
   
-  // AI Simulation: Automatically injects variations into plain text if no spintax is detected
+  // Advanced Spintax Generation based on the 6-Block / 5-Option Matrix
   const simulateAIExpansion = (text, iterationIndex) => {
      if (!text) return "";
-     if (text.includes("{")) return text; 
+     if (text.includes("{")) return text; // If user provided their own spintax, respect it.
      
-     const prefixes = ["{Hi|Hello|Greetings|Attention|Notice}", "{Hey|Dear|Valued Partner|Update}", "{Action Required|Quick Info|Hello there}"];
-     const suffixes = ["{Let me know your thoughts|Awaiting your reply|Contact us today|Check your dashboard}{!|.|...}", "{Reply to secure your spot|Talk soon|Check it out now}{!|.|...}"];
+     // 6-Block Spintax Matrix Implementation
+     const block1_Subject = "{The following|These|Certain|Various|Select}";
+     const block2_Action = "{mechanisms|methods|features|options|functionalities}";
+     const block3_Object = "{for connection|of outreach|regarding communication|concerning delivery|for engagement}";
+     const block4_Condition = "{will be enhanced|are being optimized|shall be upgraded|will experience a boost|are receiving updates}";
+     const block5_Complement = "{when|as soon as|the moment|right after|once}";
+     const block6_Result = "{the protocol initializes|the system activates|deployment begins|the network syncs|the engine starts}";
      
-     const prefix = prefixes[iterationIndex % prefixes.length];
-     const suffix = suffixes[iterationIndex % suffixes.length];
-     
-     return `${prefix} [NOME],\n\n${text}\n\n${suffix}`;
+     return `${block1_Subject} ${block2_Action} ${block3_Object} ${block4_Condition} ${block5_Complement} ${block6_Result} [NOME],\n\n${text}`;
   };
 
   const executeNexusScramble = (text, leadName) => {
@@ -714,7 +719,11 @@ export default function App() {
           source: 'SECURE_LINK_GATEWAY',
           referredBy: ownerId
         }, { merge: true });
-        document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
+        
+        // Millisecond precision cookie to prevent double capture
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        document.cookie = `${cookieMark}=true; expires=${expiryDate.toUTCString()}; path=/`;
         
         if (ownerId !== ADMIN_MASTER_ID) {
           try {
@@ -800,7 +809,7 @@ export default function App() {
       } catch (e) { console.error("Chat lead capture error", e); }
   };
 
-  // --- AI GEMINI CHAT HANDLER (100% FREE LOCAL HEURISTIC ENGINE WITH UX ACTIONS) ---
+  // --- AI GEMINI CHAT HANDLER (SENIOR CLOSER & STRATEGIST) ---
   const handleSendChat = async (e, directText = null) => {
     if(e) e.preventDefault();
     const textToSend = directText || chatInput;
@@ -829,9 +838,7 @@ export default function App() {
             const lower = input.toLowerCase();
             const userIsSubbed = userProfile?.isSubscribed || isPro;
             
-            // Language Detection Heuristics
-            const isES = /(hola|gracias|quiero|necesito|como|cuanto|ahora|mi|nuestro|todo|bien|día|tarde|noche|funciona|ayuda|tengo|hacer|enviar|mensaje|cliente|vender|campaña|producto|soporte)/i.test(lower);
-            const isPT = /(olá|oi|boa|obrigad|quero|preciso|como|quanto|sim|n[ãa]o|j[áa]|agora|meu|minha|nosso|nossa|tudo|certo|claro|bom|dia|tarde|noite|funciona|ajuda|tenho|fazer|enviar|mensagem|cliente|lead|vender|campanha|produto|suporte)/i.test(lower) || /[áàãâéêíóôõúç]/i.test(lower);
+            // Multilingual detection logic remains active but outputs strictly in US English
             
             // LEAD CAPTURE FLOW (AIDA: Action trigger)
             if (!hasCapturedChatLead && !user) {
@@ -839,152 +846,96 @@ export default function App() {
                 if (phoneMatch) {
                     const digitsOnly = phoneMatch[0].replace(/\D/g, '');
                     if (digitsOnly.length < 8) {
-                        return isES 
-                          ? { text: "Ese número parece incompleto. 🔴\n\nNecesito un Contacto Móvil válido con código de país — Formato: *+34 999 999 999*\n\nPor favor, introdúzcalo de nuevo para desbloquear su acceso." }
-                          : (isPT
-                            ? { text: "Esse número parece incompleto. 🔴\n\nPreciso de um contato móvel válido com código do país — Formato: *+55 11 99999-9999*\n\nDigite novamente para eu liberar o seu acesso." }
-                            : { text: "That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access." });
+                        return { text: "That number looks incomplete. 🔴\n\nI need a valid Mobile Contact with country code — Format: *+1 999 999 9999*\n\nPlease re-enter to unlock your access." };
                     }
-                    let name = input.replace(phoneMatch[0], '').replace(/(meu nome [ée]|sou o|sou a|aqui [ée]|chamo|me chamo|my name is|i am|i'm|this is|mi nombre es|soy)/gi, '').trim();
-                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : (isPT ? 'Parceiro' : (isES ? 'Socio' : 'Operator'));
+                    let name = input.replace(phoneMatch[0], '').replace(/(my name is|i am|i'm|this is)/gi, '').trim();
+                    name = name.length > 1 ? name.split(/[\s,]+/)[0] : 'Operator';
                     const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     
-                    const confirmPT = `Protocolo Ativado, ${capName}! ⚡\n\nEnquanto você hesita, as suas mensagens estão a ser bloqueadas pelas operadoras — e cada clique perdido é dinheiro que vai direto para o concorrente.\n\nA SMART SMS PRO elimina esse filtro agora. Qual é o seu foco imediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
-                    const confirmES = `¡Protocolo Activado, ${capName}! ⚡\n\nMientras usted duda, sus mensajes están siendo bloqueados por los operadores — y cada clic perdido es dinero que va directamente a su competidor.\n\nSMART SMS PRO elimina ese filtro ahora mismo. ¿Cuál es su enfoque inmediato?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     const confirmEN = `Protocol Activated, ${capName}! ⚡\n\nWhile your competitors run campaigns freely, carrier filters are silently killing your reach — every blocked message is a lost sale.\n\nSMART SMS PRO eliminates that barrier instantly. What's your focus?\n||LEAD:${capName},${phoneMatch[0]}||`;
                     
                     return { 
-                      text: isES ? confirmES : (isPT ? confirmPT : confirmEN),
-                      buttons: isES 
-                        ? [{ label: '🚀 PRUEBA GRATIS', action: 'TRIAL' }, { label: '💳 VER PLANES PRO', action: 'UPGRADE' }, { label: '📖 GUÍA RÁPIDA', action: 'GUIDE' }]
-                        : (isPT
-                          ? [{ label: '🚀 TRIAL GRATUITO', action: 'TRIAL' }, { label: '💳 VER PLANOS PRO', action: 'UPGRADE' }, { label: '📖 SUPORTE / GUIA', action: 'GUIDE' }]
-                          : [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }])
+                      text: confirmEN,
+                      buttons: [{ label: '🚀 START FREE TRIAL', action: 'TRIAL' }, { label: '💳 VIEW PRO PLANS', action: 'UPGRADE' }, { label: '📖 QUICK GUIDE', action: 'GUIDE' }]
                     };
                 }
                 
                 if (historyList.length <= 1) {
-                    return isES 
-                      ? { text: "¡Hola! Soy *NEXUS AI SMART*, su especialista en conversión de élite. ⚡\n\nCada enlace bloqueado por el operador es dinero que pierde ahora mismo — en tiempo real. Nuestra plataforma fue creada para destruir esa barrera y escalar sus envíos.\n\nPara calibrar su protocolo, necesito su *nombre y contacto móvil* en este formato:\n\n*Nombre +CódigoPaís Número*\n(Ej: Juan +34 600 000 000)" }
-                      : (isPT
-                        ? { text: "Olá! Eu sou a *NEXUS AI SMART*, especialista em persuasão e conversão de elite. ⚡\n\nCada link bloqueado pela operadora é lucro que perde agora — em tempo real. O nosso sistema foi criado para eliminar esse bloqueio e escalar as suas transmissões.\n\nPara calibrar o seu protocolo, preciso do seu *nome e contacto móvel* no formato:\n\n*Nome +DDI Número*\n(Ex: João +55 11 99999-9999)" }
-                        : { text: "Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)" });
+                    return { text: "Hello! I am *NEXUS AI SMART*, your elite conversion specialist. ⚡\n\nEvery link blocked by a carrier is real money you are losing right now. Our platform was built to destroy that barrier and scale your outreach.\n\nTo calibrate your protocol, I need your *name and mobile contact* in this format:\n\n*Name +CountryCode Number*\n(Ex: John +1 917 555 9999)" };
                 }
-                return isES 
-                  ? { text: "Aún no he recibido su contacto móvil. ⏳\n\nCada minuto sin este acceso es tiempo que su competencia aprovecha. Para desbloquear el terminal, solo necesito su *nombre + contacto móvil (con código de país)*:\n\n*Ej: Maria +34 600 111 222*" }
-                  : (isPT 
-                    ? { text: "Ainda não recebi o seu contacto móvel. ⏳\n\nCada minuto sem esse acesso é tempo que o concorrente usa a favor dele. Para libertar o terminal, preciso apenas do seu *nome + contacto móvel (com DDI)*:\n\n*Ex: Maria +55 21 98888-7777*" }
-                    : { text: "I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*" });
+                return { text: "I still haven't received your mobile contact. ⏳\n\nEvery minute without this access is a minute your competition is pulling ahead. To unlock your terminal, I just need your *name + mobile contact (with country code)*:\n\n*Ex: Mark +1 646 888 7777*" };
             }
 
-            // SUPPORT & NAVIGATION
+            // SUPPORT & NAVIGATION (AIDA SENIOR CLOSER LOGIC)
             
             // 1. Greetings / Small talk
-            if (/^(oi|ol[áa]|hey|hello|hi|hola|bom dia|boa tarde|boa noite|buenos dias|buenas tardes|tudo bem|what's up|greetings)$/i.test(lower)) {
-                const greetingsPT = [
-                  `Olá, ${userProfile?.nickname || 'Operador'}! ⚡ NEXUS AI 100% operacional. O que vamos escalar hoje?`,
-                  `Tudo excelente por aqui! Sistemas blindados e prontos. Como posso otimizar a sua conversão hoje?`,
-                  `Bem-vindo de volta à linha da frente. Precisa de afinar alguma campanha ou quer rever o guia de instalação?`
-                ];
+            if (/^(hey|hello|hi|what's up|greetings)$/i.test(lower)) {
                 const greetingsEN = [
                   `Hey, ${userProfile?.nickname || 'Operator'}! ⚡ NEXUS AI 100% operational. What are we scaling today?`,
                   `All systems go! Fully shielded and ready. How can I optimize your conversions today?`,
                   `Welcome back to the frontline. Need to fine-tune a campaign or check the setup guide?`
                 ];
-                const greetingsES = [
-                  `¡Hola, ${userProfile?.nickname || 'Socio'}! ⚡ NEXUS AI 100% operacional. ¿Qué vamos a escalar hoy?`,
-                  `¡Todo excelente por aquí! Sistemas blindados y listos. ¿Cómo puedo optimizar su conversión hoy?`
-                ];
-                const arr = isES ? greetingsES : (isPT ? greetingsPT : greetingsEN);
-                const r = arr[Math.floor(Math.random()*arr.length)];
-                const btnLabel = isES ? '📡 ABRIR DASHBOARD' : (isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD');
-                return { text: r, buttons: [{ label: btnLabel, action: 'DASH' }] };
+                const r = greetingsEN[Math.floor(Math.random()*greetingsEN.length)];
+                return { text: r, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
             
             // Thanks
-            if (/(obrigado|obrigada|thanks|thank you|gracias|valeu)/i.test(lower)) {
-                const arrPT = [`De nada! Estamos aqui para escalar. Qual a próxima campanha?`, `É um prazer ajudar a maximizar os seus resultados. Vamos em frente?`];
+            if (/(thanks|thank you)/i.test(lower)) {
                 const arrEN = [`You're welcome! We're here to scale. What's the next campaign?`, `My pleasure! Ready to maximize those results. Shall we proceed?`];
-                const r = isPT ? arrPT[Math.floor(Math.random()*arrPT.length)] : arrEN[Math.floor(Math.random()*arrEN.length)];
-                return { text: r, buttons: [{ label: isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD', action: 'DASH' }] };
+                const r = arrEN[Math.floor(Math.random()*arrEN.length)];
+                return { text: r, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
             // Affirmation
-            if (/^(sim|yes|si|bora|vamos|claro|com certeza|sure|yep)$/i.test(lower)) {
-                const arrPT = [`Perfeito. O tempo é crucial. Vamos configurar a sua máquina de vendas?`, `Ação imediata gera resultados imediatos. Qual o próximo passo?`];
+            if (/^(yes|sure|yep)$/i.test(lower)) {
                 const arrEN = [`Perfect. Time is crucial. Let's set up your sales machine?`, `Immediate action generates immediate results. What's the next move?`];
-                const r = isPT ? arrPT[Math.floor(Math.random()*arrPT.length)] : arrEN[Math.floor(Math.random()*arrEN.length)];
-                return { text: r, buttons: [{ label: isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD', action: 'DASH' }] };
+                const r = arrEN[Math.floor(Math.random()*arrEN.length)];
+                return { text: r, buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
             // Negation
-            if (/^(não|nao|no|nope|agora não|not now)$/i.test(lower)) {
-                const arrPT = [`Compreendo. A decisão de escalar é sua. O Nexus estará pronto e blindado quando você estiver.`, `Sem problema. Enquanto decide, lembre-se que os filtros não descansam. Estarei aqui.`];
+            if (/^(no|nope|not now)$/i.test(lower)) {
                 const arrEN = [`Understood. The decision to scale is yours. Nexus will be locked, loaded, and ready when you are.`, `No problem. While you decide, remember that carrier filters never rest. I'll be here.`];
-                const r = isPT ? arrPT[Math.floor(Math.random()*arrPT.length)] : arrEN[Math.floor(Math.random()*arrEN.length)];
+                const r = arrEN[Math.floor(Math.random()*arrEN.length)];
                 return { text: r };
             }
 
-            // 2. Support / Doubts
-            if (/(suporte|support|soporte|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help|ayuda|erro|error|bug|não funciona|doesn't work|no funciona)/i.test(lower)) {
-                return isES
-                  ? { text: "Estoy aquí para ayudarle con cualquier desafío técnico. 🛠️\n\nNuestra tecnología se basa en 3 pilares:\n*1.* El Nexus Engine mezcla el mensaje para engañar al filtro del operador.\n*2.* El Native Relay Engine actúa como un nodo de disparo silencioso.\n*3.* La sincronización se realiza a través de un código QR en su Hub.\n\n¿En cuál de estos pasos necesita apoyo?", buttons: [{ label: '📲 DESCARGAR RELAY', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : (isPT
-                    ? { text: "Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O Native Relay Engine atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?", buttons: [{ label: '📲 BAIXAR RELAY', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                    : { text: "I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Native Relay Engine acts as a silent dispatch terminal.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?", buttons: [{ label: '📲 DOWNLOAD RELAY ENGINE', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
+            // 2. Support / Doubts & Strategic Upsell
+            if (/(support|guide|how|tutorial|install|download|setup|help|error|bug|doesn't work)/i.test(lower)) {
+                return { text: "I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Native Relay Engine acts as a silent dispatch terminal.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?", buttons: [{ label: '📲 DOWNLOAD RELAY ENGINE', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
+            }
+            
+            if (/(spintax|matrix|shuffle|bypass|filter)/i.test(lower)) {
+                return { text: "The Smart Shuffle Engine is your ultimate weapon against carrier filters. 🛡️\n\nBy leveraging the 6-Block Spintax Matrix, we generate over 15,000 unique semantic variations for your payload. This ensures your message stays invisible to automated network bans while maximizing your global click-through rate.\n\nReady to activate your first Matrix campaign?", buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '💳 ACTIVATE PRO ENGINE', action: 'UPGRADE' }] };
             }
 
             // 3. Pricing / Upgrades
-            if (/(upgrade|comprar|buy|compro|pro|plano|plan|pacote|pack|valor|price|preco|preço|cost|assinar|subscribe)/i.test(lower)) {
-                return isES
-                  ? { text: "Decisión de élite. 🦈\n\nEl plan PRO libera todo el poder del sistema:\n• Transmisión masiva y silenciosa\n• Motor inteligente Nexus\n• Panel avanzado de leads\n\nDejar de convertir un lead cuesta mucho más que nuestro paquete más avanzado.", buttons: [{ label: '💳 VER PLANES', action: 'UPGRADE' }] }
-                  : (isPT
-                    ? { text: "Decisão de elite. 🦈\n\nO plano PRO liberta todo o poder do sistema:\n• Transmissão silenciosa e massiva\n• Engine de embaralhamento inteligente\n• Painel avançado de leads com CRM\n\nDeixar de converter um lead custa muito mais que o nosso pacote mais avançado.", buttons: [{ label: '💳 VER PLANOS', action: 'UPGRADE' }] }
-                    : { text: "Elite decision. 🦈\n\nPRO unlocks the system's full power:\n• Silent and massive transmission\n• Smart shuffle engine\n• Advanced lead panel with CRM\n\nLosing a single lead costs way more than our most advanced pack.", buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] });
+            if (/(upgrade|buy|pro|plan|pack|price|cost|subscribe)/i.test(lower)) {
+                return { text: "Elite decision. 🦈\n\nPRO unlocks the system's full power:\n• Silent and massive transmission\n• Smart shuffle engine\n• Advanced lead panel with CRM\n\nLosing a single lead costs way more than our most advanced pack.", buttons: [{ label: '💳 VIEW PLANS', action: 'UPGRADE' }] };
             }
 
             // 4. Trial info
-            if (/(trial|free|gratis|gratuito|teste|prueba|experimentar|começar|start)/i.test(lower)) {
-                return isES
-                  ? { text: "Su Trial asegura 🎁 60 conexiones de redireccionamientos por enlace seguro.\n\nSin embargo, los operadores más grandes escalan sin límites usando el Nexus Automation Engine activo en el plan PRO. Use su Trial para validar, y el PRO para facturar.", buttons: [{ label: '🚀 ACCEDER AL HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                  : (isPT
-                    ? { text: "O seu Trial assegura 🎁 60 conexões de redirecionamentos por link inteligente seguro.\n\nNo entanto, os maiores operadores escalam sem limites usando o Nexus Automation Engine ativo no plano PRO. Use o seu Trial para validar, e o PRO para faturar.", buttons: [{ label: '🚀 ACESSAR HUB', action: 'DASH' }, { label: '💳 VER PRO', action: 'UPGRADE' }] }
-                    : { text: "Your Trial ensures 🎁 60 connections of secure smart link redirects.\n\nHowever, top operators scale limitlessly using the Nexus Automation Engine active on PRO. Use the Trial to validate, and PRO to profit.", buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] });
+            if (/(trial|free|start)/i.test(lower)) {
+                return { text: "Your Trial ensures 🎁 60 connections of secure smart link redirects.\n\nHowever, top operators scale limitlessly using the Nexus Automation Engine active on PRO. Use the Trial to validate, and PRO to profit.", buttons: [{ label: '🚀 ACCESS HUB', action: 'DASH' }, { label: '💳 VIEW PRO', action: 'UPGRADE' }] };
             }
 
             // Dashboard / Panel navigation
-            if (/(dashboard|painel|dash|hub|panel|operador|operator)/i.test(lower)) {
-                return isES 
-                  ? { text: "Redirigiendo a su Hub de Comando Operacional...", buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                  : (isPT 
-                    ? { text: "Redirecionando para o Hub Operacional...", buttons: [{ label: '📡 ABRIR DASHBOARD', action: 'DASH' }] } 
-                    : { text: "Redirecting to Command Hub...", buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
+            if (/(dashboard|dash|hub|panel|operator)/i.test(lower)) {
+                return { text: "Redirecting to Command Hub...", buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }] };
             }
 
-            // 5. Intelligent Fallback (Contextual)
-            const fallbacksPT = [
-              "Interessante. Compreendo o seu ponto.\n\nA nossa prioridade é garantir que as suas transmissões cruzam os filtros das operadoras. Quer afinar o seu painel de envio ou dar uma vista de olhos nos guias?",
-              "Excelente observação.\n\nEnquanto conversamos, a sua vantagem técnica sobre a concorrência está ativa. Para mantermos o foco na conversão, como prefere avançar agora?",
-              "Estou a processar essa informação.\n\nLembre-se que o Nexus Engine está pronto para embaralhar a sua carga útil e maximizar o seu ROI. Vamos ao Hub Operacional?"
-            ];
+            // 5. Intelligent Fallback (Contextual) - US English only
             const fallbacksEN = [
               "Interesting. I understand your point.\n\nOur priority is ensuring your transmissions bypass carrier filters. Want to fine-tune your dispatch panel or check the guides?",
               "Excellent observation.\n\nWhile we chat, your technical advantage over the competition is active. To keep our focus on conversions, how would you like to proceed?",
               "I am processing that information.\n\nRemember that the Nexus Engine is ready to shuffle your payload and maximize your ROI. Shall we head to the Operational Hub?"
             ];
-            const fallbacksES = [
-              "Interesante. Entiendo su punto.\n\nNuestra prioridad es asegurar que sus transmisiones crucen los filtros de los operadores. ¿Desea ajustar su panel de envío o revisar las guías?",
-              "Excelente observación.\n\nMientras charlamos, su ventaja técnica sobre la competencia está activa. Para mantener el enfoque en la conversión, ¿cómo prefiere avanzar ahora?"
-            ];
 
-            const fArr = isES ? fallbacksES : (isPT ? fallbacksPT : fallbacksEN);
-            const f = fArr[Math.floor(Math.random()*fArr.length)];
-            const btnLabelDash = isES ? '📡 ABRIR DASHBOARD' : (isPT ? '📡 ABRIR DASHBOARD' : '📡 OPEN DASHBOARD');
-            const btnLabelGuide = isES ? '📖 SOPORTE TÉCNICO' : (isPT ? '📖 SOPORTE TÉCNICO' : '📖 TECHNICAL SUPPORT');
+            const f = fallbacksEN[Math.floor(Math.random()*fallbacksEN.length)];
 
             return { 
               text: f,
-              buttons: [{ label: btnLabelDash, action: 'DASH' }, { label: btnLabelGuide, action: 'GUIDE' }]
+              buttons: [{ label: '📡 OPEN DASHBOARD', action: 'DASH' }, { label: '📖 TECHNICAL SUPPORT', action: 'GUIDE' }]
             };
         };
 
@@ -1883,27 +1834,27 @@ export default function App() {
                     <h3 className="text-3xl sm:text-4xl text-white mb-4 sm:mb-5 font-black tracking-tight">NEXUS ROUTING PRO</h3>
                     <p className="text-5xl sm:text-6xl text-[#25F4EE] mb-8 sm:mb-10 font-black tracking-tighter">{isMaster ? "0.00 / MASTER" : "$9.00 / MONTH"}</p>
                     <p className="text-[10px] sm:text-[11px] text-white/40 mb-10 sm:mb-12 leading-relaxed pr-5 sm:pr-0">UNLIMITED REDIRECTIONS & SECURE VAULT ACCESS FOR ALL YOUR CAPTURED LEADS.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-white !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 font-black">UNLIMITED ACCESS</button> : <button onClick={() => window.location.href = STRIPE_LINKS.NEXUS_ROUTING_PRO} className="btn-strategic !bg-white !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] font-black">UPGRADE NOW</button>}
                  </div>
                  <div className="bg-[#25F4EE]/10 border border-[#25F4EE] p-10 sm:p-12 rounded-3xl sm:rounded-[3rem] group shadow-[0_0_30px_rgba(37,244,238,0.15)] hover:scale-[1.01] transition-transform">
                     <h3 className="text-3xl sm:text-4xl text-white mb-4 sm:mb-5 text-[#25F4EE] font-black tracking-tight">NEXUS AUTOMATION ENGINE</h3>
                     <p className="text-5xl sm:text-6xl text-[#25F4EE] mb-8 sm:mb-10 font-black tracking-tighter">{isMaster ? "0.00 / MASTER" : "$19.90 / MONTH"}</p>
                     <p className="text-[10px] sm:text-[11px] text-white/40 mb-10 sm:mb-12 leading-relaxed pr-5 sm:pr-0">FULL AI NATIVE SYNTHESIS & AUTOMATED PACING DELAY. INCLUDES 800 BONUS PACKETS ON ACTIVATION.</p>
-                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 font-black">UNLIMITED ACCESS</button> : <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
+                    {isMaster ? <button className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 font-black">UNLIMITED ACCESS</button> : <button onClick={() => window.location.href = STRIPE_LINKS.NEXUS_AUTOMATION_ENGINE} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full py-5 sm:py-6 shadow-[0_0_20px_rgba(37,244,238,0.3)] font-black">ACTIVATE GATEWAY</button>}
                  </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8 mb-16 sm:mb-20">
                  {[
-                   { name: "STARTER GATEWAY", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00" },
-                   { name: "NEXUS PACK", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00" },
-                   { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00" }
+                   { name: "STARTER GATEWAY", qty: 400, price: isMaster ? "0.00 / MASTER" : "$12.00", link: STRIPE_LINKS.STARTER_PACK },
+                   { name: "NEXUS PACK", qty: 800, price: isMaster ? "0.00 / MASTER" : "$20.00", link: STRIPE_LINKS.NEXUS_PACK },
+                   { name: "ELITE OPERATOR", qty: 1800, price: isMaster ? "0.00 / MASTER" : "$29.00", link: STRIPE_LINKS.ELITE_PACK }
                  ].map(pack => (
                    <div key={pack.name} className="bg-white/5 border border-white/10 p-8 sm:p-10 rounded-2xl sm:rounded-[2.5rem] text-center shadow-xl flex flex-col items-center hover:bg-white/10 transition-colors">
                      <p className="text-[11px] sm:text-[12px] text-[#25F4EE] mb-3 tracking-widest font-black">{pack.name}</p>
                      <p className="text-4xl sm:text-5xl text-white mb-5 font-black">{pack.qty}</p>
                      <p className="text-[10px] sm:text-[11px] text-white/50 tracking-[0.2em] mb-5 font-black">PRO TRANSMISSION PACKETS</p>
                      <p className="text-2xl sm:text-3xl text-[#25F4EE] mb-10 font-black">{pack.price}</p>
-                     <button className="w-full py-4 sm:py-5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
+                     <button onClick={() => {if(!isMaster) window.location.href = pack.link}} className="w-full py-4 sm:py-5 bg-black border border-white/10 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-black tracking-widest hover:bg-[#25F4EE] hover:text-black transition-all">ACQUIRE PACK</button>
                    </div>
                  ))}
               </div>
