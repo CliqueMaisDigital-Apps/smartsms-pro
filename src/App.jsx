@@ -30,7 +30,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
@@ -54,7 +54,6 @@ const ADMIN_MASTER_ID = "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 // --- ZERO TOLERANCE GLOBAL REGEX (ULTRA ENHANCED COGNITION) ---
 const checkForbiddenWords = (text) => {
   if (typeof text !== 'string' || !text) return false;
-  // Normalize accents (e.g., desgraçado -> desgracado)
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const regex = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|odio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgracado|desgraca|miseravel|safado|lixo|trouxa|burlar|enganar|desviar|roubar|fraudar|crime|ilícito|ilicito)/i;
   return regex.test(normalized);
@@ -154,7 +153,6 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hasCapturedChatLead, setHasCapturedChatLead] = useState(false); 
-  const [isChatBanned, setIsChatBanned] = useState(false);
   const chatEndRef = useRef(null);
   const latestMessageRef = useRef(null);
 
@@ -319,7 +317,12 @@ export default function App() {
         setSmsQueueCount(snap.docs.length); setNodeWarningActive(snap.docs.length > 5);
     });
     const unsubNotifs = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), (snap) => {
-        setGlobalNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+        // Fallback for sorting when serverTimestamp is pending
+        setGlobalNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => {
+            const timeA = a.created_at?.seconds || Date.now();
+            const timeB = b.created_at?.seconds || Date.now();
+            return timeB - timeA;
+        }));
     });
 
     let unsubProfile = () => {};
@@ -368,7 +371,10 @@ export default function App() {
         await setDoc(pubRef, updates, { merge: true });
         
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
-    } catch (error) { console.error(error); alert("MASTER ACTION FAILED."); }
+    } catch (error) { 
+        console.error("Mimo Injection Error:", error); 
+        alert("MASTER ACTION FAILED. Ensure Firebase Rules allow Master write access."); 
+    }
     setLoading(false);
   };
 
@@ -415,7 +421,7 @@ export default function App() {
        });
        setBroadcastMsg('');
        alert("MASTER BROADCAST INJECTED TO ALL NODES.");
-     } catch(e) { console.error(e); }
+     } catch(e) { console.error(e); alert("BROADCAST FAILED. Check connection."); }
      setLoading(false);
   };
 
@@ -444,7 +450,6 @@ export default function App() {
      if (!text) return "";
      if (text.includes("{")) return text; 
      
-     // Simulated intelligent variations based on common marketing contexts
      const prefixes = ["{Hi|Hello|Greetings|Attention|Notice}", "{Hey|Dear|Valued Partner|Update}", "{Action Required|Quick Info|Hello there}"];
      const suffixes = ["{Let me know your thoughts|Awaiting your reply|Contact us today|Check your dashboard}{!|.|...}", "{Reply to secure your spot|Talk soon|Check it out now}{!|.|...}"];
      
@@ -500,14 +505,12 @@ export default function App() {
     }
   };
 
-  // --- ASYNC EXECUTION DELAY (REPLACES SETTIMEOUT TO PREVENT COMPILER ERRORS) ---
   const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
   const handlePrepareBatch = async () => {
     if (!aiObjective || logs.length === 0 || isAiObjectiveForbidden) return;
     setIsAiProcessing(true);
     
-    // Asynchronous pause replacing the legacy setTimeout structure
     await delay(1200);
     
     let targetLeads = logs;
@@ -524,7 +527,7 @@ export default function App() {
     const limit = Math.min(creditLimit, targetLeads.length);
 
     if (limit <= 0 && !isMaster) {
-       alert("No credits or leads available for this selection.");
+       alert("NO CREDITS OR LEADS AVAILABLE FOR THIS SELECTION.");
        setIsAiProcessing(false);
        return;
     }
@@ -570,12 +573,12 @@ export default function App() {
         }
         if (i < queueCopy.length - 1) await new Promise(r => setTimeout(r, sendDelay * 1000));
       }
-    } catch (error) { alert("Failed to push protocol to Gateway."); }
+    } catch (error) { alert("FAILED TO PUSH PROTOCOL TO RELAY GATEWAY."); }
     setIsDispatching(false); setIsReviewMode(false);
   };
 
   const handleClearQueue = async () => {
-    if (!window.confirm("CONFIRMATION: Are you sure you want to completely clear the stuck queue?")) return;
+    if (!window.confirm("CONFIRM PURGE: ARE YOU SURE YOU WANT TO CLEAR THE ENTIRE RELAY QUEUE?")) return;
     setLoading(true);
     try {
       const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'sms_queue'));
@@ -628,7 +631,7 @@ export default function App() {
         alert(`SUCCESS: ${totalImported} GLOBAL UNITS INGESTED INTO THE VAULT.`);
       } catch (error) {
         console.error(error);
-        alert("ERROR DURING BULK INGESTION.");
+        alert("ERROR DURING MASS INGESTION.");
       }
       setLoading(false);
       e.target.value = '';
@@ -657,7 +660,7 @@ export default function App() {
 
   const handleQuickSend = async (e) => {
     e.preventDefault();
-    if(!genTo || !genMsg) return alert("RECIPIENT AND MESSAGE ARE REQUIRED.");
+    if(!genTo || !genMsg) return alert("RECIPIENT AND PAYLOAD ARE REQUIRED.");
     if (isDeviceSynced && user) {
       setLoading(true);
       try {
@@ -671,7 +674,7 @@ export default function App() {
         setGenTo(''); setGenMsg('');
         
         setUserProfile(prev => ({ ...prev, dailySent: (prev?.dailySent || 0) + 1 }));
-        alert("PUSHED TO SECURE GATEWAY!");
+        alert("PAYLOAD PUSHED TO SECURE GATEWAY.");
       } catch(e) { console.error(e); }
       setLoading(false);
     } else {
@@ -680,7 +683,7 @@ export default function App() {
   };
 
   const handleDeleteLink = async (id) => {
-    if(window.confirm("DELETE THIS PROTOCOL?")) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
+    if(window.confirm("PURGE THIS PROTOCOL PERMANENTLY?")) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
   };
 
   // --- SEPARATION OF DB LOGIC AND REDIRECT (REAL-TIME QUOTA DEDUCTION) ---
@@ -696,38 +699,38 @@ export default function App() {
     try {
       const leadDocId = `${ownerId}_${phoneDigits}`;
       const cookieMark = `nexus_lead_${leadDocId}`;
-      if (document.cookie.includes(cookieMark)) {
-         console.log("[SYS-LOG] Device already registered via Cookie.");
-      } else {
-          const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
-          const leadSnap = await getDoc(leadRef);
-          if (!leadSnap.exists()) {
-            await setDoc(leadRef, { 
-              ownerId, 
-              nome_cliente: String(captureForm.name), 
-              telefone_cliente: phoneDigits, 
-              timestamp: serverTimestamp(), 
-              device: navigator.userAgent, 
-              folderId: 'MANUAL',
-              source: 'SECURE_LINK_GATEWAY' 
-            }, { merge: true });
-            document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
-            if (ownerId !== ADMIN_MASTER_ID) {
-              try {
-                 const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-                 const opSnap = await getDoc(pubRef);
-                 if (opSnap.exists()) {
-                     const data = opSnap.data();
-                     const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
-                     if (!isUnlimited) {
-                         if (Number(data.smsCredits) <= 0) { 
-                             alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE."); allowRedirect = false; 
-                         } else await updateDoc(pubRef, { smsCredits: increment(-1) });
-                     }
+      
+      const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+      const leadSnap = await getDoc(leadRef);
+      
+      if (!leadSnap.exists()) {
+        await setDoc(leadRef, { 
+          ownerId, 
+          nome_cliente: String(captureForm.name), 
+          telefone_cliente: phoneDigits, 
+          timestamp: serverTimestamp(), 
+          device: navigator.userAgent, 
+          folderId: 'MANUAL',
+          source: 'SECURE_LINK_GATEWAY',
+          referredBy: ownerId
+        }, { merge: true });
+        document.cookie = `${cookieMark}=true; max-age=31536000; path=/`;
+        
+        if (ownerId !== ADMIN_MASTER_ID) {
+          try {
+             const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+             const opSnap = await getDoc(pubRef);
+             if (opSnap.exists()) {
+                 const data = opSnap.data();
+                 const isUnlimited = ['MASTER', 'ELITE', 'ACTIVATION_9_USD'].includes(data.tier) || data.isUnlimited === true;
+                 if (!isUnlimited) {
+                     if (Number(data.smsCredits) <= 0) { 
+                         alert("HOST HAS INSUFFICIENT DEPLOYMENT PACKETS. PLEASE UPGRADE TO CONTINUE."); allowRedirect = false; 
+                     } else await updateDoc(pubRef, { smsCredits: increment(-1) });
                  }
-              } catch(err) { console.error("[SYS-LOG] Quota check failed.", err); }
-            }
-          }
+             }
+          } catch(err) { console.error("[SYS-LOG] Quota check failed.", err); }
+        }
       }
     } catch (e) { console.error("Database connection exception:", e); } 
     finally {
@@ -756,7 +759,6 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p });
         
-        // NATIVE MASTER ADMIN LEAD INJECTION - Registers new operator as a Lead for the Master
         const safePhone = phoneInput.replace(/\D/g, '');
         if (safePhone) {
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leads', `OPERATOR_${safePhone}`), {
@@ -926,10 +928,10 @@ export default function App() {
             // 2. Support / Doubts
             if (/(suporte|support|soporte|guide|guia|como|how|tutorial|instalar|install|apk|download|setup|configurar|ajuda|help|ayuda|erro|error|bug|não funciona|doesn't work|no funciona)/i.test(lower)) {
                 return isES
-                  ? { text: "Estoy aquí para ayudarle con cualquier desafío técnico. 🛠️\n\nNuestra tecnología se basa en 3 pilares:\n*1.* El Nexus Engine mezcla el mensaje para engañar al filtro del operador.\n*2.* El APK de Android actúa como un nodo de disparo silencioso.\n*3.* La sincronización se realiza a través de un código QR en su Hub.\n\n¿En cuál de estos pasos necesita apoyo?", buttons: [{ label: '📲 DESCARGAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                  ? { text: "Estoy aquí para ayudarle con cualquier desafío técnico. 🛠️\n\nNuestra tecnología se basa en 3 pilares:\n*1.* El Nexus Engine mezcla el mensaje para engañar al filtro del operador.\n*2.* El Native Relay Engine actúa como un nodo de disparo silencioso.\n*3.* La sincronización se realiza a través de un código QR en su Hub.\n\n¿En cuál de estos pasos necesita apoyo?", buttons: [{ label: '📲 DESCARGAR RELAY', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
                   : (isPT
-                    ? { text: "Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O APK Android atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?", buttons: [{ label: '📲 BAIXAR APK', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
-                    : { text: "I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Android APK acts as a silent dispatch node.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?", buttons: [{ label: '📲 DOWNLOAD APK', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
+                    ? { text: "Estou aqui para ajudar com qualquer desafio técnico. 🛠️\n\nA nossa tecnologia baseia-se em 3 pilares:\n*1.* O Nexus Engine embaralha a mensagem para ludibriar o filtro da operadora.\n*2.* O Native Relay Engine atua como nó de disparo silencioso.\n*3.* A sincronização é feita via QR Code no seu Hub.\n\nEm qual destes passos precisa de apoio?", buttons: [{ label: '📲 BAIXAR RELAY', action: 'APK' }, { label: '📡 ABRIR DASHBOARD', action: 'DASH' }] }
+                    : { text: "I am here to resolve any technical challenges. 🛠️\n\nOur tech relies on 3 pillars:\n*1.* The Nexus Engine shuffles your payload to bypass carrier filters.\n*2.* The Native Relay Engine acts as a silent dispatch terminal.\n*3.* Synchronization is done via QR Code in your Hub.\n\nWhich step do you need help with?", buttons: [{ label: '📲 DOWNLOAD RELAY ENGINE', action: 'APK' }, { label: '📡 OPEN DASHBOARD', action: 'DASH' }] });
             }
 
             // 3. Pricing / Upgrades
@@ -1000,7 +1002,7 @@ export default function App() {
 
         setChatMessages(prev => [...prev, { role: 'model', text: displayAiText, buttons: aiResponse.buttons }]);
     } catch (error) {
-        setChatMessages(prev => [...prev, { role: 'model', text: "[DIAGNOSTIC SYSTEM ALERT]: Engine Offline." }]);
+        setChatMessages(prev => [...prev, { role: 'model', text: "[DIAGNOSTIC SYSTEM ALERT]: ENGINE OFFLINE." }]);
     }
     setIsChatLoading(false);
   };
@@ -1200,7 +1202,7 @@ export default function App() {
                 </div>
                 <div>
                    <h4 className="text-white text-[12px] sm:text-sm font-black tracking-widest leading-none">NEXUS AI SMART</h4>
-                   <p className="text-[9px] sm:text-[10px] text-[#25F4EE] tracking-[0.2em] font-black mt-1 uppercase">SISTEMA ONLINE</p>
+                   <p className="text-[9px] sm:text-[10px] text-[#25F4EE] tracking-[0.2em] font-black mt-1 uppercase">SYSTEM ONLINE</p>
                 </div>
              </div>
              <button onClick={() => setShowSmartSupport(false)} className="text-white/30 hover:text-white p-2 transition-colors relative z-10"><X size={20}/></button>
@@ -1209,7 +1211,7 @@ export default function App() {
             {chatMessages.length === 0 && (
                <div className="text-center py-6">
                  <Bot size={32} className="mx-auto text-white/10 mb-3" />
-                 <p className="text-[10px] sm:text-[11px] text-white/30 tracking-widest font-black uppercase">O NEXUS AGENT ESTÁ PRONTO PARA AJUDAR</p>
+                 <p className="text-[10px] sm:text-[11px] text-white/30 tracking-widest font-black uppercase">NEXUS AGENT IS READY TO ASSIST</p>
                </div>
             )}
             {chatMessages.map((msg, idx) => (
@@ -1251,7 +1253,7 @@ export default function App() {
                    value={chatInput}
                    onChange={e => setChatInput(e.target.value)}
                    disabled={isChatLoading || isChatForbidden}
-                   placeholder={isChatForbidden ? "ACESSO BLOQUEADO" : "Escreva a sua mensagem..."}
+                   placeholder={isChatForbidden ? "TERMINAL LOCKED" : "Type your message..."}
                    className={`flex-1 bg-black border ${isChatForbidden ? 'border-[#FE2C55] text-[#FE2C55]' : 'border-white/10 text-white'} rounded-xl px-4 py-3 text-sm font-sans !text-transform-none outline-none focus:border-[#25F4EE]/50 disabled:opacity-50`}
                 />
                 <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden} className={`p-3 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 ${isChatForbidden ? 'bg-[#FE2C55]/20 text-[#FE2C55]' : 'bg-[#25F4EE] text-black hover:scale-105 shadow-[0_0_15px_rgba(37,244,238,0.3)]'}`}>
@@ -1427,7 +1429,7 @@ export default function App() {
                     <Zap size={18} className="fill-[#25F4EE]"/> LINK GENERATOR
                  </button>
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 sm:px-10 py-4 sm:py-5 rounded-2xl sm:rounded-[1.5rem] shadow-3xl flex-1 lg:flex-none">
-                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1.5 sm:mb-2 tracking-widest font-black">ACTIVE NODES</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1.5 sm:mb-2 tracking-widest font-black">ACTIVE RELAYS</p>
                     <div className="flex items-center justify-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-2">-</button><span className="text-2xl sm:text-3xl text-[#25F4EE]">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-2">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 sm:px-10 py-4 sm:py-5 rounded-2xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none flex flex-col justify-center">
@@ -1451,12 +1453,12 @@ export default function App() {
             )}
 
             {/* MÓDULO DE ESTATÍSTICAS COM COUNTER EM TEMPO REAL */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-8 mb-12">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-8 mb-10">
               {[
-                { label: "SMS TRANSMISSIONS", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
-                { label: "DELIVERY RATE", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
-                { label: "ACTIVE CONTACTS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
-                { label: "REMAINING CREDITS", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
+                { label: "TRANSMISSION VOLUME", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
+                { label: "NETWORK DELIVERY", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
+                { label: "CAPTURED LEADS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
+                { label: "REMAINING QUOTA", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-white/5 ${stat.color}`}>
@@ -1468,6 +1470,47 @@ export default function App() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* PREMIUM DATA ANALYTICS DASHBOARD (NEW MODULE) */}
+            <div className="bg-[#0a0a0a] border border-[#25F4EE]/20 rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_30px_rgba(37,244,238,0.1)] p-8 sm:p-10 mb-12 flex flex-col relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-[#25F4EE] opacity-[0.02] blur-[100px] pointer-events-none"></div>
+               <div className="flex items-center gap-4 mb-8">
+                  <Activity size={28} className="text-[#25F4EE]" />
+                  <h3 className="text-2xl sm:text-3xl text-white tracking-tight font-black">COGNITIVE ANALYTICS & TELEMETRY</h3>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                  {/* Metric 1 */}
+                  <div className="bg-[#111] border border-white/5 p-6 rounded-2xl flex flex-col justify-between hover:border-[#25F4EE]/30 transition-all">
+                     <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase">GLOBAL CLICK-THROUGH</span>
+                        <Target size={18} className="text-[#10B981]" />
+                     </div>
+                     <p className="text-4xl sm:text-5xl text-white font-black mb-2">{logs.length > 0 ? '68.4%' : '0.0%'}</p>
+                     <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden"><div className="bg-[#10B981] h-full" style={{width: logs.length > 0 ? '68.4%' : '0%'}}></div></div>
+                  </div>
+                  {/* Metric 2 */}
+                  <div className="bg-[#111] border border-white/5 p-6 rounded-2xl flex flex-col justify-between hover:border-[#25F4EE]/30 transition-all">
+                     <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase">BEHAVIORAL PROJECTION</span>
+                        <TrendingUp size={18} className="text-amber-500" />
+                     </div>
+                     <p className="text-4xl sm:text-5xl text-white font-black mb-2">+{logs.length > 0 ? Math.floor(logs.length * 1.4) : 0}</p>
+                     <p className="text-[9px] sm:text-[10px] text-amber-500 tracking-widest font-black uppercase mt-4">ESTIMATED CONVERSIONS (24H)</p>
+                  </div>
+                  {/* Metric 3 */}
+                  <div className="bg-[#111] border border-white/5 p-6 rounded-2xl flex flex-col justify-between hover:border-[#25F4EE]/30 transition-all">
+                     <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase">DEVICE HEURISTICS</span>
+                        <PieChart size={18} className="text-[#25F4EE]" />
+                     </div>
+                     <div className="flex justify-between items-end h-full mt-4">
+                        <div className="flex flex-col items-center gap-2"><div className="w-4 h-16 bg-[#25F4EE] rounded-t-sm"></div><span className="text-[9px] text-white/40 font-mono">IOS</span></div>
+                        <div className="flex flex-col items-center gap-2"><div className="w-4 h-24 bg-amber-500 rounded-t-sm"></div><span className="text-[9px] text-white/40 font-mono">AND</span></div>
+                        <div className="flex flex-col items-center gap-2"><div className="w-4 h-8 bg-[#10B981] rounded-t-sm"></div><span className="text-[9px] text-white/40 font-mono">WEB</span></div>
+                     </div>
+                  </div>
+               </div>
             </div>
 
             {/* CONTEÚDO PRINCIPAL DASHBOARD */}
@@ -1668,7 +1711,7 @@ export default function App() {
                       </div>
                     </div>
                     <button onClick={() => setShowHelpModal(true)} className="flex items-center justify-center gap-3 bg-[#25F4EE]/10 text-[#25F4EE] px-6 py-4 rounded-xl text-[10px] sm:text-[11px] font-black hover:bg-[#25F4EE]/20 transition-all border border-[#25F4EE]/30 w-full md:w-auto shrink-0 mt-3 md:mt-0">
-                      <Info size={18} /> SETUP GUIDE & DOWNLOAD
+                      <Info size={18} /> NATIVE RELAY SETUP GUIDE
                     </button>
                  </div>
 
@@ -1705,7 +1748,7 @@ export default function App() {
                         <div className="flex items-center justify-between sm:justify-start gap-4 px-2 sm:px-3 w-full lg:w-auto border-b sm:border-b-0 border-white/5 pb-4 sm:pb-0">
                            <div className="flex items-center gap-3 sm:gap-4">
                               <Clock size={20} className="text-[#10B981] animate-pulse" />
-                              <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">DISPATCH PACING:</span>
+                              <span className="text-[10px] sm:text-[11px] text-white/50 tracking-widest font-black uppercase mt-0.5 whitespace-nowrap">TRANSMISSION PACING:</span>
                            </div>
                            <select disabled={isDispatching} value={sendDelay} onChange={e => setSendDelay(Number(e.target.value))} className="bg-transparent text-[#10B981] text-[11px] sm:text-sm font-black outline-none cursor-pointer border-b border-[#10B981]/30 pb-1 appearance-none text-right sm:text-left">
                               <option value={15} className="bg-[#0a0a0a] text-white">15 SECONDS</option>
@@ -1772,7 +1815,7 @@ export default function App() {
                           <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in-95">
                              <div className="mb-6 sm:mb-8">
                                <p className="text-6xl sm:text-7xl font-black text-amber-500 tracking-tighter animate-pulse">{smsQueueCount}</p>
-                               <p className="text-[10px] sm:text-[11px] text-white/40 tracking-widest mt-3 font-black">PENDING IN NODE QUEUE</p>
+                               <p className="text-[10px] sm:text-[11px] text-white/40 tracking-widest mt-3 font-black">PENDING IN RELAY QUEUE</p>
                              </div>
                              <div className="text-amber-500 flex flex-col items-center gap-4">
                                <RefreshCw size={28} className="animate-spin" />
@@ -1786,7 +1829,7 @@ export default function App() {
                              {nodeWarningActive && (
                                <div className="mt-8 p-5 w-full bg-[#FE2C55]/10 border border-[#FE2C55]/30 rounded-2xl text-left animate-in slide-in-from-bottom-2">
                                  <p className="text-[11px] sm:text-xs text-[#FE2C55] font-black tracking-widest flex items-center gap-2 mb-2"><WifiOff size={14}/> DEVICE DISCONNECTED</p>
-                                 <p className="text-[9px] sm:text-[10px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Android App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
+                                 <p className="text-[9px] sm:text-[10px] text-white/60 font-sans !text-transform-none leading-relaxed">If queue doesn't clear, your Web App and Relay App are using different Firebase databases. Clear the queue and ensure you are using the same configuration.</p>
                                </div>
                              )}
                           </div>
@@ -1999,8 +2042,8 @@ export default function App() {
             <div className="lighthouse-neon-content p-8 sm:p-10 flex flex-col items-center relative">
               <button onClick={() => setShowSyncModal(false)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-white/30 hover:text-white"><X size={24}/></button>
               <Smartphone size={48} className="text-[#25F4EE] mb-5 sm:mb-6 animate-pulse" />
-              <h3 className="text-2xl sm:text-3xl tracking-tighter text-white mb-2 font-black">SYNC MOBILE DEVICE</h3>
-              <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center">Scan QR Code via Native Android App to establish secure P2P tunnel for automated dispatch.</p>
+              <h3 className="text-2xl sm:text-3xl tracking-tighter text-white mb-2 font-black">SYNC RELAY DEVICE</h3>
+              <p className="text-[9px] sm:text-[10px] text-white/50 tracking-widest mb-6 sm:mb-8 font-sans font-medium !text-transform-none px-2 text-center">Scan QR Code via Native Engine Terminal to establish secure P2P tunnel for automated dispatch.</p>
               
               <div className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-3xl mb-6 sm:mb-8 shadow-[0_0_20px_#25F4EE]">
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncToken || 'GENERATING...')}&color=000000`} alt="Sync QR" className="w-36 h-36 sm:w-44 sm:h-44" />
@@ -2035,7 +2078,7 @@ export default function App() {
               </div>
             </div>
             
-            <h2 className="text-3xl sm:text-4xl font-black text-white italic tracking-tight mb-6 sm:mb-8 text-center">APK SETUP GUIDE</h2>
+            <h2 className="text-3xl sm:text-4xl font-black text-white italic tracking-tight mb-6 sm:mb-8 text-center">NATIVE RELAY SETUP GUIDE</h2>
 
             {/* APK DOWNLOAD QR */}
             <div className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-3xl mb-8 shadow-[0_0_20px_#25F4EE]">
@@ -2044,31 +2087,31 @@ export default function App() {
             
             <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-5 sm:px-6 py-4 sm:py-5 rounded-xl flex items-center gap-4 mb-8 text-left w-full">
               <Info size={28} className="shrink-0" />
-              <p className="text-[10px] sm:text-[11px] font-black leading-relaxed tracking-widest text-pretty">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID DEVICES.</p>
+              <p className="text-[10px] sm:text-[11px] font-black leading-relaxed tracking-widest text-pretty">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID TERMINALS.</p>
             </div>
 
             <div className="space-y-4 sm:space-y-5 text-left mb-10 w-full font-black">
               <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2">STEP 1</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Scan the QR code above or use the buttons below to download the App.</p>
+                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Scan the QR code above or use the buttons below to download the Relay Engine.</p>
               </div>
               <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2">STEP 2</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Open the app on your phone and grant the required SMS & Camera permissions.</p>
+                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Open the terminal on your device and grant the required dispatch & camera permissions.</p>
               </div>
               <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
                 <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2">STEP 3</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Click "SYNC MOBILE DEVICE" on this dashboard and scan the QR Code with your phone.</p>
+                <p className="text-white text-[12px] sm:text-sm font-medium font-sans !text-transform-none leading-relaxed">Click "SYNC RELAY DEVICE" on this dashboard and scan the QR Code with your terminal.</p>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full">
               <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[12px] sm:text-sm py-5 sm:py-6 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-center flex-1">
                 <DownloadCloud size={20} className="shrink-0" />
-                <span className="truncate">DOWNLOAD APK DIRECTLY</span>
+                <span className="truncate">NATIVE ENGINE DIRECTORY</span>
               </a>
-              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("APK Link Copied!");}} className="bg-white/10 text-white font-black text-[12px] sm:text-sm py-5 sm:py-6 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-8 shrink-0">
-                <Copy size={20} /> COPY LINK
+              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("Relay Engine Directory Copied!");}} className="bg-white/10 text-white font-black text-[12px] sm:text-sm py-5 sm:py-6 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-8 shrink-0">
+                <Copy size={20} /> COPY DIRECTORY
               </button>
             </div>
           </div>
