@@ -500,39 +500,47 @@ export default function App() {
     }
   };
 
-  const handlePrepareBatch = () => {
+  const handlePrepareBatch = () => {// --- FUNÇÃO AUXILIAR DE PAUSA ---
+  // (Esta linha garante que a pausa funciona sem erros de sintaxe)
+  const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+  const handlePrepareBatch = async () => {
     if (!aiObjective || logs.length === 0 || isAiObjectiveForbidden) return;
     setIsAiProcessing(true);
     
-    setTimeout(() => {
-      let targetLeads = logs;
-      if (selectedFolder !== 'ALL') {
-        targetLeads = logs.filter(l => {
-          if (l.folderId) return l.folderId === selectedFolder;
-          if (selectedFolder === 'Bulk Import TXT') return l.device === 'Bulk Import TXT';
-          if (selectedFolder === 'MANUAL') return l.device !== 'Bulk Import TXT' && l.device !== 'AI_AGENT_CONVERSATION';
-          return false;
-        });
-      }
-
-      const creditLimit = isPro || isMaster ? 999999 : (Number(userProfile?.smsCredits) || 0);
-      const limit = Math.min(creditLimit, targetLeads.length);
-
-      if (limit <= 0 && !isMaster) {
-         alert("No credits or leads available for this selection.");
-         setIsAiProcessing(false);
-         return;
-      }
-      
-      const queue = targetLeads.slice(0, limit).map((l, idx) => {
-         const smartPayload = simulateAIExpansion(aiObjective, idx);
-         const contextualMessage = executeNexusScramble(smartPayload, l.nome_cliente);
-         const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
-         return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
+    // Pausa assíncrona moderna de 1.2 segundos (substitui o setTimeout)
+    await delay(1200);
+    
+    let targetLeads = logs;
+    if (selectedFolder !== 'ALL') {
+      targetLeads = logs.filter(l => {
+        if (l.folderId) return l.folderId === selectedFolder;
+        if (selectedFolder === 'Bulk Import TXT') return l.device === 'Bulk Import TXT';
+        if (selectedFolder === 'MANUAL') return l.device !== 'Bulk Import TXT' && l.device !== 'AI_AGENT_CONVERSATION';
+        return false;
       });
-      
-      setStagedQueue(queue); setIsReviewMode(true); setIsAiProcessing(false);
-    }, 1200);
+    }
+
+    const creditLimit = isPro || isMaster ? 999999 : (Number(userProfile?.smsCredits) || 0);
+    const limit = Math.min(creditLimit, targetLeads.length);
+
+    if (limit <= 0 && !isMaster) {
+       alert("No credits or leads available for this selection.");
+       setIsAiProcessing(false);
+       return;
+    }
+    
+    const queue = targetLeads.slice(0, limit).map((l, idx) => {
+       const smartPayload = simulateAIExpansion(aiObjective, idx);
+       const contextualMessage = executeNexusScramble(smartPayload, l.nome_cliente);
+       const byteBypass = ["\u200B", "\u200C", "\u200D", "\uFEFF"][idx % 4].repeat((idx % 4) + 1);
+       return { id: l.id || Math.random().toString(), telefone_cliente: l.telefone_cliente, nome_cliente: l.nome_cliente || 'Customer', optimizedMsg: contextualMessage + byteBypass };
+    });
+    
+    setStagedQueue(queue); 
+    setIsReviewMode(true); 
+    setIsAiProcessing(false);
+  };
   };
 
   const handleEditStagedMsg = (index, newMsg) => {
