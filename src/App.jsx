@@ -1187,7 +1187,91 @@ export default function App() {
           <span className="absolute -top-2 -right-2 bg-[#FE2C55] border-2 border-black w-4 h-4 rounded-full animate-ping"></span>
           <span className="absolute -top-2 -right-2 bg-[#FE2C55] border-2 border-black w-4 h-4 rounded-full"></span>
         </div>
-      )}
+      )}{/* --- JANELA DO NEXUS AI SMART CHAT --- */}
+      {showSmartSupport && (
+        <div className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 w-full max-w-[380px] h-[500px] bg-[#0a0a0a] border border-[#25F4EE]/30 rounded-[2rem] shadow-[0_0_40px_rgba(37,244,238,0.2)] z-[9990] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4">
+          
+          {/* Cabeçalho do Chat */}
+          <div className="p-4 bg-[#111] border-b border-white/10 flex justify-between items-center relative overflow-hidden shrink-0">
+             <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#25F4EE] to-transparent animate-pulse"></div>
+             <div className="flex items-center gap-3 relative z-10">
+                <div className="relative">
+                   <div className="w-10 h-10 rounded-full bg-[#25F4EE]/10 flex items-center justify-center border border-[#25F4EE]/30">
+                      <Bot size={20} className="text-[#25F4EE]" />
+                   </div>
+                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#10B981] rounded-full border-2 border-[#111] animate-pulse"></div>
+                </div>
+                <div>
+                   <h4 className="text-white text-[12px] sm:text-sm font-black tracking-widest leading-none">NEXUS AI SMART</h4>
+                   <p className="text-[9px] sm:text-[10px] text-[#25F4EE] tracking-[0.2em] font-black mt-1 uppercase">SISTEMA ONLINE</p>
+                </div>
+             </div>
+             <button onClick={() => setShowSmartSupport(false)} className="text-white/30 hover:text-white p-2 transition-colors relative z-10"><X size={20}/></button>
+          </div>
+
+          {/* Área de Mensagens */}
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-black/50 space-y-4">
+            {chatMessages.length === 0 && (
+               <div className="text-center py-6">
+                 <Bot size={32} className="mx-auto text-white/10 mb-3" />
+                 <p className="text-[10px] sm:text-[11px] text-white/30 tracking-widest font-black uppercase">O NEXUS AGENT ESTÁ PRONTO PARA AJUDAR</p>
+               </div>
+            )}
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in`}>
+                <div className={`max-w-[85%] rounded-2xl p-4 text-sm sm:text-base font-sans !text-transform-none leading-relaxed shadow-lg ${msg.role === 'user' ? 'bg-[#25F4EE] text-black rounded-tr-sm font-medium' : 'bg-[#111] border border-white/10 text-white/90 rounded-tl-sm'}`}>
+                  {/* Processamento de quebras de linha */}
+                  {msg.text.split('\n').map((line, i) => (
+                     <React.Fragment key={i}>
+                        {line}
+                        {i < msg.text.split('\n').length - 1 && <br />}
+                     </React.Fragment>
+                  ))}
+                  
+                  {/* Botões Dinâmicos da IA */}
+                  {msg.buttons && (
+                     <div className="mt-4 flex flex-col gap-2">
+                        {msg.buttons.map((btn, bIdx) => (
+                           <button key={bIdx} onClick={() => handleChatButtonAction(btn.action)} className="w-full text-center py-2 px-3 bg-white/5 hover:bg-[#25F4EE]/20 border border-white/10 hover:border-[#25F4EE]/50 rounded-lg text-[10px] sm:text-[11px] font-black tracking-widest uppercase transition-all text-[#25F4EE]">
+                              {btn.label}
+                           </button>
+                        ))}
+                     </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {isChatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-[#111] border border-white/10 rounded-2xl rounded-tl-sm p-4 flex gap-2 w-16 shadow-lg">
+                  <div className="w-2 h-2 rounded-full bg-[#25F4EE] animate-bounce"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#25F4EE] animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 rounded-full bg-[#25F4EE] animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                </div>
+              </div>
+            )}
+            <div ref={latestMessageRef} />
+          </div>
+
+          {/* Área de Input */}
+          <div className="p-4 bg-[#111] border-t border-white/10 shrink-0">
+             <form onSubmit={handleSendChat} className="flex gap-2">
+                <input
+                   type="text"
+                   value={chatInput}
+                   onChange={e => setChatInput(e.target.value)}
+                   disabled={isChatLoading || isChatForbidden}
+                   placeholder={isChatForbidden ? "ACESSO BLOQUEADO" : "Escreva a sua mensagem..."}
+                   className={`flex-1 bg-black border ${isChatForbidden ? 'border-[#FE2C55] text-[#FE2C55]' : 'border-white/10 text-white'} rounded-xl px-4 py-3 text-sm font-sans !text-transform-none outline-none focus:border-[#25F4EE]/50 disabled:opacity-50`}
+                />
+                <button type="submit" disabled={isChatLoading || !chatInput.trim() || isChatForbidden} className={`p-3 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 ${isChatForbidden ? 'bg-[#FE2C55]/20 text-[#FE2C55]' : 'bg-[#25F4EE] text-black hover:scale-105 shadow-[0_0_15px_rgba(37,244,238,0.3)]'}`}>
+                   {isChatForbidden ? <ShieldAlert size={20} /> : <Send size={20} />}
+                </button>
+             </form>
+          </div>
+
+        </div>
+      )}
 
       {/* --- TOP NAV --- */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-xl border-b border-white/5 z-[200] px-6 flex justify-between items-center transition-all">
