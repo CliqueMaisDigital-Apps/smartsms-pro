@@ -49,7 +49,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- SECURE MASTER ADMIN DECRYPTION (OBFUSCATED) ---
-// Prevents exposing the raw Admin ID directly in the codebase to avoid scraping
+// Prevents exposing the raw Admin ID directly in the codebase
 const getMasterKey = () => typeof atob === 'function' ? atob("WUdlcFZISE1ZYU45c0MzakZtVHlyeTBtWVpPMg==") : "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 const ADMIN_MASTER_ID = getMasterKey();
 
@@ -75,7 +75,7 @@ const checkForbiddenWords = (text) => {
   return regex.test(normalized);
 };
 
-// --- STRIPE PAYMENT LINKS (PENDING ACTIVATION) ---
+// --- STRIPE PAYMENT LINKS (PENDING CONFIGURATION) ---
 const STRIPE_LINKS = {
     NEXUS_ROUTING_PRO: "#", 
     NEXUS_AUTOMATION_ENGINE: "#",
@@ -279,7 +279,6 @@ export default function App() {
           
           if (d.exists()) {
             const data = d.data();
-            // Preserve their chosen nickname even if they are Master, unless it's missing
             if (u.uid === ADMIN_MASTER_ID) {
                setUserProfile({...data, tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true});
             } else {
@@ -350,24 +349,33 @@ export default function App() {
     });
     const unsubNotifs = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), (snap) => {
         setGlobalNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => {
-            const timeA = a.created_at?.seconds || Date.now();
-            const timeB = b.created_at?.seconds || Date.now();
+            const timeA = typeof a.created_at === 'number' ? a.created_at : (a.created_at?.toMillis ? a.created_at.toMillis() : Date.now());
+            const timeB = typeof b.created_at === 'number' ? b.created_at : (b.created_at?.toMillis ? b.created_at.toMillis() : Date.now());
             return timeB - timeA;
         }));
     });
 
     let unsubProfile = () => {};
+    let unsubPubProfile = () => {};
     if (!isMaster && user) {
       unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (snap) => {
         if (snap.exists()) {
           setUserProfile(prev => ({
             ...prev,
-            smsCredits: snap.data().smsCredits ?? prev?.smsCredits ?? 0,
             dailySent: snap.data().dailySent ?? prev?.dailySent ?? 0,
             tier: snap.data().tier ?? prev?.tier,
             isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
           }));
         }
+      });
+      // Listen to public subscriber doc to get real-time quota deductions from anonymous leads
+      unsubPubProfile = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', user.uid), (snap) => {
+         if (snap.exists()) {
+            setUserProfile(prev => ({
+               ...prev,
+               smsCredits: snap.data().smsCredits ?? prev?.smsCredits ?? 0
+            }));
+         }
       });
     }
 
@@ -377,7 +385,7 @@ export default function App() {
         setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
     }
-    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); };
+    return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); unsubPubProfile(); };
   }, [user, view, isMaster]);
 
   // ============================================================================
@@ -449,7 +457,7 @@ export default function App() {
      try {
        const notifId = `notif_${Date.now()}`;
        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', notifId), {
-          message: broadcastMsg, author: "MASTER COMMAND", created_at: serverTimestamp()
+          message: broadcastMsg, author: "MASTER COMMAND", created_at: Date.now()
        });
        setBroadcastMsg('');
        alert("MASTER BROADCAST DEPLOYED SUCCESSFULLY.");
@@ -757,30 +765,36 @@ export default function App() {
       const leadDocId = `${ownerId}_${phoneDigits}`;
       const cookieMark = `nexus_lead_${leadDocId}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
+      const leadSnap = await getDoc(leadRef);
       
-      // Explicitly Tag Lead correctly to the Operator (referredBy)
-      await setDoc(leadRef, { 
-        ownerId, 
-        nome_cliente: String(captureForm.name), 
-        telefone_cliente: phoneDigits, 
-        timestamp: serverTimestamp(), 
-        device: navigator.userAgent, 
-        folderId: 'MANUAL',
-        source: 'SECURE_LINK_GATEWAY',
-        referredBy: ownerId
-      }, { merge: true });
-      
-      const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-      document.cookie = `${cookieMark}=true; expires=${expiryDate.toUTCString()}; path=/`;
-      
-      if (ownerId !== ADMIN_MASTER_ID) {
-        try {
-           const pubRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-           await updateDoc(pubRef, { smsCredits: increment(-1) });
-        } catch(err) { 
-           console.log("[SYS-LOG] Profile quota update deferred to backend sync."); 
+      // Only process deduct and lead generation if it is a BRAND NEW lead
+      if (!leadSnap.exists()) {
+        await setDoc(leadRef, { 
+          ownerId, 
+          nome_cliente: String(captureForm.name), 
+          telefone_cliente: phoneDigits, 
+          timestamp: serverTimestamp(), 
+          device: navigator.userAgent, 
+          folderId: 'MANUAL',
+          source: 'SECURE_LINK_GATEWAY',
+          referredBy: ownerId
+        }, { merge: true });
+        
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        document.cookie = `${cookieMark}=true; expires=${expiryDate.toUTCString()}; path=/`;
+        
+        if (ownerId !== ADMIN_MASTER_ID) {
+          try {
+             // Try to deduct from the public subscriber doc so it reflects globally
+             const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
+             await updateDoc(pubSubRef, { smsCredits: increment(-1) });
+          } catch(err) { 
+             console.log("[SYS-LOG] Profile public quota update deferred."); 
+          }
         }
+      } else {
+         console.log("[SYS-LOG] Lead already exists in vault. Bypassing quota deduction.");
       }
     } catch (e) { 
        console.error("Database connection exception:", e); 
@@ -812,7 +826,7 @@ export default function App() {
         const p = { fullName: defaultName, nickname: defaultNick, email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
-        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
         
         const safePhone = phoneInput.replace(/\D/g, '');
         if (safePhone) {
@@ -823,7 +837,8 @@ export default function App() {
                 timestamp: serverTimestamp(),
                 device: "OPERATOR_REGISTRATION",
                 source: "FREE_TRIAL_SIGNUP",
-                folderId: "NEW_SUBSCRIBERS"
+                folderId: "NEW_SUBSCRIBERS",
+                referredBy: authUser.uid
             }, { merge: true });
         }
         setUserProfile(p);
@@ -952,9 +967,8 @@ export default function App() {
 
         const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
         
-        let displayAiText = aiResponse.text;
-        // Eradicating all markdown asterisks
-        displayAiText = displayAiText.replace(/\*/g, '');
+        // Remove ALL Markdown Asterisks and Hashes instantly before rendering to ensure readable UI
+        let displayAiText = aiResponse.text.replace(/[*#_]/g, '');
         
         const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
         if (leadMatch) {
@@ -1034,7 +1048,7 @@ export default function App() {
 
   if (!authResolved) {
     return (
-      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-4 absolute inset-0 z-50">
         <div className="w-12 h-12 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
         <p className="text-[#25F4EE] font-black italic tracking-[0.3em] uppercase text-[10px] sm:text-xs animate-pulse">INITIALIZING GATEWAY...</p>
       </div>
@@ -1052,7 +1066,7 @@ export default function App() {
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
         `}</style>
-        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-full py-10">
+        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-full py-10 mx-auto">
           <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
             <div className="lighthouse-neon-content p-8 sm:p-16 flex flex-col items-center">
               <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
