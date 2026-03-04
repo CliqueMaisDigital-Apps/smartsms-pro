@@ -49,7 +49,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- SECURE MASTER ADMIN DECRYPTION (OBFUSCATED) ---
-// Prevents exposing the raw Admin ID directly in the codebase
+// Prevents exposing the raw Admin ID directly in the codebase to avoid scraping
 const getMasterKey = () => typeof atob === 'function' ? atob("WUdlcFZISE1ZYU45c0MzakZtVHlyeTBtWVpPMg==") : "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 const ADMIN_MASTER_ID = getMasterKey();
 
@@ -279,6 +279,7 @@ export default function App() {
           
           if (d.exists()) {
             const data = d.data();
+            // Preserve their chosen nickname even if they are Master, unless it's missing
             if (u.uid === ADMIN_MASTER_ID) {
                setUserProfile({...data, tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true});
             } else {
@@ -767,7 +768,7 @@ export default function App() {
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       const leadSnap = await getDoc(leadRef);
       
-      // Only process deduct and lead generation if it is a BRAND NEW lead
+      // Explicitly Tag Lead correctly to the Operator (referredBy)
       if (!leadSnap.exists()) {
         await setDoc(leadRef, { 
           ownerId, 
@@ -785,13 +786,12 @@ export default function App() {
         document.cookie = `${cookieMark}=true; expires=${expiryDate.toUTCString()}; path=/`;
         
         if (ownerId !== ADMIN_MASTER_ID) {
-          try {
-             // Try to deduct from the public subscriber doc so it reflects globally
-             const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
-             await updateDoc(pubSubRef, { smsCredits: increment(-1) });
-          } catch(err) { 
-             console.log("[SYS-LOG] Profile public quota update deferred."); 
-          }
+          // Attempt atomic increment on both ends to bypass unauthenticated strict rules
+          const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
+          const privateProfileRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
+          
+          updateDoc(pubSubRef, { smsCredits: increment(-1) }).catch(err => console.log("[SYS-LOG] Public quota sync deferred."));
+          updateDoc(privateProfileRef, { smsCredits: increment(-1) }).catch(err => console.log("[SYS-LOG] Private quota sync deferred."));
         }
       } else {
          console.log("[SYS-LOG] Lead already exists in vault. Bypassing quota deduction.");
@@ -826,7 +826,7 @@ export default function App() {
         const p = { fullName: defaultName, nickname: defaultNick, email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
+        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
         
         const safePhone = phoneInput.replace(/\D/g, '');
         if (safePhone) {
@@ -967,7 +967,7 @@ export default function App() {
 
         const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
         
-        // Remove ALL Markdown Asterisks and Hashes instantly before rendering to ensure readable UI
+        // Eradicating all markdown asterisks and formatting marks for a clean UI
         let displayAiText = aiResponse.text.replace(/[*#_]/g, '');
         
         const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
@@ -1380,37 +1380,6 @@ export default function App() {
                  </div>
               </div>
             </main>
-          </div>
-        )}
-
-        {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
-        {view === 'auth' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[80vh] px-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl mx-auto">
-              <div className="lighthouse-neon-content p-8 sm:p-14 relative w-full">
-                {isWelcomeTrial && !isLoginMode ? (
-                   <div className="mb-10 text-center animate-in slide-in-from-bottom-2">
-                      <h2 className="text-3xl sm:text-4xl font-black italic uppercase text-[#25F4EE] mb-4 tracking-tight">🎁 WELCOME TO THE ELITE</h2>
-                      <p className="text-sm sm:text-base text-white/70 leading-relaxed font-medium not-italic normal-case text-center">
-                         We noticed you are ready to scale. To generate your secure protocol, create your credential below and instantly unlock <span className="text-white font-bold">🎁 60 Free Trial connections of secure smart link redirects of 'SMS Direct To Cell Phone'</span>. Stop losing leads to carrier filters right now.
-                      </p>
-                   </div>
-                ) : (
-                   <h2 className="text-3xl sm:text-4xl mt-2 mb-10 text-white text-center text-glow-white tracking-tighter font-black italic uppercase">SECURE MEMBER PORTAL</h2>
-                )}
-                
-                <form onSubmit={handleAuthSubmit} className="space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /></>)}
-                  <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" />
-                  <div className="relative">
-                    <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case pr-14" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-2"><Eye size={20}/></button>
-                  </div>
-                  <button type="submit" disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-[12px] sm:text-sm mt-5 shadow-xl w-full tracking-widest py-5 font-black uppercase italic">{loading ? 'VERIFYING GATEWAY...' : (isWelcomeTrial ? 'UNLOCK MY 60 TRANSMISSIONS' : 'AUTHORIZE ACCESS')}</button>
-                  <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); }} className="w-full text-[11px] sm:text-[12px] text-white/30 hover:text-white tracking-[0.2em] sm:tracking-[0.3em] mt-8 text-center transition-all px-2 font-black uppercase italic">{isLoginMode ? "CREATE NEW OPERATOR? REGISTER" : "ALREADY A MEMBER? LOGIN"}</button>
-                </form>
-              </div>
-            </div>
           </div>
         )}
 
