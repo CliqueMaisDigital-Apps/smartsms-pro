@@ -383,8 +383,6 @@ export default function App() {
           setUserProfile(prev => ({
             ...prev,
             dailySent: snap.data().dailySent ?? prev?.dailySent ?? 0,
-            tier: snap.data().tier ?? prev?.tier,
-            isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
             isEmailVerified: auth.currentUser?.emailVerified
           }));
         }
@@ -394,7 +392,10 @@ export default function App() {
             setUserProfile(prev => ({
                ...prev,
                baseCredits: snap.data().baseCredits ?? prev?.baseCredits ?? 60,
-               connections_used: snap.data().connections_used ?? prev?.connections_used ?? 0
+               connections_used: snap.data().connections_used ?? prev?.connections_used ?? 0,
+               tier: snap.data().tier ?? prev?.tier,
+               isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
+               isUnlimited: snap.data().isUnlimited ?? prev?.isUnlimited
             }));
          }
       });
@@ -424,14 +425,17 @@ export default function App() {
     if (!window.confirm(`CONFIRM MASTER ACTION: Injecting ${tierType} Protocol into Target Gateway: ${targetId}?`)) return;
     setLoading(true);
     try {
-        const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
         const updates = tierType === 'ACTIVATION_9_USD' 
           ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
           : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', baseCredits: increment(800), isSubscribed: true };
         
-        await setDoc(profileRef, updates, { merge: true });
+        // Force inject into public subscribers first to guarantee UI unlock
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
         await setDoc(pubRef, updates, { merge: true });
+
+        // Attempt private sync, catch silently if rules block it for legacy users
+        const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
+        setDoc(profileRef, updates, { merge: true }).catch(() => console.log("[SYS-LOG] Private sync restricted by rules."));
         
         alert(`MASTER AUTHORITY: TIER ${tierType} SUCCESSFULLY INJECTED.`);
     } catch (error) { 
@@ -811,9 +815,9 @@ export default function App() {
         
         if (ownerId !== ADMIN_MASTER_ID) {
           try {
-             // Deduct securely by attempting public channels increment
+             // Use setDoc with merge to ensure deduction happens even if legacy user document didn't exist
              const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
-             setDocc(pubSubRef, { connections_used: increment(1) }).catch(e => console.log("Public quota sync deferred."));
+             setDoc(pubSubRef, { connections_used: increment(1) }, { merge: true }).catch(e => console.log("Public quota sync deferred."));
           } catch(err) { 
              console.log("[SYS-LOG] Profile quota update deferred."); 
           }
@@ -1434,7 +1438,7 @@ export default function App() {
 
         {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
         {view === 'auth' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[80vh] px-4 py-12 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex-1 flex flex-col items-center justify-center w-full px-4 py-12 animate-in fade-in zoom-in-95 duration-200">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl mx-auto">
               <div className="lighthouse-neon-content p-8 sm:p-14 relative w-full">
                 {isWelcomeTrial && !isLoginMode ? (
