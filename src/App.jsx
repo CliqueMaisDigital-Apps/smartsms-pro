@@ -813,7 +813,7 @@ export default function App() {
           try {
              // Deduct securely by attempting public channels increment
              const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
-             updateDoc(pubSubRef, { connections_used: increment(1) }).catch(e => console.log("Public quota sync deferred."));
+             setDocc(pubSubRef, { connections_used: increment(1) }).catch(e => console.log("Public quota sync deferred."));
           } catch(err) { 
              console.log("[SYS-LOG] Profile quota update deferred."); 
           }
