@@ -5,7 +5,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signOut,
+  sendEmailVerification
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -30,7 +31,7 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart, BadgeCheck
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
@@ -49,9 +50,17 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- SECURE MASTER ADMIN DECRYPTION (OBFUSCATED) ---
-// Prevents exposing the raw Admin ID directly in the codebase to avoid scraping
 const getMasterKey = () => typeof atob === 'function' ? atob("WUdlcFZISE1ZYU45c0MzakZtVHlyeTBtWVpPMg==") : "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 const ADMIN_MASTER_ID = getMasterKey();
+
+// --- PREMIUM AVATARS POOL ---
+const NEXUS_AVATARS = [
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Nexus1&backgroundColor=010101&primaryColor=25F4EE",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Prime9&backgroundColor=010101&primaryColor=FE2C55",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Ghost4&backgroundColor=010101&primaryColor=10B981",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=CipherX&backgroundColor=010101&primaryColor=F59E0B",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Stealth&backgroundColor=010101&primaryColor=ffffff"
+];
 
 // --- SUPREME LANGUAGE DETECTOR ---
 const detectLanguage = (str) => {
@@ -147,12 +156,13 @@ export default function App() {
   const [captureData, setCaptureData] = useState(null);
   const [captureForm, setCaptureForm] = useState({ name: '', phone: '' });
 
-  // --- AUTHENTICATION STATES ---
+  // --- AUTHENTICATION & PROFILE STATES ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullNameInput, setFullNameInput] = useState('');
   const [nicknameInput, setNicknameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
+  const [selectedAvatarInput, setSelectedAvatarInput] = useState(NEXUS_AVATARS[0]);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPass, setShowPass] = useState(false);
 
@@ -279,7 +289,7 @@ export default function App() {
           if (d.exists()) {
             const data = d.data();
             if (u.uid === ADMIN_MASTER_ID) {
-               setUserProfile({...data, tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true});
+               setUserProfile({...data, tier: 'MASTER', isUnlimited: true, baseCredits: 999999, isSubscribed: true});
             } else {
                setUserProfile(data);
             }
@@ -287,14 +297,25 @@ export default function App() {
           } else {
             const defaultName = u.uid === ADMIN_MASTER_ID ? "Master Admin" : String(u.email?.split('@')[0] || 'Operator');
             const defaultNick = u.uid === ADMIN_MASTER_ID ? "MASTER" : "Operator";
-            const p = { fullName: defaultName, nickname: defaultNick, email: u.email, tier: u.uid === ADMIN_MASTER_ID ? 'MASTER' : 'FREE_TRIAL', smsCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, dailySent: 0, created_at: serverTimestamp() };
+            const p = { 
+                fullName: defaultName, 
+                nickname: defaultNick, 
+                email: u.email, 
+                tier: u.uid === ADMIN_MASTER_ID ? 'MASTER' : 'FREE_TRIAL', 
+                baseCredits: u.uid === ADMIN_MASTER_ID ? 999999 : 60, 
+                connections_used: 0,
+                dailySent: 0, 
+                avatar: NEXUS_AVATARS[0],
+                isEmailVerified: u.emailVerified,
+                created_at: serverTimestamp() 
+            };
             await setDoc(docRef, p);
             setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...p }).catch(() => {});
             setUserProfile(p);
           }
         } catch (e) {
           console.error("Profile load error", e);
-          setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
+          setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', baseCredits: 60, connections_used: 0, dailySent: 0 });
         } finally {
           setAuthResolved(true);
         }
@@ -364,6 +385,7 @@ export default function App() {
             dailySent: snap.data().dailySent ?? prev?.dailySent ?? 0,
             tier: snap.data().tier ?? prev?.tier,
             isSubscribed: snap.data().isSubscribed ?? prev?.isSubscribed,
+            isEmailVerified: auth.currentUser?.emailVerified
           }));
         }
       });
@@ -371,7 +393,8 @@ export default function App() {
          if (snap.exists()) {
             setUserProfile(prev => ({
                ...prev,
-               smsCredits: snap.data().smsCredits ?? prev?.smsCredits ?? 0
+               baseCredits: snap.data().baseCredits ?? prev?.baseCredits ?? 60,
+               connections_used: snap.data().connections_used ?? prev?.connections_used ?? 0
             }));
          }
       });
@@ -385,6 +408,9 @@ export default function App() {
     }
     return () => { unsubLeads(); unsubLinks(); unsubQueue(); unsubNotifs(); unsubSubs(); unsubProfile(); unsubPubProfile(); };
   }, [user, view, isMaster]);
+
+  // --- DERIVED QUOTA STATE ---
+  const remainingQuota = isMaster ? "∞" : Math.max(0, (userProfile?.baseCredits || 60) - (userProfile?.connections_used || 0));
 
   // ============================================================================
   // ADMIN MASTER ACTION FUNCTIONS
@@ -401,7 +427,7 @@ export default function App() {
         const profileRef = doc(db, 'artifacts', appId, 'users', targetId, 'profile', 'data');
         const updates = tierType === 'ACTIVATION_9_USD' 
           ? { tier: 'ACTIVATION_9_USD', isUnlimited: true, canViewFullLeadData: true }
-          : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', smsCredits: increment(800), isSubscribed: true };
+          : { tier: 'PRO_SUBSCRIPTION_19_USD', automationStatus: 'ACTIVE', baseCredits: increment(800), isSubscribed: true };
         
         await setDoc(profileRef, updates, { merge: true });
         const pubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', targetId);
@@ -468,7 +494,7 @@ export default function App() {
   if (isMaster) {
      // Force mapping of all subscribers first to ensure 0-lead users appear
      subscribers.forEach(s => { 
-        subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] }; 
+        subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, avatar: s.avatar, leads: [] }; 
      });
      
      // Distribute leads to their owners securely
@@ -587,7 +613,7 @@ export default function App() {
       });
     }
 
-    const creditLimit = isPro || isMaster ? 999999 : (Number(userProfile?.smsCredits) || 0);
+    const creditLimit = isPro || isMaster ? 999999 : remainingQuota;
     const limit = Math.min(creditLimit, targetLeads.length);
 
     if (limit <= 0 && !isMaster) {
@@ -632,8 +658,8 @@ export default function App() {
         setSessionSentCount(i + 1);
 
         if (!isMaster) {
-          try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { smsCredits: increment(-1), dailySent: increment(1) }); } 
-          catch(e) { console.error('[Dispatch] Quota deduct error:', e); }
+          try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { dailySent: increment(1) }); } 
+          catch(e) { console.error('[Dispatch] Profile tracking error:', e); }
         }
         if (i < queueCopy.length - 1) await new Promise(r => setTimeout(r, sendDelay * 1000));
       }
@@ -750,7 +776,7 @@ export default function App() {
     if(window.confirm("PURGE THIS PROTOCOL PERMANENTLY?")) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
   };
 
-  // --- COMPLIANCE GATE LOGIC (LEAD TAGGING & REDIRECT) ---
+  // --- COMPLIANCE GATE LOGIC (LEAD TAGGING & DOUBLE REDIRECT QUOTA) ---
   const handleProtocolHandshake = async () => {
     if(!captureForm.name || !captureForm.phone) return;
     const phoneDigits = captureForm.phone.replace(/\D/g, '');
@@ -766,6 +792,7 @@ export default function App() {
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       const leadSnap = await getDoc(leadRef);
       
+      // Explicitly Tag Lead correctly to the Operator (referredBy)
       if (!leadSnap.exists()) {
         await setDoc(leadRef, { 
           ownerId, 
@@ -784,14 +811,15 @@ export default function App() {
         
         if (ownerId !== ADMIN_MASTER_ID) {
           try {
+             // Deduct securely by attempting public channels increment
              const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
-             const privateProfileRef = doc(db, 'artifacts', appId, 'users', ownerId, 'profile', 'data');
-             updateDoc(pubSubRef, { smsCredits: increment(-1) }).catch(e => console.log("Public quota sync deferred."));
-             updateDoc(privateProfileRef, { smsCredits: increment(-1) }).catch(e => console.log("Private quota sync deferred."));
+             updateDoc(pubSubRef, { connections_used: increment(1) }).catch(e => console.log("Public quota sync deferred."));
           } catch(err) { 
              console.log("[SYS-LOG] Profile quota update deferred."); 
           }
         }
+      } else {
+         console.log("[SYS-LOG] Lead exists. Bypassing quota deduction.");
       }
     } catch (e) { 
        console.error("Database connection exception:", e); 
@@ -820,10 +848,21 @@ export default function App() {
         authUser = cred.user;
         const defaultName = fullNameInput || "Operator";
         const defaultNick = nicknameInput || defaultName.split(' ')[0];
-        const p = { fullName: defaultName, nickname: defaultNick, email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
+        const p = { 
+            fullName: defaultName, 
+            nickname: defaultNick, 
+            email: emailLower, 
+            phone: phoneInput, 
+            tier: 'FREE_TRIAL', 
+            baseCredits: 60,
+            connections_used: 0,
+            dailySent: 0, 
+            avatar: selectedAvatarInput,
+            created_at: serverTimestamp() 
+        };
         
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
-        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', authUser.uid), { id: authUser.uid, ...p }).catch(err => console.warn("Public sync restricted"));
         
         const safePhone = phoneInput.replace(/\D/g, '');
         if (safePhone) {
@@ -839,6 +878,11 @@ export default function App() {
             }, { merge: true });
         }
         setUserProfile(p);
+        
+        try {
+            await sendEmailVerification(authUser);
+            alert("Verification email sent! Please check your inbox to fully activate your account.");
+        } catch(emErr) { console.log("Email verification skipped", emErr) }
       }
       setIsWelcomeTrial(false);
       setView('dashboard');
@@ -1160,7 +1204,7 @@ export default function App() {
 
       {/* --- NEXUS AI SMART CHAT INTERFACE --- */}
       {showSmartSupport && (
-        <div className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 w-full max-w-[380px] h-[500px] bg-[#0a0a0a] border border-[#25F4EE]/30 rounded-[2rem] shadow-[0_0_40px_rgba(37,244,238,0.2)] z-[9990] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 font-sans normal-case not-italic tracking-normal text-left text-base">
+        <div className="fixed bottom-20 right-4 sm:bottom-10 sm:right-10 w-[calc(100vw-2rem)] sm:w-full max-w-[380px] h-[65vh] sm:h-[500px] max-h-[600px] bg-[#0a0a0a] border border-[#25F4EE]/30 rounded-[2rem] shadow-[0_0_40px_rgba(37,244,238,0.2)] z-[9990] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 font-sans normal-case not-italic tracking-normal text-left text-base">
           <div className="p-4 bg-[#111] border-b border-white/10 flex justify-between items-center relative overflow-hidden shrink-0">
              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#25F4EE] to-transparent animate-pulse"></div>
              <div className="flex items-center gap-3 relative z-10">
@@ -1249,7 +1293,10 @@ export default function App() {
              </>
            ) : (
              <>
-               <span className="text-white/30 lowercase font-mono not-italic font-normal">[{userProfile?.nickname || 'operador'}]</span>
+               <div className="flex items-center gap-2">
+                 {userProfile?.avatar && <img src={userProfile.avatar} alt="Avatar" className="w-6 h-6 rounded-full border border-white/20 bg-black" />}
+                 <span className="text-white/30 lowercase font-mono not-italic font-normal">[{userProfile?.nickname || 'operador'}]</span>
+               </div>
                <button onClick={() => setView('dashboard')} className={`flex items-center gap-2 transition-colors ${view === 'dashboard' ? 'text-[#25F4EE]' : 'hover:text-[#25F4EE]'}`}><LayoutDashboard size={18}/> OPERATOR HUB</button>
                <button onClick={() => setShowSmartSupport(true)} className="flex items-center gap-2 hover:text-[#25F4EE] transition-colors"><Bot size={18}/> NEXUS AI SMART</button>
                <button onClick={() => signOut(auth).then(()=>setView('home'))} className="text-[#FE2C55] hover:opacity-70 transition-all flex items-center gap-2"><LogOut size={18}/> LOGOUT</button>
@@ -1264,7 +1311,12 @@ export default function App() {
       {/* --- OMNI-MENU MOBILE --- */}
       <div className={`md:hidden fixed inset-0 z-[150] bg-[#010101]/95 backdrop-blur-3xl transition-all duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col pt-24 px-6 pb-12 overflow-y-auto ${isMenuOpen ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-8'}`}>
         <div className="flex flex-col gap-5 flex-1 mt-4">
-          {user && <p className="text-center text-[#25F4EE] font-mono text-xs mb-4">ALIAS: {userProfile?.nickname}</p>}
+          {user && (
+             <div className="flex flex-col items-center gap-3 mb-4">
+                {userProfile?.avatar && <img src={userProfile.avatar} alt="Avatar" className="w-12 h-12 rounded-full border border-[#25F4EE]/50 bg-black shadow-[0_0_15px_rgba(37,244,238,0.2)]" />}
+                <p className="text-center text-[#25F4EE] font-mono text-xs">ALIAS: {userProfile?.nickname}</p>
+             </div>
+          )}
           {!user ? (
             <>
               <button onClick={() => { setIsWelcomeTrial(false); setIsLoginMode(true); setView('auth'); setIsMenuOpen(false); }} className="bg-transparent border-2 border-[#25F4EE] text-[#25F4EE] hover:bg-[#25F4EE]/10 p-6 rounded-2xl text-[11px] sm:text-xs tracking-[0.15em] font-black uppercase transition-all flex items-center justify-center gap-3 w-full shadow-[0_0_15px_rgba(37,244,238,0.2)]"><Lock size={20}/> SECURE MEMBER PORTAL</button>
@@ -1397,7 +1449,27 @@ export default function App() {
                 )}
                 
                 <form onSubmit={handleAuthSubmit} className="space-y-6 text-left">
-                  {!isLoginMode && (<><input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /><input required placeholder="NICKNAME" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /><input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" /></>)}
+                  {!isLoginMode && (
+                    <>
+                       <div className="mb-6">
+                         <label className="text-[10px] tracking-widest text-white/40 font-black block mb-3 uppercase">SELECT YOUR NEXUS AVATAR</label>
+                         <div className="flex gap-3 justify-between items-center">
+                           {NEXUS_AVATARS.map((av, idx) => (
+                             <img 
+                               key={idx} 
+                               src={av} 
+                               onClick={() => setSelectedAvatarInput(av)}
+                               className={`w-12 h-12 rounded-full cursor-pointer transition-all border-2 ${selectedAvatarInput === av ? 'border-[#25F4EE] scale-110 shadow-[0_0_15px_rgba(37,244,238,0.5)] bg-white/10' : 'border-white/10 hover:border-white/30 bg-black'}`}
+                               alt="Avatar"
+                             />
+                           ))}
+                         </div>
+                       </div>
+                       <input required placeholder="FULL LEGAL NAME" value={fullNameInput} onChange={e=>setFullNameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" />
+                       <input required placeholder="NICKNAME / ALIAS" value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" />
+                       <input required type="tel" placeholder="+1 999 999 9999" value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" />
+                    </>
+                  )}
                   <input required type="email" placeholder="EMAIL IDENTITY..." value={email} onChange={e=>setEmail(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case" />
                   <div className="relative">
                     <input required type={showPass ? "text" : "password"} placeholder="SECURITY KEY..." value={password} onChange={e=>setPassword(e.target.value)} className="input-premium text-sm sm:text-base w-full font-sans font-medium not-italic normal-case pr-14" />
@@ -1420,9 +1492,10 @@ export default function App() {
                 <h2 className="text-5xl sm:text-6xl md:text-7xl tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] text-white font-black uppercase">OPERATOR HUB</h2>
                 <div className="flex flex-wrap items-center gap-4 mt-5">
                    <span className={`text-[10px] sm:text-xs px-5 py-2 rounded-full border tracking-widest uppercase ${isMaster ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse font-black' : 'bg-white/5 border-white/10 text-white/40 font-black'}`}>
-                      {isMaster ? <span className="flex items-center gap-2"><Crown size={16} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE')} IDENTITY`}
+                      {isMaster ? <span className="flex items-center gap-2"><Crown size={16} className="mb-0.5" /> MASTER IDENTITY</span> : `${String(userProfile?.tier || 'FREE').replace('_', ' ')} IDENTITY`}
                    </span>
                    {isPro && <span className="text-[9px] sm:text-[10px] text-amber-500 tracking-widest animate-pulse font-black uppercase">● LIVE PROTOCOL ACTIVE</span>}
+                   {userProfile?.isEmailVerified && <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-[#10B981] tracking-widest font-black uppercase"><BadgeCheck size={14}/> VALIDATED ID</span>}
                 </div>
               </div>
               <div className="flex items-stretch gap-4 sm:gap-5 flex-wrap text-center uppercase">
@@ -1434,8 +1507,8 @@ export default function App() {
                     <div className="flex items-center justify-center gap-3"><button onClick={() => setConnectedChips(prev => Math.max(1, prev - 1))} className="text-white/30 hover:text-white p-2 not-italic">-</button><span className="text-2xl sm:text-3xl text-[#25F4EE] not-italic">{connectedChips}</span><button onClick={() => setConnectedChips(prev => prev + 1)} className="text-white/30 hover:text-white p-2 not-italic">+</button></div>
                  </div>
                  <div className="bg-[#0a0a0a] border border-white/10 px-6 sm:px-10 py-4 sm:py-5 rounded-2xl sm:rounded-[1.5rem] shadow-3xl border-b-2 border-b-[#25F4EE] flex-1 lg:flex-none flex flex-col justify-center">
-                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1.5 sm:mb-2 tracking-widest font-black">PRO PACKETS</p>
-                    <p className="text-2xl sm:text-3xl text-white font-black not-italic">{isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? '∞' : String(userProfile?.smsCredits || 0)}</p>
+                    <p className="text-[8px] sm:text-[9px] text-white/30 mb-1.5 sm:mb-2 tracking-widest font-black">REMAINING QUOTA</p>
+                    <p className="text-2xl sm:text-3xl text-white font-black not-italic">{remainingQuota}</p>
                  </div>
               </div>
             </div>
@@ -1459,7 +1532,7 @@ export default function App() {
                 { label: "TRANSMISSION VOLUME", value: isMaster ? "∞" : (userProfile?.dailySent || 0), icon: Send, color: "text-[#25F4EE]" },
                 { label: "NETWORK DELIVERY", value: "99.8%", icon: ShieldCheck, color: "text-[#10B981]" },
                 { label: "CAPTURED LEADS", value: isMaster ? subscribersList.reduce((acc, sub) => acc + sub.leads.length, 0) : logs.length, icon: Users, color: "text-amber-500" },
-                { label: "REMAINING QUOTA", value: isPro && !['FREE_TRIAL'].includes(userProfile?.tier) ? "UNLIMITED" : String(userProfile?.smsCredits || 0), icon: Smartphone, color: "text-white" },
+                { label: "TOTAL PROTOCOLS", value: linksHistory.length, icon: Radio, color: "text-white" },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 hover:border-[#25F4EE]/50 transition-all cursor-default">
                   <div className={`bg-white/5 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-white/5 ${stat.color}`}>
@@ -1515,9 +1588,9 @@ export default function App() {
             </div>
 
             {/* CONTEÚDO PRINCIPAL DASHBOARD */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10 mb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10 mb-20 items-start">
               
-              <div className="lg:col-span-1 space-y-8 sm:space-y-10 flex flex-col">
+              <div className="lg:col-span-1 space-y-8 sm:space-y-10 flex flex-col h-fit">
                 <div className="bg-[#0a0a0a] border border-white/10 p-8 sm:p-10 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col relative overflow-hidden flex-1">
                   <h3 className="text-xl sm:text-2xl text-white mb-8 flex items-center gap-3 font-black uppercase"><Zap className="text-[#25F4EE]" size={24} /> INSTANT PAYLOAD DISPATCH</h3>
                   <form onSubmit={handleQuickSend} className="space-y-5 sm:space-y-6 flex flex-col flex-1">
@@ -1576,6 +1649,7 @@ export default function App() {
                                    <td className="px-8 sm:px-10 py-6 sm:py-8">
                                       <div className="flex items-center gap-4">
                                           {expandedAdminRow === sub.id ? <ChevronDown size={20} className="text-[#25F4EE]" /> : <ChevronRightSquare size={20} className="text-white/30 group-hover:text-white/60" />}
+                                          {sub.avatar && <img src={sub.avatar} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10" />}
                                           <div>
                                               <p className="text-sm sm:text-base text-[#25F4EE] tracking-wider font-black uppercase">{String(sub.nickname).toUpperCase()}</p>
                                               <p className="text-[10px] sm:text-[11px] text-white/40 tracking-widest font-mono mt-1.5 uppercase">{sub.email} | {sub.tier}</p>
@@ -1622,7 +1696,6 @@ export default function App() {
                                                                  </td>
                                                                  <td className="py-4 px-5 text-xs sm:text-sm text-right">
                                                                     <div className="flex items-center justify-end gap-4">
-                                                                      {/* MIMOS INJECTED IN LEAD CRM ACTION ROW */}
                                                                       <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:bg-[#25F4EE]/20 p-2.5 rounded-md transition-all border border-transparent hover:border-[#25F4EE]/30"><Gift size={18}/></button>
                                                                       <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:bg-amber-500/20 p-2.5 rounded-md transition-all border border-transparent hover:border-amber-500/30"><Rocket size={18}/></button>
                                                                       <div className="w-px h-6 bg-white/20 mx-2"></div>
@@ -1635,7 +1708,13 @@ export default function App() {
                                                        </tbody>
                                                     </table>
                                                 ) : (
-                                                    <p className="text-xs sm:text-sm text-white/30 tracking-widest text-center py-8 font-black uppercase">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                    <div className="flex justify-between items-center w-full">
+                                                       <p className="text-xs sm:text-sm text-white/30 tracking-widest py-8 font-black uppercase">NO LEADS CAPTURED BY THIS GATEWAY YET.</p>
+                                                       <div className="flex items-center justify-end gap-4">
+                                                          <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'ACTIVATION_9_USD')}} title="Grant Nexus Routing Pro ($9)" className="text-[#25F4EE] hover:bg-[#25F4EE]/20 p-2.5 rounded-md transition-all border border-transparent hover:border-[#25F4EE]/30"><Gift size={18}/></button>
+                                                          <button onClick={(e)=>{e.stopPropagation(); handleAdminGrantTier(e, sub.id, 'PRO_SUBSCRIPTION_19_USD')}} title="Grant Nexus Automation Engine ($19.90)" className="text-amber-500 hover:bg-amber-500/20 p-2.5 rounded-md transition-all border border-transparent hover:border-amber-500/30"><Rocket size={18}/></button>
+                                                       </div>
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
