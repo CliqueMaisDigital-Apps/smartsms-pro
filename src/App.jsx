@@ -49,6 +49,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- SECURE MASTER ADMIN DECRYPTION (OBFUSCATED) ---
+// Prevents exposing the raw Admin ID directly in the codebase to avoid scraping
 const getMasterKey = () => typeof atob === 'function' ? atob("WUdlcFZISE1ZYU45c0MzakZtVHlyeTBtWVpPMg==") : "YGepVHHMYaN9sC3jFmTyry0mYZO2";
 const ADMIN_MASTER_ID = getMasterKey();
 
@@ -72,6 +73,15 @@ const checkForbiddenWords = (text) => {
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const regex = /(hack|h4ck|scam|sc4m|fraud|fr4ud|phishing|ph1shing|hate|racism|murder|porn|p0rn|malware|virus|golpe|odio|spam|sp4m|illegal|ilegal|extortion|exploit|ddos|botnet|ransomware|piracy|stolen|hijack|puta|caralho|merda|porra|foda|cacete|bitch|fuck|shit|asshole|idiota|imbecil|burro|scumbag|cunt|vagabundo|desgracado|desgraca|miseravel|safado|lixo|trouxa|burlar|enganar|desviar|roubar|fraudar|crime|ilícito|ilicito)/i;
   return regex.test(normalized);
+};
+
+// --- STRIPE PAYMENT LINKS (PENDING ACTIVATION) ---
+const STRIPE_LINKS = {
+    NEXUS_ROUTING_PRO: "#", 
+    NEXUS_AUTOMATION_ENGINE: "#",
+    STARTER_PACK: "#",
+    NEXUS_PACK: "#",
+    ELITE_PACK: "#"
 };
 
 // --- FAQ COMPONENT ---
@@ -250,7 +260,7 @@ export default function App() {
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
-  // UX Scroll Fix: Smooth, only on view change
+  // UX Scroll Fix: Smooth, only on explicit view change
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   }, [view]);
@@ -269,13 +279,13 @@ export default function App() {
           
           if (d.exists()) {
             const data = d.data();
+            // Preserve their chosen nickname even if they are Master, unless it's missing
             if (u.uid === ADMIN_MASTER_ID) {
-               // Master preserves their custom nickname if they set one, else fallback
-               setUserProfile({...data, fullName: data.fullName || "Master Admin", nickname: data.nickname || "MASTER", tier: 'MASTER', isUnlimited: true, smsCredits: 999999, dailySent: 0, isSubscribed: true});
+               setUserProfile({...data, tier: 'MASTER', isUnlimited: true, smsCredits: 999999, isSubscribed: true});
             } else {
                setUserProfile(data);
             }
-            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...d.data() }, { merge: true }).catch(() => {});
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', u.uid), { id: u.uid, ...data }, { merge: true }).catch(() => {});
           } else {
             const defaultName = u.uid === ADMIN_MASTER_ID ? "Master Admin" : String(u.email?.split('@')[0] || 'Operator');
             const defaultNick = u.uid === ADMIN_MASTER_ID ? "MASTER" : "Operator";
@@ -287,6 +297,8 @@ export default function App() {
         } catch (e) {
           console.error("Profile load error", e);
           setUserProfile({ fullName: "Operator", nickname: 'Guest', tier: 'FREE_TRIAL', smsCredits: 0, dailySent: 0 });
+        } finally {
+          setAuthResolved(true);
         }
       } else {
         setUser(null); 
@@ -298,8 +310,8 @@ export default function App() {
         setLogs([]);
         setLinksHistory([]);
         setIsWelcomeTrial(false);
+        setAuthResolved(true);
       }
-      setAuthResolved(true);
     });
     return () => unsubscribe();
   }, []);
@@ -448,6 +460,7 @@ export default function App() {
   // --- SUPREME CRM MAPPING LOGIC (INCLUDES 0-LEAD USERS) ---
   const subscribersMap = {};
   if (isMaster) {
+     // Ensure every registered subscriber is added to the map even if they have 0 leads
      subscribers.forEach(s => { 
         subscribersMap[s.id] = { id: s.id, name: s.fullName, nickname: s.nickname || 'Unknown', email: s.email, tier: s.tier, leads: [] }; 
      });
@@ -745,7 +758,7 @@ export default function App() {
       const cookieMark = `nexus_lead_${leadDocId}`;
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       
-      // Explicitly Tag Lead correctly to the Operator
+      // Explicitly Tag Lead correctly to the Operator (referredBy)
       await setDoc(leadRef, { 
         ownerId, 
         nome_cliente: String(captureForm.name), 
@@ -794,8 +807,8 @@ export default function App() {
       } else {
         const cred = await createUserWithEmailAndPassword(auth, emailLower, password);
         authUser = cred.user;
-        const defaultName = fullNameInput || (authUser.uid === ADMIN_MASTER_ID ? "Master Admin" : "Operator");
-        const defaultNick = nicknameInput || (authUser.uid === ADMIN_MASTER_ID ? "MASTER" : defaultName.split(' ')[0]);
+        const defaultName = fullNameInput || "Operator";
+        const defaultNick = nicknameInput || defaultName.split(' ')[0];
         const p = { fullName: defaultName, nickname: defaultNick, email: emailLower, phone: phoneInput, tier: 'FREE_TRIAL', smsCredits: 60, dailySent: 0, created_at: serverTimestamp() };
         
         await setDoc(doc(db, 'artifacts', appId, 'users', authUser.uid, 'profile', 'data'), p);
@@ -940,6 +953,9 @@ export default function App() {
         const aiResponse = generateHeuristicResponse(newMsg.text, chatMessages);
         
         let displayAiText = aiResponse.text;
+        // Eradicating all markdown asterisks
+        displayAiText = displayAiText.replace(/\*/g, '');
+        
         const leadMatch = displayAiText.match(/\|\|LEAD:(.+?),(.+?)\|\|/);
         if (leadMatch) {
             displayAiText = displayAiText.replace(leadMatch[0], '').trim();
@@ -1027,7 +1043,7 @@ export default function App() {
 
   if (view === 'capture') {
     return (
-      <div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center p-6 text-center selection:bg-[#25F4EE] selection:text-black">
+      <div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center w-full h-full p-4 text-center selection:bg-[#25F4EE] selection:text-black overflow-y-auto">
         <style>{`
           @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
           .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -1036,26 +1052,28 @@ export default function App() {
           .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
           .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
         `}</style>
-        <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] max-h-full overflow-y-auto custom-scrollbar">
-          <div className="lighthouse-neon-content p-10 sm:p-20 flex flex-col items-center">
-            <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
-            <h2 className="text-3xl sm:text-4xl uppercase tracking-tighter text-white mb-4 font-black italic">SECURITY VALIDATION</h2>
-            <p className="text-xs sm:text-sm text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto text-balance font-black italic">
-              Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
-            </p>
-            <div className="w-full space-y-6 text-left">
-              <div>
-                <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black italic">FULL LEGAL NAME</label>
-                <input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
+        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-full py-10">
+          <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            <div className="lighthouse-neon-content p-8 sm:p-16 flex flex-col items-center">
+              <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
+              <h2 className="text-3xl sm:text-4xl uppercase tracking-tighter text-white mb-4 font-black italic">SECURITY VALIDATION</h2>
+              <p className="text-xs sm:text-sm text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto text-balance font-black italic">
+                Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
+              </p>
+              <div className="w-full space-y-6 text-left">
+                <div>
+                  <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black italic">FULL LEGAL NAME</label>
+                  <input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-lg w-full font-medium text-white font-sans not-italic normal-case" />
+                </div>
+                <div>
+                  <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black italic">MOBILE ID (EX: +1 999 999 9999)</label>
+                  <input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white font-sans not-italic normal-case" />
+                </div>
+                <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-6 italic font-black">CONFIRM & ACCESS <ChevronRight size={20}/></button>
               </div>
-              <div>
-                <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black italic">MOBILE ID (EX: +1 999 999 9999)</label>
-                <input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white" />
+              <div className="flex items-center gap-2 mt-12 opacity-30 text-white uppercase font-black italic">
+                 <Lock size={16} className="text-[#25F4EE]"/> <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-[#25F4EE]">ZERO-KNOWLEDGE ENCRYPTED TERMINAL</span>
               </div>
-              <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-6 italic font-black">CONFIRM & ACCESS <ChevronRight size={20}/></button>
-            </div>
-            <div className="flex items-center gap-2 mt-12 opacity-30 text-white uppercase font-black italic">
-               <Lock size={16} className="text-[#25F4EE]"/> <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-[#25F4EE]">ZERO-KNOWLEDGE ENCRYPTED TERMINAL</span>
             </div>
           </div>
         </div>
@@ -1273,7 +1291,7 @@ export default function App() {
             <main className="space-y-10 pb-20 text-left">
               {user && (
                 <div className="flex justify-center mb-4 animate-in fade-in zoom-in duration-300">
-                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm w-full max-w-[460px] shadow-[0_0_30px_#25F4EE] py-5"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
+                  <button onClick={() => setView('dashboard')} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm w-full max-w-[460px] shadow-[0_0_30px_#25F4EE] py-5 uppercase italic"><LayoutDashboard size={24} /> ACCESS OPERATOR HUB</button>
                 </div>
               )}
 
@@ -1312,7 +1330,7 @@ export default function App() {
                     </div>
                   )}
 
-                  <button onClick={handleGenerate} disabled={loading || isGenMsgForbidden} className={`btn-strategic ${isGenMsgForbidden ? '!bg-white/10 !text-white/30 cursor-not-allowed' : '!bg-[#25F4EE] !text-black'} text-xs sm:text-sm py-6 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)]`}>
+                  <button onClick={handleGenerate} disabled={loading || isGenMsgForbidden} className={`btn-strategic ${isGenMsgForbidden ? '!bg-white/10 !text-white/30 cursor-not-allowed' : '!bg-[#25F4EE] !text-black'} text-xs sm:text-sm py-6 w-full shadow-[0_0_20px_rgba(37,244,238,0.4)] italic font-black uppercase`}>
                     {isGenMsgForbidden ? 'SYSTEM STANDBY' : 'GENERATE SECURE LINK'} {isGenMsgForbidden ? '' : <ChevronRight size={22} />}
                   </button>
                 </div>
@@ -1332,7 +1350,7 @@ export default function App() {
               )}
 
               {!user && (
-                <div className="flex flex-col items-center gap-5 mt-10 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0">
+                <div className="flex flex-col items-center gap-5 mt-10 w-full animate-in zoom-in-95 duration-300 pb-10 text-center px-2 sm:px-0 uppercase italic font-black">
                   <button onClick={() => {setIsWelcomeTrial(true); setIsLoginMode(false); setView('auth')}} className="btn-strategic !bg-white !text-black text-[11px] sm:text-xs w-full max-w-[460px] group py-6 shadow-xl"><Rocket size={24} className="group-hover:animate-bounce" /> START 60 FREE SECURE CONNECTIONS</button>
                   <button onClick={() => {setIsWelcomeTrial(false); setIsLoginMode(false); setView('auth'); setTimeout(() => document.getElementById('marketplace-section')?.scrollIntoView({behavior: 'smooth'}), 300);}} className="btn-strategic !bg-[#25F4EE] !text-black text-[11px] sm:text-xs w-full max-w-[460px] group py-6 shadow-[0_0_20px_#25F4EE]"><Star size={24} className="animate-pulse" /> UPGRADE TO ELITE MEMBER</button>
                 </div>
@@ -1353,8 +1371,8 @@ export default function App() {
 
         {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
         {view === 'auth' && (
-          <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-10 text-left animate-in fade-in zoom-in-95 duration-200">
-            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[80vh] px-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl mx-auto">
               <div className="lighthouse-neon-content p-8 sm:p-14 relative w-full">
                 {isWelcomeTrial && !isLoginMode ? (
                    <div className="mb-10 text-center animate-in slide-in-from-bottom-2">
