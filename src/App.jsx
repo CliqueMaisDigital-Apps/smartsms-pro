@@ -1181,12 +1181,12 @@ export default function App() {
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
                 <span className="text-white drop-shadow-md">Premium</span>
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg">Construction</span>
               </h1>
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
-                Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
+                Excellence in civil construction across Malden and Greater Boston. Schedule your free on-site consultation today, and our dedicated experts will visit your property to provide a precise, no-obligation estimate.
               </p>
               
               <div className="flex flex-wrap gap-6 sm:gap-8 opacity-90">
