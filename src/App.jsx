@@ -163,11 +163,11 @@ export default function App() {
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
   const donysGmbLink = "https://share.google/K6VeiEqdHfaj811n7";
 
-  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES (NO KRA)
+  // REPLACED ALL IMAGES WITH 100% BRAND-SAFE PREMIUM IMAGES & DYNAMIC HIGH CONVERSION COPY
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80" },
-    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80", desc: "Elevate your culinary space. See how we transform outdated kitchens into stunning, modern centerpieces tailored to your lifestyle." },
+    { id: 3, title: "High-End Custom Builds", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=800&q=80", desc: "Delivering uncompromising luxury and elite craftsmanship. Proudly bringing premium construction services to Malden and all surrounding communities within a 70-mile radius." }
   ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
@@ -1120,7 +1120,7 @@ export default function App() {
     const nextSlide = () => setCurrentSlide((prev) => (prev === gmbPosts.length - 1 ? 0 : prev + 1));
     const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? gmbPosts.length - 1 : prev - 1));
 
-    const donysSmsLink = "sms:+16094568188?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
+    const donysSmsLink = "sms:+18573229269?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
     
     const servicesList = [
       "Complete home renovation", "Civil Construction", "Remodeling", "Exterior Finishing", "Interior Finishing", 
@@ -1163,7 +1163,7 @@ export default function App() {
               href={donysSmsLink}
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
             >
-              <MessageSquareText size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
+              <MessageSquareText size={18} /> <span className="hidden sm:inline whitespace-nowrap">Text Us: (857) 322-9269</span>
               <span className="sm:hidden font-black">SMS</span>
             </a>
           </div>
@@ -1329,7 +1329,7 @@ export default function App() {
                       {gmbPosts[currentSlide].title}
                     </h4>
                     <p className="text-slate-400 mb-6 sm:mb-8 leading-relaxed font-medium text-xs sm:text-sm">
-                      Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
+                      {gmbPosts[currentSlide].desc}
                     </p>
                     <div className="flex flex-wrap items-center justify-between gap-4 w-full">
                       <div className="flex gap-3 sm:gap-4 shrink-0">
