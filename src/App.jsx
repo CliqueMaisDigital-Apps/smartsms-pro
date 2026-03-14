@@ -154,7 +154,14 @@ export default function App() {
 
   // --- COMPLIANCE GATE STATES ---
   const [captureData, setCaptureData] = useState(null);
-  const [captureForm, setCaptureForm] = useState({ name: '', phone: '' });
+  const [captureForm, setCaptureForm] = useState({ name: '', phone: '', smsConsent: false });
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const gmbPosts = [
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026" },
+    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026" }
+  ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
   const [email, setEmail] = useState('');
