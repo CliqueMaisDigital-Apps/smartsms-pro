@@ -1391,7 +1391,7 @@ export default function App() {
                 <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
                   <li>
                     <a href={donysSmsLink} className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
-                      <MessageSquareText size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                      <MessageSquareText size={16} className="text-red-500" /> <span className="whitespace-nowrap">(857) 322-9269 (SMS)</span>
                     </a>
                   </li>
                   <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer text-[10px]">
