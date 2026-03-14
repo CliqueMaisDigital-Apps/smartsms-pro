@@ -157,6 +157,8 @@ export default function App() {
   const [captureData, setCaptureData] = useState(null);
   const [captureForm, setCaptureForm] = useState({ name: '', phone: '', smsConsent: false });
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [donysLegal, setDonysLegal] = useState(null);
 
   const gmbPosts = [
     { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026" },
