@@ -160,12 +160,14 @@ export default function App() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [donysLegal, setDonysLegal] = useState(null);
 
-  const donysGmbLink = "https://www.google.com.br/search?kgmid=/g/11vbxk6mf3&hl=pt-PT&q=DONYS+%26+BACS+CONSTRUCTION&shndl=30&source=sh/x/loc/osrp/m1/2&kgs=397ea0d6912d358c&shem=shrtn&utm_source=shrtn,sh/x/loc/osrp/m1/2";
+  // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
+  const donysGmbLink = "https://share.google/i6zdW3uZdKolcBUYE";
 
+  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES
   const gmbPosts = [
     { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80" },
     { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?auto=format&fit=crop&w=800&q=80" },
-    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
+    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" }
   ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
