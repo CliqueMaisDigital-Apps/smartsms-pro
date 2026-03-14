@@ -781,8 +781,11 @@ export default function App() {
   };
 
   // --- COMPLIANCE GATE LOGIC (LEAD TAGGING & DOUBLE REDIRECT QUOTA) ---
-  const handleProtocolHandshake = async () => {
+  const handleProtocolHandshake = async (e) => {
+    if (e) e.preventDefault();
     if(!captureForm.name || !captureForm.phone) return;
+    if(view === 'capture' && !captureForm.smsConsent) return alert("System requires SMS consent verification to establish connection.");
+
     const phoneDigits = captureForm.phone.replace(/\D/g, '');
     if(phoneDigits.length < 8) return alert("PLEASE USE A VALID MOBILE FORMAT.");
 
