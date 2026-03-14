@@ -1186,7 +1186,7 @@ export default function App() {
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg whitespace-nowrap">Construction</span>
               </h1>
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
-                Excellence in civil construction across Malden and the Greater Boston area. Elevate your property with our high-end remodeling and building services.
+                Excellence in civil construction and high-end remodeling. Proudly serving Malden and all surrounding communities within a 70-mile radius. Elevate your property with our premium building services.
               </p>
               
               <div className="flex flex-wrap gap-6 sm:gap-8 opacity-90">
