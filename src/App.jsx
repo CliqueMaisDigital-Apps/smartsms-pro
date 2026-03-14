@@ -1116,15 +1116,18 @@ export default function App() {
     const nextSlide = () => setCurrentSlide((prev) => (prev === gmbPosts.length - 1 ? 0 : prev + 1));
     const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? gmbPosts.length - 1 : prev - 1));
 
+    // Hardcoded Native SMS Link para os botões estáticos do template
     const donysSmsLink = "sms:+16094568188?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
     
+    // Lista completa e profissional de serviços de Construção Civil
     const servicesList = [
-      "Remodeling", "Exterior Finishing", "Interior Finishing", "Home Building", 
-      "Cottage Construction", "Luxury Home Construction", "Prefabricated Homes", 
-      "Deck Construction", "Auxiliary Buildings", "Garage Construction", 
-      "Patio Construction", "Roofing", "Fence Construction", "Home Additions", 
-      "Demolition", "Plaster/Drywall Installation", "Flooring", "Exterior Painting", 
-      "Interior Painting", "General Plumbing", "Electrical Work"
+      "Civil Construction", "Remodeling", "Exterior Finishing", "Interior Finishing", 
+      "Home Building", "Cottage Construction", "Luxury Home Construction", 
+      "Prefabricated Homes", "Deck Construction", "Auxiliary Buildings", 
+      "Garage Construction", "Patio Construction", "Roofing", "Fence Construction", 
+      "Home Additions", "Demolition", "Plaster Installation", "Flooring", 
+      "Exterior Painting", "Interior Painting", "Home Remodeling", 
+      "General Plumbing Services", "Electrical Work"
     ];
 
     return (
@@ -1144,7 +1147,7 @@ export default function App() {
               <div className="relative">
                 <div className="absolute inset-0 bg-red-600 blur-lg opacity-40 animate-pulse"></div>
                 <div className="relative w-11 h-11 bg-slate-900 border border-red-600/50 flex items-center justify-center rounded-lg">
-                  <Wrench className="text-red-500" size={24} />
+                  <HardHat className="text-red-500" size={24} />
                 </div>
               </div>
               <div className="flex flex-col">
@@ -1229,7 +1232,7 @@ export default function App() {
                     </div>
                     
                     <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 text-left">
-                      <label className="flex gap-4 cursor-pointer">
+                      <label className="flex gap-4 cursor-pointer items-start">
                         <input 
                           type="checkbox" 
                           required
@@ -1268,15 +1271,15 @@ export default function App() {
                    <HardHat className="text-red-500" size={24} />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-lg sm:text-xl font-black uppercase italic text-white">Civil Construction & Remodeling</h3>
-                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">View All 21 Services</p>
+                  <h3 className="text-lg sm:text-xl font-black uppercase italic text-white">Civil Construction Services</h3>
+                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">View All 24 Services</p>
                 </div>
               </div>
               {servicesOpen ? <ChevronUp className="text-red-500 shrink-0" /> : <ChevronDown className="text-slate-500 shrink-0" />}
             </div>
             
             {servicesOpen && (
-              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-6 sm:p-8 animate-in slide-in-from-top-2 text-left">
+              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-6 sm:p-8 animate-in slide-in-from-top-2 text-left shadow-2xl">
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
                   {servicesList.map((srv, idx) => (
                     <li key={idx} className="flex items-center gap-3 text-sm text-slate-300 font-medium">
@@ -1320,7 +1323,7 @@ export default function App() {
                     <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl">
                       {gmbPosts[currentSlide].type}
                     </div>
-                    <div className="absolute top-6 right-6 bg-black/50 p-2 rounded-full backdrop-blur-sm">
+                    <div className="absolute top-6 right-6 bg-black/50 p-2 rounded-full backdrop-blur-sm shadow-xl">
                        <ExternalLink size={16} className="text-white" />
                     </div>
                   </a>
@@ -1376,7 +1379,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-red-700 flex items-center justify-center rounded-lg">
-                    <Wrench className="text-white" size={20} />
+                    <HardHat className="text-white" size={20} />
                   </div>
                   <span className="font-black text-xl tracking-tighter uppercase italic">
                     Donys <span className="text-red-600">Bacs</span>
