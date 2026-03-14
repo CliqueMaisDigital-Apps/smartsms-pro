@@ -1313,38 +1313,35 @@ export default function App() {
 
             {/* Carousel UI */}
             <div className="relative group text-left">
-              <div className="overflow-hidden rounded-3xl border border-slate-800 bg-[#0a0f1e]">
+              <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800 bg-[#0a0f1e] shadow-2xl">
                 <div className="grid md:grid-cols-2">
-                  <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-96 bg-slate-900 relative block hover:opacity-80 transition-opacity">
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800 p-12 text-center">
-                      <Wrench size={80} className="opacity-10 mb-4" />
-                      <p className="text-sm font-bold uppercase tracking-tighter opacity-20">MA Project Photo {gmbPosts[currentSlide].id}</p>
-                    </div>
-                    <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl">
+                  <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-64 sm:h-80 md:h-96 relative block hover:opacity-90 transition-opacity bg-cover bg-center" style={{ backgroundImage: `url(${gmbPosts[currentSlide].image})` }}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1e] md:bg-gradient-to-r md:from-transparent md:to-[#0a0f1e]/10 via-transparent to-black/30"></div>
+                    <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl z-10">
                       {gmbPosts[currentSlide].type}
                     </div>
-                    <div className="absolute top-6 right-6 bg-black/50 p-2 rounded-full backdrop-blur-sm shadow-xl">
+                    <div className="absolute top-6 right-6 bg-black/60 p-2.5 rounded-full backdrop-blur-md shadow-xl z-10 border border-white/10 hover:bg-red-600 transition-colors">
                        <ExternalLink size={16} className="text-white" />
                     </div>
                   </a>
-                  <div className="p-12 flex flex-col justify-center">
-                    <span className="text-red-500 text-xs font-bold mb-2">{gmbPosts[currentSlide].date}</span>
-                    <h4 className="text-3xl font-black mb-6 italic uppercase tracking-tighter">
+                  <div className="p-6 sm:p-8 md:p-12 flex flex-col justify-center">
+                    <span className="text-red-500 text-[10px] sm:text-xs font-bold mb-2">{gmbPosts[currentSlide].date}</span>
+                    <h4 className="text-2xl sm:text-3xl md:text-4xl font-black mb-4 sm:mb-6 italic uppercase tracking-tighter text-white">
                       {gmbPosts[currentSlide].title}
                     </h4>
-                    <p className="text-slate-400 mb-8 leading-relaxed font-medium">
+                    <p className="text-slate-400 mb-6 sm:mb-8 leading-relaxed font-medium text-xs sm:text-sm">
                       Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
                     </p>
                     <div className="flex items-center justify-between">
-                      <div className="flex gap-4">
-                        <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
-                          <ChevronLeft size={20} />
+                      <div className="flex gap-3 sm:gap-4">
+                        <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg">
+                          <ChevronLeft size={18} className="text-white" />
                         </button>
-                        <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
-                          <ChevronRight size={20} />
+                        <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg">
+                          <ChevronRight size={18} className="text-white" />
                         </button>
                       </div>
-                      <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-bold uppercase tracking-widest text-xs flex items-center gap-2 hover:text-white transition-colors">
+                      <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center gap-2 hover:text-white transition-colors">
                          View Post <ExternalLink size={14} />
                       </a>
                     </div>
