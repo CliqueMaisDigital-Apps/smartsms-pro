@@ -32,7 +32,7 @@ import {
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
   DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart, BadgeCheck,
-  Mail, MapPin, Wrench, ChevronLeft, HardHat
+  Mail, MapPin, Wrench, ChevronLeft, HardHat, MessageSquareText
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
@@ -153,17 +153,19 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
-  // --- COMPLIANCE GATE STATES ---
+  // --- COMPLIANCE GATE (DONYS) STATES ---
   const [captureData, setCaptureData] = useState(null);
   const [captureForm, setCaptureForm] = useState({ name: '', phone: '', smsConsent: false });
   const [currentSlide, setCurrentSlide] = useState(0);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [donysLegal, setDonysLegal] = useState(null);
 
+  const donysGmbLink = "https://www.google.com.br/search?kgmid=/g/11vbxk6mf3&hl=pt-PT&q=DONYS+%26+BACS+CONSTRUCTION&shndl=30&source=sh/x/loc/osrp/m1/2&kgs=397ea0d6912d358c&shem=shrtn&utm_source=shrtn,sh/x/loc/osrp/m1/2";
+
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: "https://share.google/NsbHpv5ojHL9oTgik" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: "https://share.google/9QDUvw8qtTmf946go" },
-    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: "https://share.google/dNG0mtNlWQXgmSrLp" }
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?auto=format&fit=crop&w=800&q=80" },
+    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
   ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
@@ -280,8 +282,8 @@ export default function App() {
     }
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
+  // UX Scroll Fix: Smooth, only on explicit view change
   useEffect(() => {
-    // Only smooth scroll if view is not 'capture', otherwise instant to prevent glitches
     window.scrollTo({ top: 0, left: 0, behavior: view === 'capture' ? 'instant' : 'smooth' });
   }, [view]);
 
@@ -791,7 +793,7 @@ export default function App() {
     if(window.confirm("PURGE THIS PROTOCOL PERMANENTLY?")) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
   };
 
-  // --- COMPLIANCE GATE LOGIC (LEAD TAGGING & DOUBLE REDIRECT QUOTA) ---
+  // --- COMPLIANCE GATE LOGIC (LEAD TAGGING & REDIRECT) ---
   const handleProtocolHandshake = async (e) => {
     if (e) e.preventDefault();
     if(!captureForm.name || !captureForm.phone) return;
@@ -810,7 +812,6 @@ export default function App() {
       const leadRef = doc(db, 'artifacts', appId, 'public', 'data', 'leads', leadDocId);
       const leadSnap = await getDoc(leadRef);
       
-      // Explicitly Tag Lead correctly to the Operator (referredBy)
       if (!leadSnap.exists()) {
         await setDoc(leadRef, { 
           ownerId, 
@@ -829,7 +830,6 @@ export default function App() {
         
         if (ownerId !== ADMIN_MASTER_ID) {
           try {
-             // Use setDoc with merge to ensure deduction happens even if legacy user document didn't exist
              const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
              setDoc(pubSubRef, { connections_used: increment(1) }, { merge: true }).catch(e => console.log("Public quota sync deferred."));
           } catch(err) { 
@@ -1121,7 +1121,7 @@ export default function App() {
     const donysSmsLink = "sms:+16094568188?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
     
     const servicesList = [
-      "Civil Construction", "Remodeling", "Exterior Finishing", "Interior Finishing", 
+      "Complete home renovation", "Civil Construction", "Remodeling", "Exterior Finishing", "Interior Finishing", 
       "Home Building", "Cottage Construction", "Luxury Home Construction", 
       "Prefabricated Homes", "Deck Construction", "Auxiliary Buildings", 
       "Garage Construction", "Patio Construction", "Roofing", "Fence Construction", 
@@ -1161,7 +1161,7 @@ export default function App() {
               href={donysSmsLink}
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
             >
-              <MessageSquare size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
+              <MessageSquareText size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
               <span className="sm:hidden font-black">SMS</span>
             </a>
           </div>
@@ -1174,41 +1174,41 @@ export default function App() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center relative z-10">
-            <div>
+            <div className="text-left w-full mx-auto">
               <div className="inline-flex items-center gap-2 bg-red-950/30 border border-red-500/30 px-4 py-2 rounded-full mb-8">
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
+              <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
                 Premium <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-500">Construction</span>
               </h1>
-              <p className="text-slate-400 text-lg mb-10 max-w-lg leading-relaxed">
+              <p className="text-slate-400 text-base sm:text-lg mb-10 max-w-lg leading-relaxed">
                 Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
               </p>
               
               <div className="flex flex-wrap gap-8 opacity-80">
                 <div className="flex flex-col">
-                  <span className="text-3xl font-black text-white">100%</span>
-                  <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Reliability</span>
+                  <span className="text-2xl sm:text-3xl font-black text-white">100%</span>
+                  <span className="text-[10px] sm:text-xs uppercase tracking-widest text-red-500 font-bold">Reliability</span>
                 </div>
                 <div className="flex flex-col border-l border-slate-800 pl-8">
-                  <span className="text-3xl font-black text-white">MA Area</span>
-                  <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Malden & Surroundings</span>
+                  <span className="text-2xl sm:text-3xl font-black text-white">MA Area</span>
+                  <span className="text-[10px] sm:text-xs uppercase tracking-widest text-red-500 font-bold">Malden & Surroundings</span>
                 </div>
               </div>
             </div>
 
             {/* Lead Form */}
-            <div className="relative group" id="quote-form">
+            <div className="relative group w-full max-w-[95vw] sm:max-w-md mx-auto lg:max-w-none" id="quote-form">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-              <div className="relative bg-[#0a0f1e] p-10 rounded-[2rem] border border-slate-800 shadow-2xl">
-                  <h3 className="text-3xl font-black mb-2 uppercase italic tracking-tighter">Get a Free Quote</h3>
-                  <p className="text-slate-500 text-sm mb-8">Serving Malden, MA. We'll text you back with details.</p>
+              <div className="relative bg-[#0a0f1e] p-6 sm:p-10 rounded-[2rem] border border-slate-800 shadow-2xl w-full">
+                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white">Claim Your Free In-Home Estimate</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm mb-8 font-medium leading-relaxed">Skip the guesswork. A dedicated Donys & Bacs expert will personally visit your property to provide a precise, no-obligation quote. Fill out the form below and we'll text you to confirm your exact appointment time.</p>
                   
                   {/* Native Secure Gateway Capture Form */}
-                  <form onSubmit={handleProtocolHandshake} className="space-y-5">
-                    <div className="space-y-1.5 text-left">
+                  <form onSubmit={handleProtocolHandshake} className="space-y-5 w-full">
+                    <div className="space-y-1.5 text-left w-full">
                       <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Full Name</label>
                       <input 
                         type="text" 
@@ -1216,10 +1216,10 @@ export default function App() {
                         placeholder="Ex: John Smith"
                         value={captureForm.name}
                         onChange={(e) => setCaptureForm({...captureForm, name: e.target.value})}
-                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700"
+                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700 text-sm"
                       />
                     </div>
-                    <div className="space-y-1.5 text-left">
+                    <div className="space-y-1.5 text-left w-full">
                       <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Mobile Number (For SMS)</label>
                       <input 
                         type="tel" 
@@ -1227,11 +1227,11 @@ export default function App() {
                         placeholder="(000) 000-0000"
                         value={captureForm.phone}
                         onChange={(e) => setCaptureForm({...captureForm, phone: e.target.value})}
-                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700"
+                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700 text-sm"
                       />
                     </div>
                     
-                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 text-left">
+                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 text-left w-full">
                       <label className="flex gap-4 cursor-pointer items-start">
                         <input 
                           type="checkbox" 
@@ -1249,9 +1249,9 @@ export default function App() {
                     <button 
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-5 rounded-xl shadow-[0_10px_30px_rgba(185,28,28,0.3)] transition-all flex items-center justify-center gap-3 group/btn uppercase italic tracking-wider disabled:opacity-50"
+                      className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 sm:py-5 rounded-xl shadow-[0_10px_30px_rgba(185,28,28,0.3)] transition-all flex items-center justify-center gap-3 group/btn uppercase italic tracking-wider disabled:opacity-50 text-[11px] sm:text-sm"
                     >
-                      {loading ? 'PROCESSING SECURE ROUTE...' : 'Request Quote via SMS'} {!loading && <ChevronRight size={20} className="group-hover/btn:translate-x-1 transition-transform" />}
+                      {loading ? 'PROCESSING SECURE ROUTE...' : 'SECURE MY ON-SITE ESTIMATE NOW'} {!loading && <ChevronRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />}
                     </button>
                   </form>
               </div>
@@ -1260,36 +1260,36 @@ export default function App() {
         </section>
 
         {/* --- EXPERTISE / SERVICES ACCORDION --- */}
-        <section className="py-12 bg-[#050b24] border-t border-slate-800 relative z-10">
-          <div className="max-w-3xl mx-auto px-4">
+        <section className="py-12 bg-[#050b24] border-t border-slate-800 relative z-10 w-full overflow-hidden">
+          <div className="max-w-3xl mx-auto px-4 w-full">
             <div 
               onClick={() => setServicesOpen(!servicesOpen)}
-              className="bg-[#0a0f1e] border border-slate-800 p-6 rounded-2xl cursor-pointer hover:border-red-600 transition-colors flex justify-between items-center shadow-xl"
+              className="bg-[#0a0f1e] border border-slate-800 p-5 sm:p-6 rounded-2xl cursor-pointer hover:border-red-600 transition-colors flex justify-between items-center shadow-xl w-full"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-red-950/50 rounded-full flex items-center justify-center border border-red-500/20 shrink-0">
-                   <HardHat className="text-red-500" size={24} />
+              <div className="flex items-center gap-3 sm:gap-4 pr-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-950/50 rounded-full flex items-center justify-center border border-red-500/20 shrink-0">
+                   <HardHat className="text-red-500" size={20} />
                 </div>
-                <div className="text-left">
-                  <h3 className="text-lg sm:text-xl font-black uppercase italic text-white">Civil Construction Services</h3>
-                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">View All 24 Services</p>
+                <div className="text-left overflow-hidden">
+                  <h3 className="text-base sm:text-xl font-black uppercase italic text-white truncate">Civil Construction Services</h3>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">View All 24 Services</p>
                 </div>
               </div>
               {servicesOpen ? <ChevronUp className="text-red-500 shrink-0" /> : <ChevronDown className="text-slate-500 shrink-0" />}
             </div>
             
             {servicesOpen && (
-              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-6 sm:p-8 animate-in slide-in-from-top-2 text-left shadow-2xl">
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-5 sm:p-8 animate-in slide-in-from-top-2 text-left shadow-2xl w-full">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 sm:gap-x-8">
                   {servicesList.map((srv, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-sm text-slate-300 font-medium">
-                      <div className="w-1.5 h-1.5 bg-red-600 rounded-full shrink-0"></div>
-                      {srv}
+                    <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm text-slate-300 font-medium">
+                      <div className="w-1.5 h-1.5 bg-red-600 rounded-full shrink-0 mt-1.5"></div>
+                      <span className="leading-snug">{srv}</span>
                     </li>
                   ))}
                 </ul>
                 <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-                   <button onClick={() => { setServicesOpen(false); document.getElementById('quote-form')?.scrollIntoView({behavior: 'smooth'}); }} className="inline-block bg-red-700 hover:bg-red-600 text-white font-black py-4 px-8 rounded-xl uppercase italic tracking-wider shadow-[0_10px_30px_rgba(185,28,28,0.2)] transition-transform hover:scale-105">
+                   <button onClick={() => { setServicesOpen(false); document.getElementById('quote-form')?.scrollIntoView({behavior: 'smooth'}); }} className="inline-block bg-red-700 hover:bg-red-600 text-white font-black py-4 px-6 sm:px-8 rounded-xl text-xs sm:text-sm uppercase italic tracking-wider shadow-[0_10px_30px_rgba(185,28,28,0.2)] transition-transform hover:scale-105">
                      Request Project Quote
                    </button>
                 </div>
@@ -1299,10 +1299,10 @@ export default function App() {
         </section>
 
         {/* --- GMB CAROUSEL SECTION --- */}
-        <section className="py-16 sm:py-24 bg-gradient-to-b from-slate-950 to-[#020617]">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-6">
-              <div className="text-left">
+        <section className="py-16 sm:py-24 bg-gradient-to-b from-slate-950 to-[#020617] w-full">
+          <div className="max-w-7xl mx-auto px-4 w-full">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-6 w-full">
+              <div className="text-left w-full">
                 <div className="flex items-center gap-2 text-red-500 mb-2">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                   <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Live Updates from Malden</span>
@@ -1312,11 +1312,11 @@ export default function App() {
             </div>
 
             {/* Carousel UI */}
-            <div className="relative group text-left">
-              <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800 bg-[#0a0f1e] shadow-2xl">
-                <div className="grid md:grid-cols-2">
-                  <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-64 sm:h-80 md:h-96 relative block hover:opacity-90 transition-opacity bg-cover bg-center" style={{ backgroundImage: `url(${gmbPosts[currentSlide].image})` }}>
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1e] md:bg-gradient-to-r md:from-transparent md:to-[#0a0f1e]/10 via-transparent to-black/30"></div>
+            <div className="relative group text-left w-full">
+              <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800 bg-[#0a0f1e] shadow-2xl w-full">
+                <div className="grid md:grid-cols-2 w-full">
+                  <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-64 sm:h-80 md:h-96 relative block hover:opacity-90 transition-opacity bg-cover bg-center w-full" style={{ backgroundImage: `url(${gmbPosts[currentSlide].image})` }}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1e] md:bg-gradient-to-r md:from-transparent md:to-[#0a0f1e]/10 via-transparent to-black/30 w-full"></div>
                     <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl z-10">
                       {gmbPosts[currentSlide].type}
                     </div>
@@ -1324,7 +1324,7 @@ export default function App() {
                        <ExternalLink size={16} className="text-white" />
                     </div>
                   </a>
-                  <div className="p-6 sm:p-8 md:p-12 flex flex-col justify-center">
+                  <div className="p-6 sm:p-8 md:p-12 flex flex-col justify-center w-full">
                     <span className="text-red-500 text-[10px] sm:text-xs font-bold mb-2">{gmbPosts[currentSlide].date}</span>
                     <h4 className="text-2xl sm:text-3xl md:text-4xl font-black mb-4 sm:mb-6 italic uppercase tracking-tighter text-white">
                       {gmbPosts[currentSlide].title}
@@ -1332,16 +1332,16 @@ export default function App() {
                     <p className="text-slate-400 mb-6 sm:mb-8 leading-relaxed font-medium text-xs sm:text-sm">
                       Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
                     </p>
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex gap-3 sm:gap-4">
-                        <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg">
+                    <div className="flex flex-wrap items-center justify-between gap-4 w-full">
+                      <div className="flex gap-3 sm:gap-4 shrink-0">
+                        <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg shrink-0">
                           <ChevronLeft size={18} className="text-white" />
                         </button>
-                        <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg">
+                        <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg shrink-0">
                           <ChevronRight size={18} className="text-white" />
                         </button>
                       </div>
-                      <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center gap-2 hover:text-white transition-colors">
+                      <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center gap-2 hover:text-white transition-colors shrink-0">
                          View on Google <ExternalLink size={14} />
                       </a>
                     </div>
@@ -1392,7 +1392,7 @@ export default function App() {
                 <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
                   <li>
                     <a href={donysSmsLink} className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
-                      <MessageSquare size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                      <MessageSquareText size={16} className="text-red-500" /> (609) 456-8188 (SMS)
                     </a>
                   </li>
                   <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer text-[10px]">
@@ -1424,25 +1424,25 @@ export default function App() {
 
         {/* --- DONYS LEGAL MODALS --- */}
         {donysLegal && (
-          <div className="fixed inset-0 z-[700] bg-[#010101]/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-left animate-in fade-in zoom-in-95">
-             <div className="bg-[#0a0f1e] border border-red-600/30 w-full max-w-2xl rounded-[2rem] shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col max-h-[85vh] overflow-hidden relative">
-                <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-[#020617] shrink-0">
-                   <div className="flex items-center gap-4">
-                      <ShieldCheck size={32} className="text-red-500" />
-                      <h3 className="text-xl sm:text-2xl text-white tracking-tight font-black uppercase">{donysLegal === 'SMS' ? 'SMS POLICY' : 'LEGAL PROTOCOL'}</h3>
+          <div className="fixed inset-0 z-[700] bg-[#010101]/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6 text-left animate-in fade-in zoom-in-95 w-full">
+             <div className="bg-[#0a0f1e] border border-red-600/30 w-full max-w-[95vw] sm:max-w-2xl rounded-[2rem] shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col max-h-[85vh] overflow-hidden relative mx-auto">
+                <div className="p-6 sm:p-8 border-b border-slate-800 flex justify-between items-center bg-[#020617] shrink-0">
+                   <div className="flex items-center gap-3 sm:gap-4">
+                      <ShieldCheck size={28} className="text-red-500 sm:w-8 sm:h-8" />
+                      <h3 className="text-lg sm:text-2xl text-white tracking-tight font-black uppercase">{donysLegal === 'SMS' ? 'SMS POLICY' : 'LEGAL PROTOCOL'}</h3>
                    </div>
-                   <button onClick={() => setDonysLegal(null)} className="p-3 bg-black border border-slate-800 rounded-full text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
+                   <button onClick={() => setDonysLegal(null)} className="p-2.5 sm:p-3 bg-black border border-slate-800 rounded-full text-slate-500 hover:text-white transition-colors shrink-0"><X size={20} className="sm:w-6 sm:h-6" /></button>
                 </div>
-                <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-[#050b24]">
-                   <p className="text-sm sm:text-base text-slate-300 font-sans not-italic normal-case leading-loose whitespace-pre-wrap">
+                <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1 bg-[#050b24]">
+                   <p className="text-xs sm:text-base text-slate-300 font-sans not-italic normal-case leading-loose whitespace-pre-wrap">
                      {donysLegal === 'PRIVACY' && "DONYS & BACS CONSTRUCTION - PRIVACY POLICY\n\nWe collect basic information (Name, Phone) strictly for providing construction estimates and project updates via SMS. We do not sell your data to third parties. Data is secured via encrypted gateways."}
                      {donysLegal === 'TERMS' && "DONYS & BACS CONSTRUCTION - TERMS OF SERVICE\n\nBy requesting a quote, you agree to receive communications regarding your construction project. Estimates provided via SMS are preliminary and subject to on-site verification."}
                      {donysLegal === 'CCPA' && "CCPA COMPLIANCE\n\nCalifornia and MA residents have the right to request deletion of their data. Reply STOP to any of our SMS messages to instantly opt-out and purge your contact from our active roster."}
                      {donysLegal === 'SMS' && "SMS COMMUNICATIONS POLICY\n\nConsent is not a condition of purchase. Message and data rates may apply. We will send maximum 4 messages per month regarding your project. Reply STOP to cancel, HELP for help."}
                    </p>
                 </div>
-                <div className="p-8 border-t border-slate-800 bg-[#020617] shrink-0 flex justify-end">
-                   <button onClick={() => setDonysLegal(null)} className="w-full sm:w-auto px-10 py-4 bg-red-600 text-white font-black tracking-widest uppercase rounded-xl hover:scale-[1.02] transition-transform">ACKNOWLEDGE</button>
+                <div className="p-6 sm:p-8 border-t border-slate-800 bg-[#020617] shrink-0 flex justify-end">
+                   <button onClick={() => setDonysLegal(null)} className="w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 bg-red-600 text-white text-xs sm:text-sm font-black tracking-widest uppercase rounded-xl hover:scale-[1.02] transition-transform">ACKNOWLEDGE</button>
                 </div>
              </div>
           </div>
