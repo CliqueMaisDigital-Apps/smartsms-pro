@@ -1101,41 +1101,262 @@ export default function App() {
   }
 
   if (view === 'capture') {
+    const nextSlide = () => setCurrentSlide((prev) => (prev === gmbPosts.length - 1 ? 0 : prev + 1));
+    const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? gmbPosts.length - 1 : prev - 1));
+
     return (
-      <div className="fixed inset-0 z-[500] bg-[#010101] flex flex-col items-center justify-center w-full h-full p-4 text-center selection:bg-[#25F4EE] selection:text-black overflow-y-auto">
+      <div className="min-h-screen bg-[#020617] text-slate-100 font-sans selection:bg-red-600 selection:text-white overflow-x-hidden relative z-[500]">
         <style>{`
-          @keyframes rotate-beam { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-          .lighthouse-neon-wrapper { position: relative; padding: 1.5px; border-radius: 28px; overflow: hidden; background: transparent; display: flex; align-items: center; justify-content: center; }
-          .lighthouse-neon-wrapper::before { content: ""; position: absolute; width: 600%; height: 600%; top: 50%; left: 50%; background: conic-gradient(transparent 45%, #25F4EE 48%, #FE2C55 50%, #25F4EE 52%, transparent 55%); animation: rotate-beam 5s linear infinite; z-index: 0; }
-          .lighthouse-neon-content { position: relative; z-index: 1; background: #0a0a0a; border-radius: 27px; width: 100%; height: 100%; }
-          .btn-strategic { background: #FFFFFF; color: #000000; border-radius: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; width: 100%; padding: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; }
-          .input-premium { background: #111; border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 1.1rem 1.25rem; border-radius: 16px; outline: none; font-size: 16px; font-weight: 500; font-style: normal; text-transform: none !important; }
+          body { -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+          input, textarea, select { -webkit-user-select: auto !important; -khtml-user-select: auto !important; -moz-user-select: auto !important; -ms-user-select: auto !important; user-select: auto !important; pointer-events: auto !important; }
         `}</style>
-        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-full py-10 mx-auto">
-          <div className="lighthouse-neon-wrapper w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            <div className="lighthouse-neon-content p-8 sm:p-16 flex flex-col items-center">
-              <ShieldCheck size={80} className="text-[#25F4EE] mb-8 animate-pulse drop-shadow-[0_0_15px_#25F4EE]" />
-              <h2 className="text-3xl sm:text-4xl uppercase tracking-tighter text-white mb-4 font-black">SECURITY VALIDATION</h2>
-              <p className="text-xs sm:text-sm text-white/50 uppercase tracking-widest leading-relaxed mb-10 text-center px-4 max-w-[90%] mx-auto text-balance font-medium">
-                Identity Verification Required. Confirm your details to ensure anti-spam compliance before accessing the host gateway.
-              </p>
-              <div className="w-full space-y-6 text-left">
-                <div>
-                  <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black">FULL LEGAL NAME</label>
-                  <input required placeholder="Identity Name" value={captureForm.name} onChange={e=>setCaptureForm({...captureForm, name: e.target.value})} className="input-premium text-lg w-full font-medium text-white font-sans not-italic normal-case" />
+
+        {/* --- STONE TEXTURE OVERLAY --- */}
+        <div className="fixed inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]"></div>
+
+        {/* --- HEADER --- */}
+        <header className="fixed w-full z-50 bg-[#020617]/90 backdrop-blur-xl border-b border-slate-800/50">
+          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-red-600 blur-lg opacity-40 animate-pulse"></div>
+                <div className="relative w-11 h-11 bg-slate-900 border border-red-600/50 flex items-center justify-center rounded-lg">
+                  <Hammer className="text-red-500" size={24} />
                 </div>
-                <div>
-                  <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/30 ml-1 mb-2 block font-black">MOBILE ID (EX: +1 999 999 9999)</label>
-                  <input required type="tel" placeholder="+1 999 999 9999" value={captureForm.phone} onChange={e=>setCaptureForm({...captureForm, phone: e.target.value})} className="input-premium text-lg w-full font-medium text-white font-sans not-italic normal-case" />
-                </div>
-                <button onClick={handleProtocolHandshake} disabled={loading} className="btn-strategic !bg-[#25F4EE] !text-black text-xs sm:text-sm uppercase py-6 w-full shadow-[0_0_20px_#25F4EE] mt-6 font-black">CONFIRM & ACCESS <ChevronRight size={20}/></button>
               </div>
-              <div className="flex items-center gap-2 mt-12 opacity-30 text-white uppercase font-black">
-                 <Lock size={16} className="text-[#25F4EE]"/> <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-[#25F4EE]">ZERO-KNOWLEDGE ENCRYPTED TERMINAL</span>
+              <div className="flex flex-col">
+                <span className="font-black text-xl tracking-tighter uppercase italic leading-none">
+                  Donys <span className="text-red-600">Bacs</span>
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Construction Services Inc</span>
+              </div>
+            </div>
+            <a 
+              href="sms:+16094568188" 
+              className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+            >
+              <MessageSquareText size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
+              <span className="sm:hidden font-black">SMS</span>
+            </a>
+          </div>
+        </header>
+
+        {/* --- HERO SECTION --- */}
+        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full opacity-20 pointer-events-none">
+            <div className="absolute top-20 left-1/4 w-[500px] h-[500px] bg-red-600/30 rounded-full blur-[120px]"></div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center relative z-10">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-red-950/30 border border-red-500/30 px-4 py-2 rounded-full mb-8">
+                <ShieldCheck className="text-red-500" size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
+              </div>
+              <h1 className="text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
+                Premium <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-500">Craftsmanship</span>
+              </h1>
+              <p className="text-slate-400 text-lg mb-10 max-w-lg leading-relaxed">
+                Excellence in construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
+              </p>
+              
+              <div className="flex flex-wrap gap-8 opacity-80">
+                <div className="flex flex-col">
+                  <span className="text-3xl font-black text-white">100%</span>
+                  <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Reliability</span>
+                </div>
+                <div className="flex flex-col border-l border-slate-800 pl-8">
+                  <span className="text-3xl font-black text-white">MA Area</span>
+                  <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Malden & Surroundings</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Lead Form */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+              <div className="relative bg-[#0a0f1e] p-10 rounded-[2rem] border border-slate-800 shadow-2xl">
+                  <h3 className="text-3xl font-black mb-2 uppercase italic tracking-tighter">Get a Free Quote</h3>
+                  <p className="text-slate-500 text-sm mb-8">Serving Malden, MA. We'll text you back with details.</p>
+                  
+                  {/* Native Secure Gateway Capture Form */}
+                  <form onSubmit={handleProtocolHandshake} className="space-y-5">
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Full Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Ex: John Smith"
+                        value={captureForm.name}
+                        onChange={(e) => setCaptureForm({...captureForm, name: e.target.value})}
+                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700"
+                      />
+                    </div>
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Mobile Number (For SMS)</label>
+                      <input 
+                        type="tel" 
+                        required
+                        placeholder="(000) 000-0000"
+                        value={captureForm.phone}
+                        onChange={(e) => setCaptureForm({...captureForm, phone: e.target.value})}
+                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700"
+                      />
+                    </div>
+                    
+                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 text-left">
+                      <label className="flex gap-4 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          required
+                          checked={captureForm.smsConsent}
+                          onChange={(e) => setCaptureForm({...captureForm, smsConsent: e.target.checked})}
+                          className="mt-1 w-5 h-5 rounded accent-red-600 transition-all cursor-pointer"
+                        />
+                        <span className="text-[10px] text-slate-500 leading-normal font-medium">
+                          I agree to receive automated SMS/text messages from Donys & Bacs Construction for project updates. Consent is not a condition of purchase. Msg & data rates may apply. Reply STOP to end. View <a href="#privacy" className="text-red-500 underline">Privacy Policy</a>.
+                        </span>
+                      </label>
+                    </div>
+
+                    <button 
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-5 rounded-xl shadow-[0_10px_30px_rgba(185,28,28,0.3)] transition-all flex items-center justify-center gap-3 group/btn uppercase italic tracking-wider disabled:opacity-50"
+                    >
+                      {loading ? 'PROCESSING SECURE ROUTE...' : 'Request Quote via SMS'} {!loading && <ChevronRight size={20} className="group-hover/btn:translate-x-1 transition-transform" />}
+                    </button>
+                  </form>
               </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* --- GMB CAROUSEL SECTION --- */}
+        <section className="py-24 bg-gradient-to-b from-slate-950 to-[#020617]">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+              <div className="text-left">
+                <div className="flex items-center gap-2 text-red-500 mb-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+                  <span className="text-xs font-bold uppercase tracking-widest">Live Updates from Malden</span>
+                </div>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
+              </div>
+              <a 
+                href="https://share.google/gNjLCkx7soGJ0Dcg8" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition-colors border-b border-slate-800 pb-1"
+              >
+                Google My Business <ExternalLink size={14} />
+              </a>
+            </div>
+
+            {/* Carousel UI */}
+            <div className="relative group text-left">
+              <div className="overflow-hidden rounded-3xl border border-slate-800 bg-[#0a0f1e]">
+                <div className="grid md:grid-cols-2">
+                  <div className="h-96 bg-slate-900 relative">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800 p-12 text-center">
+                      <Hammer size={80} className="opacity-10 mb-4" />
+                      <p className="text-sm font-bold uppercase tracking-tighter opacity-20">MA Project Photo {gmbPosts[currentSlide].id}</p>
+                    </div>
+                    <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl">
+                      {gmbPosts[currentSlide].type}
+                    </div>
+                  </div>
+                  <div className="p-12 flex flex-col justify-center">
+                    <span className="text-red-500 text-xs font-bold mb-2">{gmbPosts[currentSlide].date}</span>
+                    <h4 className="text-3xl font-black mb-6 italic uppercase tracking-tighter">
+                      {gmbPosts[currentSlide].title}
+                    </h4>
+                    <p className="text-slate-400 mb-8 leading-relaxed font-medium">
+                      Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
+                    </p>
+                    <div className="flex gap-4">
+                      <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* --- TRUST BADGES --- */}
+        <section className="py-16 border-y border-slate-900 bg-slate-950">
+          <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: 'OSHA Certified', icon: <Shield size={16} /> },
+              { label: 'Licensed MA', icon: <Shield size={16} /> },
+              { label: 'Fully Insured', icon: <Shield size={16} /> },
+              { label: 'Malden Local', icon: <Shield size={16} /> }
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-center gap-3 text-slate-500 group">
+                <span className="group-hover:text-red-500 transition-colors">{item.icon}</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] whitespace-nowrap">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* --- FOOTER --- */}
+        <footer className="bg-[#020617] pt-24 pb-12 relative overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 relative z-10 text-left">
+            <div className="grid md:grid-cols-3 gap-16 mb-20">
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-700 flex items-center justify-center rounded-lg">
+                    <Hammer className="text-white" size={20} />
+                  </div>
+                  <span className="font-black text-xl tracking-tighter uppercase italic">
+                    Donys <span className="text-red-600">Bacs</span>
+                  </span>
+                </div>
+                <p className="text-slate-500 text-sm leading-relaxed max-w-xs font-bold italic">
+                  Premium construction firm dedicated to serving Malden, Massachusetts and the Greater Boston area with excellence.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Contact Point</h5>
+                <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
+                  <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
+                    <MessageSquareText size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                  </li>
+                  <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer text-[10px]">
+                    <Mail size={16} className="text-red-500" /> donysbacs@gmail.com
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <MapPin size={16} className="text-red-500" /> Malden, Massachusetts
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-6">
+                <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Compliance & Legal</h5>
+                <ul className="space-y-3 text-xs text-slate-600 font-bold uppercase tracking-widest">
+                  <li><a href="#" className="hover:text-red-500 transition-colors">Privacy Policy</a></li>
+                  <li><a href="#" className="hover:text-red-500 transition-colors">Terms of Service</a></li>
+                  <li><a href="#" className="hover:text-red-500 transition-colors">CCPA Compliance</a></li>
+                  <li><a href="#" className="hover:text-red-500 transition-colors">SMS Policy</a></li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-700">
+              <p>© 2026 Donys & Bacs Construction Services Inc. All rights reserved.</p>
+              <p>Mastery in Malden, MA</p>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
