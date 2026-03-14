@@ -163,9 +163,9 @@ export default function App() {
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
   const donysGmbLink = "https://share.google/K6VeiEqdHfaj811n7";
 
-  // REPLACED ALL IMAGES WITH 100% BRAND-SAFE PREMIUM IMAGES & DYNAMIC HIGH CONVERSION COPY
+  // REPLACED SLIDE 1 WITH AUTHENTIC US HIGH-END WOOD FRAMING CONSTRUCTION IMAGE
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1590274825309-2492bbd2fb32?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1531834685032-c34bf0d84c77?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
     { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80", desc: "Elevate your culinary space. See how we transform outdated kitchens into stunning, modern centerpieces tailored to your lifestyle." },
     { id: 3, title: "High-End Custom Builds", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=800&q=80", desc: "Delivering uncompromising luxury and elite craftsmanship. Proudly bringing premium construction services to Malden and all surrounding communities within a 70-mile radius." }
   ];
