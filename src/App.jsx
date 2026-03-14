@@ -1116,10 +1116,8 @@ export default function App() {
     const nextSlide = () => setCurrentSlide((prev) => (prev === gmbPosts.length - 1 ? 0 : prev + 1));
     const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? gmbPosts.length - 1 : prev - 1));
 
-    // Hardcoded Native SMS Link para os botões estáticos do template
     const donysSmsLink = "sms:+16094568188?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
     
-    // Lista completa e profissional de serviços de Construção Civil
     const servicesList = [
       "Civil Construction", "Remodeling", "Exterior Finishing", "Interior Finishing", 
       "Home Building", "Cottage Construction", "Luxury Home Construction", 
