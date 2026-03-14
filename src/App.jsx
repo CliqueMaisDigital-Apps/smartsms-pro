@@ -1181,7 +1181,7 @@ export default function App() {
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl">
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl whitespace-nowrap">
                 Premium <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg inline-block max-w-full">Construction</span>
               </h1>
