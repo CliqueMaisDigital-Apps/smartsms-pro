@@ -1176,17 +1176,17 @@ export default function App() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full">
-            <div className="text-left w-full mx-auto overflow-hidden">
+            <div className="text-left w-full mx-auto overflow-visible">
               <div className="inline-flex items-center gap-2 bg-red-950/30 border border-red-500/30 px-4 py-2 rounded-full mb-6 sm:mb-8 shadow-[0_0_15px_rgba(220,38,38,0.2)]">
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
-                <span className="text-white drop-shadow-md">Premium</span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg">Construction</span>
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-5xl xl:text-[4rem] 2xl:text-6xl font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
+                <span className="text-white drop-shadow-md whitespace-nowrap">Premium</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg whitespace-nowrap">Construction</span>
               </h1>
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
-                Excellence in civil construction across Malden and Greater Boston. Schedule your free on-site consultation today, and our dedicated experts will visit your property to provide a precise, no-obligation estimate.
+                Excellence in civil construction across Malden and the Greater Boston area. Elevate your property with our high-end remodeling and building services.
               </p>
               
               <div className="flex flex-wrap gap-6 sm:gap-8 opacity-90">
@@ -1205,8 +1205,8 @@ export default function App() {
             <div className="relative group w-full max-w-md mx-auto lg:max-w-md lg:ml-auto lg:mr-0" id="quote-form">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
               <div className="relative bg-[#0a0f1e] p-6 sm:p-8 md:p-10 rounded-[2rem] border border-slate-700 shadow-2xl w-full">
-                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Claim Your Free In-Home Estimate</h3>
-                  <p className="text-slate-300 text-xs sm:text-sm mb-8 font-medium leading-relaxed">A dedicated Donys & Bacs expert will personally visit your property to provide a precise, no-obligation quote. Fill out the form below and we'll text you to confirm your exact appointment time.</p>
+                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Free On-Site Consultation</h3>
+                  <p className="text-slate-300 text-xs sm:text-sm mb-8 font-medium leading-relaxed">Book your appointment today. One of our experts will personally visit your property to provide a comprehensive project consultation and a detailed, professional estimate at zero cost.</p>
                   
                   {/* Native Secure Gateway Capture Form */}
                   <form onSubmit={handleProtocolHandshake} className="space-y-5 w-full">
