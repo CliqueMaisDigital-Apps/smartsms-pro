@@ -1116,6 +1116,17 @@ export default function App() {
     const nextSlide = () => setCurrentSlide((prev) => (prev === gmbPosts.length - 1 ? 0 : prev + 1));
     const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? gmbPosts.length - 1 : prev - 1));
 
+    const donysSmsLink = "sms:+16094568188?body=" + encodeURIComponent("Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.");
+    
+    const servicesList = [
+      "Remodeling", "Exterior Finishing", "Interior Finishing", "Home Building", 
+      "Cottage Construction", "Luxury Home Construction", "Prefabricated Homes", 
+      "Deck Construction", "Auxiliary Buildings", "Garage Construction", 
+      "Patio Construction", "Roofing", "Fence Construction", "Home Additions", 
+      "Demolition", "Plaster/Drywall Installation", "Flooring", "Exterior Painting", 
+      "Interior Painting", "General Plumbing", "Electrical Work"
+    ];
+
     return (
       <div className="min-h-screen bg-[#020617] text-slate-100 font-sans selection:bg-red-600 selection:text-white overflow-x-hidden relative z-[500]">
         <style>{`
@@ -1144,7 +1155,7 @@ export default function App() {
               </div>
             </div>
             <a 
-              href="sms:+16094568188" 
+              href={donysSmsLink}
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
             >
               <MessageSquare size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
@@ -1154,7 +1165,7 @@ export default function App() {
         </header>
 
         {/* --- HERO SECTION --- */}
-        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <section className="relative pt-32 pb-16 lg:pt-40 lg:pb-24 overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full opacity-20 pointer-events-none">
             <div className="absolute top-20 left-1/4 w-[500px] h-[500px] bg-red-600/30 rounded-full blur-[120px]"></div>
           </div>
@@ -1167,10 +1178,10 @@ export default function App() {
               </div>
               <h1 className="text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
                 Premium <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-500">Craftsmanship</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-500">Construction</span>
               </h1>
               <p className="text-slate-400 text-lg mb-10 max-w-lg leading-relaxed">
-                Excellence in construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
+                Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
               </p>
               
               <div className="flex flex-wrap gap-8 opacity-80">
@@ -1186,7 +1197,7 @@ export default function App() {
             </div>
 
             {/* Lead Form */}
-            <div className="relative group">
+            <div className="relative group" id="quote-form">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
               <div className="relative bg-[#0a0f1e] p-10 rounded-[2rem] border border-slate-800 shadow-2xl">
                   <h3 className="text-3xl font-black mb-2 uppercase italic tracking-tighter">Get a Free Quote</h3>
@@ -1224,10 +1235,10 @@ export default function App() {
                           required
                           checked={captureForm.smsConsent}
                           onChange={(e) => setCaptureForm({...captureForm, smsConsent: e.target.checked})}
-                          className="mt-1 w-5 h-5 rounded accent-red-600 transition-all cursor-pointer"
+                          className="mt-1 w-5 h-5 rounded accent-red-600 transition-all cursor-pointer shrink-0"
                         />
                         <span className="text-[10px] text-slate-500 leading-normal font-medium">
-                          I agree to receive automated SMS/text messages from Donys & Bacs Construction for project updates. Consent is not a condition of purchase. Msg & data rates may apply. Reply STOP to end. View <a href="#privacy" className="text-red-500 underline">Privacy Policy</a>.
+                          I agree to receive automated SMS/text messages from Donys & Bacs Construction for project updates. Consent is not a condition of purchase. Msg & data rates may apply. Reply STOP to end. View <button type="button" onClick={(e) => { e.preventDefault(); setDonysLegal('PRIVACY'); }} className="text-red-500 underline">Privacy Policy</button>.
                         </span>
                       </label>
                     </div>
@@ -1245,6 +1256,45 @@ export default function App() {
           </div>
         </section>
 
+        {/* --- EXPERTISE / SERVICES ACCORDION --- */}
+        <section className="py-12 bg-[#050b24] border-t border-slate-800 relative z-10">
+          <div className="max-w-3xl mx-auto px-4">
+            <div 
+              onClick={() => setServicesOpen(!servicesOpen)}
+              className="bg-[#0a0f1e] border border-slate-800 p-6 rounded-2xl cursor-pointer hover:border-red-600 transition-colors flex justify-between items-center shadow-xl"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-950/50 rounded-full flex items-center justify-center border border-red-500/20 shrink-0">
+                   <HardHat className="text-red-500" size={24} />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg sm:text-xl font-black uppercase italic text-white">Civil Construction & Remodeling</h3>
+                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">View All 21 Services</p>
+                </div>
+              </div>
+              {servicesOpen ? <ChevronUp className="text-red-500 shrink-0" /> : <ChevronDown className="text-slate-500 shrink-0" />}
+            </div>
+            
+            {servicesOpen && (
+              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-6 sm:p-8 animate-in slide-in-from-top-2 text-left">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+                  {servicesList.map((srv, idx) => (
+                    <li key={idx} className="flex items-center gap-3 text-sm text-slate-300 font-medium">
+                      <div className="w-1.5 h-1.5 bg-red-600 rounded-full shrink-0"></div>
+                      {srv}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+                   <button onClick={() => { setServicesOpen(false); document.getElementById('quote-form')?.scrollIntoView({behavior: 'smooth'}); }} className="inline-block bg-red-700 hover:bg-red-600 text-white font-black py-4 px-8 rounded-xl uppercase italic tracking-wider shadow-[0_10px_30px_rgba(185,28,28,0.2)] transition-transform hover:scale-105">
+                     Request Project Quote
+                   </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* --- GMB CAROUSEL SECTION --- */}
         <section className="py-24 bg-gradient-to-b from-slate-950 to-[#020617]">
           <div className="max-w-7xl mx-auto px-4">
@@ -1256,21 +1306,13 @@ export default function App() {
                 </div>
                 <h2 className="text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
               </div>
-              <a 
-                href="https://share.google/gNjLCkx7soGJ0Dcg8" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition-colors border-b border-slate-800 pb-1"
-              >
-                Google My Business <ExternalLink size={14} />
-              </a>
             </div>
 
             {/* Carousel UI */}
             <div className="relative group text-left">
               <div className="overflow-hidden rounded-3xl border border-slate-800 bg-[#0a0f1e]">
                 <div className="grid md:grid-cols-2">
-                  <div className="h-96 bg-slate-900 relative">
+                  <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-96 bg-slate-900 relative block hover:opacity-80 transition-opacity">
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800 p-12 text-center">
                       <Wrench size={80} className="opacity-10 mb-4" />
                       <p className="text-sm font-bold uppercase tracking-tighter opacity-20">MA Project Photo {gmbPosts[currentSlide].id}</p>
@@ -1278,7 +1320,10 @@ export default function App() {
                     <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl">
                       {gmbPosts[currentSlide].type}
                     </div>
-                  </div>
+                    <div className="absolute top-6 right-6 bg-black/50 p-2 rounded-full backdrop-blur-sm">
+                       <ExternalLink size={16} className="text-white" />
+                    </div>
+                  </a>
                   <div className="p-12 flex flex-col justify-center">
                     <span className="text-red-500 text-xs font-bold mb-2">{gmbPosts[currentSlide].date}</span>
                     <h4 className="text-3xl font-black mb-6 italic uppercase tracking-tighter">
@@ -1287,13 +1332,18 @@ export default function App() {
                     <p className="text-slate-400 mb-8 leading-relaxed font-medium">
                       Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
                     </p>
-                    <div className="flex gap-4">
-                      <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
-                        <ChevronLeft size={20} />
-                      </button>
-                      <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
-                        <ChevronRight size={20} />
-                      </button>
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-4">
+                        <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
+                          <ChevronLeft size={20} />
+                        </button>
+                        <button onClick={(e) => { e.preventDefault(); nextSlide(); }} type="button" className="p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors">
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                      <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-bold uppercase tracking-widest text-xs flex items-center gap-2 hover:text-white transition-colors">
+                         View Post <ExternalLink size={14} />
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -1340,8 +1390,10 @@ export default function App() {
               <div className="space-y-6">
                 <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Contact Point</h5>
                 <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
-                  <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
-                    <MessageSquare size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                  <li>
+                    <a href={donysSmsLink} className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
+                      <MessageSquare size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                    </a>
                   </li>
                   <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer text-[10px]">
                     <Mail size={16} className="text-red-500" /> donysbacs@gmail.com
@@ -1355,10 +1407,10 @@ export default function App() {
               <div className="space-y-6">
                 <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Compliance & Legal</h5>
                 <ul className="space-y-3 text-xs text-slate-600 font-bold uppercase tracking-widest">
-                  <li><a href="#" className="hover:text-red-500 transition-colors">Privacy Policy</a></li>
-                  <li><a href="#" className="hover:text-red-500 transition-colors">Terms of Service</a></li>
-                  <li><a href="#" className="hover:text-red-500 transition-colors">CCPA Compliance</a></li>
-                  <li><a href="#" className="hover:text-red-500 transition-colors">SMS Policy</a></li>
+                  <li><button onClick={() => setDonysLegal('PRIVACY')} className="hover:text-red-500 transition-colors">Privacy Policy</button></li>
+                  <li><button onClick={() => setDonysLegal('TERMS')} className="hover:text-red-500 transition-colors">Terms of Service</button></li>
+                  <li><button onClick={() => setDonysLegal('CCPA')} className="hover:text-red-500 transition-colors">CCPA Compliance</button></li>
+                  <li><button onClick={() => setDonysLegal('SMS')} className="hover:text-red-500 transition-colors">SMS Policy</button></li>
                 </ul>
               </div>
             </div>
@@ -1369,6 +1421,32 @@ export default function App() {
             </div>
           </div>
         </footer>
+
+        {/* --- DONYS LEGAL MODALS --- */}
+        {donysLegal && (
+          <div className="fixed inset-0 z-[700] bg-[#010101]/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-left animate-in fade-in zoom-in-95">
+             <div className="bg-[#0a0f1e] border border-red-600/30 w-full max-w-2xl rounded-[2rem] shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col max-h-[85vh] overflow-hidden relative">
+                <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-[#020617] shrink-0">
+                   <div className="flex items-center gap-4">
+                      <ShieldCheck size={32} className="text-red-500" />
+                      <h3 className="text-xl sm:text-2xl text-white tracking-tight font-black uppercase">{donysLegal === 'SMS' ? 'SMS POLICY' : 'LEGAL PROTOCOL'}</h3>
+                   </div>
+                   <button onClick={() => setDonysLegal(null)} className="p-3 bg-black border border-slate-800 rounded-full text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
+                </div>
+                <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-[#050b24]">
+                   <p className="text-sm sm:text-base text-slate-300 font-sans not-italic normal-case leading-loose whitespace-pre-wrap">
+                     {donysLegal === 'PRIVACY' && "DONYS & BACS CONSTRUCTION - PRIVACY POLICY\n\nWe collect basic information (Name, Phone) strictly for providing construction estimates and project updates via SMS. We do not sell your data to third parties. Data is secured via encrypted gateways."}
+                     {donysLegal === 'TERMS' && "DONYS & BACS CONSTRUCTION - TERMS OF SERVICE\n\nBy requesting a quote, you agree to receive communications regarding your construction project. Estimates provided via SMS are preliminary and subject to on-site verification."}
+                     {donysLegal === 'CCPA' && "CCPA COMPLIANCE\n\nCalifornia and MA residents have the right to request deletion of their data. Reply STOP to any of our SMS messages to instantly opt-out and purge your contact from our active roster."}
+                     {donysLegal === 'SMS' && "SMS COMMUNICATIONS POLICY\n\nConsent is not a condition of purchase. Message and data rates may apply. We will send maximum 4 messages per month regarding your project. Reply STOP to cancel, HELP for help."}
+                   </p>
+                </div>
+                <div className="p-8 border-t border-slate-800 bg-[#020617] shrink-0 flex justify-end">
+                   <button onClick={() => setDonysLegal(null)} className="w-full sm:w-auto px-10 py-4 bg-red-600 text-white font-black tracking-widest uppercase rounded-xl hover:scale-[1.02] transition-transform">ACKNOWLEDGE</button>
+                </div>
+             </div>
+          </div>
+        )}
       </div>
     );
   }
