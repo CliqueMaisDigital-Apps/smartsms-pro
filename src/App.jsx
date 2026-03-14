@@ -161,9 +161,9 @@ export default function App() {
   const [donysLegal, setDonysLegal] = useState(null);
 
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026" },
-    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026" }
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: "https://share.google/NsbHpv5ojHL9oTgik" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: "https://share.google/9QDUvw8qtTmf946go" },
+    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: "https://share.google/dNG0mtNlWQXgmSrLp" }
   ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
