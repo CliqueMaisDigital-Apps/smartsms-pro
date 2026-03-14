@@ -1126,7 +1126,7 @@ export default function App() {
       "Prefabricated Homes", "Deck Construction", "Auxiliary Buildings", 
       "Garage Construction", "Patio Construction", "Roofing", "Fence Construction", 
       "Home Additions", "Demolition", "Plaster Installation", "Flooring", 
-      "Exterior Painting", "Interior Painting", "Home Remodeling", 
+      "Exterior Painting", "Interior Painting", "Home Remodeling", "Home Extension Services", 
       "General Plumbing Services", "Electrical Work"
     ];
 
@@ -1168,71 +1168,71 @@ export default function App() {
         </header>
 
         {/* --- HERO SECTION --- */}
-        <section className="relative pt-32 pb-16 lg:pt-40 lg:pb-24 overflow-hidden">
+        <section className="relative pt-32 pb-16 lg:pt-40 lg:pb-24 overflow-hidden w-full">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full opacity-20 pointer-events-none">
             <div className="absolute top-20 left-1/4 w-[500px] h-[500px] bg-red-600/30 rounded-full blur-[120px]"></div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center relative z-10">
-            <div className="text-left w-full mx-auto">
-              <div className="inline-flex items-center gap-2 bg-red-950/30 border border-red-500/30 px-4 py-2 rounded-full mb-8">
+          <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full">
+            <div className="text-left w-full mx-auto overflow-hidden">
+              <div className="inline-flex items-center gap-2 bg-red-950/30 border border-red-500/30 px-4 py-2 rounded-full mb-6 sm:mb-8 shadow-[0_0_15px_rgba(220,38,38,0.2)]">
                 <ShieldCheck className="text-red-500" size={16} />
-                <span className="text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
+              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-8xl font-black mb-6 sm:mb-8 leading-[0.9] tracking-tighter uppercase italic break-words drop-shadow-2xl">
                 Premium <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-500">Construction</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg">Construction</span>
               </h1>
-              <p className="text-slate-400 text-base sm:text-lg mb-10 max-w-lg leading-relaxed">
+              <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
                 Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
               </p>
               
-              <div className="flex flex-wrap gap-8 opacity-80">
+              <div className="flex flex-wrap gap-6 sm:gap-8 opacity-90">
                 <div className="flex flex-col">
-                  <span className="text-2xl sm:text-3xl font-black text-white">100%</span>
+                  <span className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">100%</span>
                   <span className="text-[10px] sm:text-xs uppercase tracking-widest text-red-500 font-bold">Reliability</span>
                 </div>
-                <div className="flex flex-col border-l border-slate-800 pl-8">
-                  <span className="text-2xl sm:text-3xl font-black text-white">MA Area</span>
+                <div className="flex flex-col border-l border-slate-700 pl-6 sm:pl-8">
+                  <span className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">MA Area</span>
                   <span className="text-[10px] sm:text-xs uppercase tracking-widest text-red-500 font-bold">Malden & Surroundings</span>
                 </div>
               </div>
             </div>
 
             {/* Lead Form */}
-            <div className="relative group w-full max-w-[95vw] sm:max-w-md mx-auto lg:max-w-none" id="quote-form">
-              <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-              <div className="relative bg-[#0a0f1e] p-6 sm:p-10 rounded-[2rem] border border-slate-800 shadow-2xl w-full">
-                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white">Claim Your Free In-Home Estimate</h3>
-                  <p className="text-slate-400 text-xs sm:text-sm mb-8 font-medium leading-relaxed">Skip the guesswork. A dedicated Donys & Bacs expert will personally visit your property to provide a precise, no-obligation quote. Fill out the form below and we'll text you to confirm your exact appointment time.</p>
+            <div className="relative group w-full max-w-md mx-auto lg:max-w-none" id="quote-form">
+              <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
+              <div className="relative bg-[#0a0f1e] p-6 sm:p-8 md:p-10 rounded-[2rem] border border-slate-700 shadow-2xl w-full">
+                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Claim Your Free In-Home Estimate</h3>
+                  <p className="text-slate-300 text-xs sm:text-sm mb-8 font-medium leading-relaxed">A dedicated Donys & Bacs expert will personally visit your property to provide a precise, no-obligation quote. Fill out the form below and we'll text you to confirm your exact appointment time.</p>
                   
                   {/* Native Secure Gateway Capture Form */}
                   <form onSubmit={handleProtocolHandshake} className="space-y-5 w-full">
                     <div className="space-y-1.5 text-left w-full">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Full Name</label>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Full Name</label>
                       <input 
                         type="text" 
                         required
                         placeholder="Ex: John Smith"
                         value={captureForm.name}
                         onChange={(e) => setCaptureForm({...captureForm, name: e.target.value})}
-                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700 text-sm"
+                        className="w-full bg-[#020617] border border-slate-700 rounded-xl px-5 py-4 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white placeholder:text-slate-600 text-sm shadow-inner"
                       />
                     </div>
                     <div className="space-y-1.5 text-left w-full">
-                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest ml-1">Mobile Number (For SMS)</label>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Mobile Number (For SMS)</label>
                       <input 
                         type="tel" 
                         required
                         placeholder="(000) 000-0000"
                         value={captureForm.phone}
                         onChange={(e) => setCaptureForm({...captureForm, phone: e.target.value})}
-                        className="w-full bg-[#020617] border border-slate-800 rounded-xl px-5 py-4 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-white placeholder:text-slate-700 text-sm"
+                        className="w-full bg-[#020617] border border-slate-700 rounded-xl px-5 py-4 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white placeholder:text-slate-600 text-sm shadow-inner"
                       />
                     </div>
                     
-                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 text-left w-full">
-                      <label className="flex gap-4 cursor-pointer items-start">
+                    <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 text-left w-full">
+                      <label className="flex gap-3 sm:gap-4 cursor-pointer items-start">
                         <input 
                           type="checkbox" 
                           required
@@ -1240,8 +1240,8 @@ export default function App() {
                           onChange={(e) => setCaptureForm({...captureForm, smsConsent: e.target.checked})}
                           className="mt-1 w-5 h-5 rounded accent-red-600 transition-all cursor-pointer shrink-0"
                         />
-                        <span className="text-[10px] text-slate-500 leading-normal font-medium">
-                          I agree to receive automated SMS/text messages from Donys & Bacs Construction for project updates. Consent is not a condition of purchase. Msg & data rates may apply. Reply STOP to end. View <button type="button" onClick={(e) => { e.preventDefault(); setDonysLegal('PRIVACY'); }} className="text-red-500 underline">Privacy Policy</button>.
+                        <span className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                          I agree to receive automated SMS/text messages from Donys & Bacs Construction for project updates. Consent is not a condition of purchase. Msg & data rates may apply. Reply STOP to end. View <button type="button" onClick={(e) => { e.preventDefault(); setDonysLegal('PRIVACY'); }} className="text-red-500 underline hover:text-red-400 transition-colors">Privacy Policy</button>.
                         </span>
                       </label>
                     </div>
@@ -1249,7 +1249,7 @@ export default function App() {
                     <button 
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 sm:py-5 rounded-xl shadow-[0_10px_30px_rgba(185,28,28,0.3)] transition-all flex items-center justify-center gap-3 group/btn uppercase italic tracking-wider disabled:opacity-50 text-[11px] sm:text-sm"
+                      className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 sm:py-5 rounded-xl shadow-[0_10px_30px_rgba(185,28,28,0.4)] transition-all flex items-center justify-center gap-3 group/btn uppercase italic tracking-wider disabled:opacity-50 text-[11px] sm:text-sm border border-red-500/50"
                     >
                       {loading ? 'PROCESSING SECURE ROUTE...' : 'SECURE MY ON-SITE ESTIMATE NOW'} {!loading && <ChevronRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />}
                     </button>
@@ -1271,25 +1271,25 @@ export default function App() {
                    <HardHat className="text-red-500" size={20} />
                 </div>
                 <div className="text-left overflow-hidden">
-                  <h3 className="text-base sm:text-xl font-black uppercase italic text-white truncate">Civil Construction Services</h3>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">View All 24 Services</p>
+                  <h3 className="text-base sm:text-xl font-black uppercase italic text-white truncate drop-shadow-md">Civil Construction Services</h3>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">View All 25 Services</p>
                 </div>
               </div>
               {servicesOpen ? <ChevronUp className="text-red-500 shrink-0" /> : <ChevronDown className="text-slate-500 shrink-0" />}
             </div>
             
             {servicesOpen && (
-              <div className="mt-4 bg-[#0a0f1e] border border-slate-800 rounded-2xl p-5 sm:p-8 animate-in slide-in-from-top-2 text-left shadow-2xl w-full">
+              <div className="mt-4 bg-[#0a0f1e] border border-slate-700 rounded-2xl p-5 sm:p-8 animate-in slide-in-from-top-2 text-left shadow-2xl w-full">
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 sm:gap-x-8">
                   {servicesList.map((srv, idx) => (
                     <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm text-slate-300 font-medium">
-                      <div className="w-1.5 h-1.5 bg-red-600 rounded-full shrink-0 mt-1.5"></div>
+                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full shrink-0 mt-1.5 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
                       <span className="leading-snug">{srv}</span>
                     </li>
                   ))}
                 </ul>
                 <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-                   <button onClick={() => { setServicesOpen(false); document.getElementById('quote-form')?.scrollIntoView({behavior: 'smooth'}); }} className="inline-block bg-red-700 hover:bg-red-600 text-white font-black py-4 px-6 sm:px-8 rounded-xl text-xs sm:text-sm uppercase italic tracking-wider shadow-[0_10px_30px_rgba(185,28,28,0.2)] transition-transform hover:scale-105">
+                   <button onClick={() => { setServicesOpen(false); document.getElementById('quote-form')?.scrollIntoView({behavior: 'smooth'}); }} className="inline-block bg-red-700 hover:bg-red-600 text-white font-black py-4 px-6 sm:px-8 rounded-xl text-xs sm:text-sm uppercase italic tracking-wider shadow-[0_10px_30px_rgba(185,28,28,0.3)] transition-transform hover:scale-105 border border-red-500/50">
                      Request Project Quote
                    </button>
                 </div>
