@@ -1299,15 +1299,15 @@ export default function App() {
         </section>
 
         {/* --- GMB CAROUSEL SECTION --- */}
-        <section className="py-24 bg-gradient-to-b from-slate-950 to-[#020617]">
+        <section className="py-16 sm:py-24 bg-gradient-to-b from-slate-950 to-[#020617]">
           <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-6">
               <div className="text-left">
                 <div className="flex items-center gap-2 text-red-500 mb-2">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-                  <span className="text-xs font-bold uppercase tracking-widest">Live Updates from Malden</span>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Live Updates from Malden</span>
                 </div>
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
+                <h2 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
               </div>
             </div>
 
@@ -1332,7 +1332,7 @@ export default function App() {
                     <p className="text-slate-400 mb-6 sm:mb-8 leading-relaxed font-medium text-xs sm:text-sm">
                       Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations.
                     </p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
                       <div className="flex gap-3 sm:gap-4">
                         <button onClick={(e) => { e.preventDefault(); prevSlide(); }} type="button" className="p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-full hover:bg-red-900 transition-colors shadow-lg">
                           <ChevronLeft size={18} className="text-white" />
@@ -1342,7 +1342,7 @@ export default function App() {
                         </button>
                       </div>
                       <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="text-red-500 font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center gap-2 hover:text-white transition-colors">
-                         View Post <ExternalLink size={14} />
+                         View on Google <ExternalLink size={14} />
                       </a>
                     </div>
                   </div>
