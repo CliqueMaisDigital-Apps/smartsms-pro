@@ -32,7 +32,7 @@ import {
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
   DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart, BadgeCheck,
-  Mail, MapPin, Wrench, ChevronLeft
+  Mail, MapPin, Wrench, ChevronLeft, HardHat
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
