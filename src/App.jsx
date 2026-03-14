@@ -165,7 +165,7 @@ export default function App() {
 
   // REPLACED ALL IMAGES WITH 100% BRAND-SAFE PREMIUM IMAGES & DYNAMIC HIGH CONVERSION COPY
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1531834685032-c34bf0d84c77?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
     { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80", desc: "Elevate your culinary space. See how we transform outdated kitchens into stunning, modern centerpieces tailored to your lifestyle." },
     { id: 3, title: "High-End Custom Builds", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=800&q=80", desc: "Delivering uncompromising luxury and elite craftsmanship. Proudly bringing premium construction services to Malden and all surrounding communities within a 70-mile radius." }
   ];
@@ -1154,7 +1154,7 @@ export default function App() {
               </div>
               <div className="flex flex-col">
                 <span className="font-black text-xl tracking-tighter uppercase italic leading-none">
-                  Donys <span className="text-red-600">Bacs</span>
+                  Donys <span className="text-red-600">& Bacs</span>
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Construction Services Inc</span>
               </div>
@@ -1378,7 +1378,7 @@ export default function App() {
                     <HardHat className="text-white" size={20} />
                   </div>
                   <span className="font-black text-xl tracking-tighter uppercase italic">
-                    Donys <span className="text-red-600">Bacs</span>
+                    Donys <span className="text-red-600">& Bacs</span>
                   </span>
                 </div>
                 <p className="text-slate-500 text-sm leading-relaxed max-w-xs font-bold italic">
