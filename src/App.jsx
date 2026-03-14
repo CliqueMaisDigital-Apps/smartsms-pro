@@ -31,7 +31,8 @@ import {
   Server, Cpu, Radio, UserPlus, HelpCircle, ChevronDown, ChevronUp, Star, BookOpen, 
   AlertOctagon, Scale, FileText, UploadCloud, PlayCircle,
   ShoppingCart, Wallet, AlertTriangle, Trash, Edit, Clock, Calendar, Send, Plus, History, CheckCircle2,
-  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart, BadgeCheck
+  DownloadCloud, Trash2, SlidersHorizontal, WifiOff, Wifi, FileLock2, Scale as LawScale, ChevronRightSquare, MessageSquare, BellRing, TrendingUp, PieChart, BadgeCheck,
+  Mail, MapPin, Wrench, ChevronLeft
 } from 'lucide-react';
 
 // --- FIREBASE CONFIGURATION ---
@@ -278,7 +279,8 @@ export default function App() {
   }, [chatMessages, showSmartSupport, isChatLoading]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    // Only smooth scroll if view is not 'capture', otherwise instant to prevent glitches
+    window.scrollTo({ top: 0, left: 0, behavior: view === 'capture' ? 'instant' : 'smooth' });
   }, [view]);
 
   // --- IDENTITY BOOTSTRAP WITH ERROR RESILIENCE ---
@@ -1131,7 +1133,7 @@ export default function App() {
               <div className="relative">
                 <div className="absolute inset-0 bg-red-600 blur-lg opacity-40 animate-pulse"></div>
                 <div className="relative w-11 h-11 bg-slate-900 border border-red-600/50 flex items-center justify-center rounded-lg">
-                  <Hammer className="text-red-500" size={24} />
+                  <Wrench className="text-red-500" size={24} />
                 </div>
               </div>
               <div className="flex flex-col">
@@ -1145,7 +1147,7 @@ export default function App() {
               href="sms:+16094568188" 
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
             >
-              <MessageSquareText size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
+              <MessageSquare size={18} /> <span className="hidden sm:inline">Text Us: (609) 456-8188</span>
               <span className="sm:hidden font-black">SMS</span>
             </a>
           </div>
@@ -1270,7 +1272,7 @@ export default function App() {
                 <div className="grid md:grid-cols-2">
                   <div className="h-96 bg-slate-900 relative">
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800 p-12 text-center">
-                      <Hammer size={80} className="opacity-10 mb-4" />
+                      <Wrench size={80} className="opacity-10 mb-4" />
                       <p className="text-sm font-bold uppercase tracking-tighter opacity-20">MA Project Photo {gmbPosts[currentSlide].id}</p>
                     </div>
                     <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl">
@@ -1324,7 +1326,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-red-700 flex items-center justify-center rounded-lg">
-                    <Hammer className="text-white" size={20} />
+                    <Wrench className="text-white" size={20} />
                   </div>
                   <span className="font-black text-xl tracking-tighter uppercase italic">
                     Donys <span className="text-red-600">Bacs</span>
@@ -1339,7 +1341,7 @@ export default function App() {
                 <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Contact Point</h5>
                 <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
                   <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
-                    <MessageSquareText size={16} className="text-red-500" /> (609) 456-8188 (SMS)
+                    <MessageSquare size={16} className="text-red-500" /> (609) 456-8188 (SMS)
                   </li>
                   <li className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer text-[10px]">
                     <Mail size={16} className="text-red-500" /> donysbacs@gmail.com
@@ -1669,7 +1671,7 @@ export default function App() {
 
         {/* ==================== AUTH (LOGIN/REGISTER) ==================== */}
         {view === 'auth' && (
-          <div className="flex-1 flex flex-col items-center justify-center w-full px-4 py-12 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[80vh] px-4 py-12 animate-in fade-in zoom-in-95 duration-200">
             <div className="lighthouse-neon-wrapper w-full max-w-md shadow-3xl mx-auto">
               <div className="lighthouse-neon-content p-8 sm:p-14 relative w-full">
                 {isWelcomeTrial && !isLoginMode ? (
@@ -2371,122 +2373,4 @@ export default function App() {
             
             <div className="bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] px-5 sm:px-6 py-4 sm:py-5 rounded-xl flex items-center gap-4 mb-8 text-left w-full uppercase">
               <Info size={28} className="shrink-0" />
-              <p className="text-[10px] sm:text-[11px] font-black leading-relaxed tracking-widest text-pretty">SYSTEM REQUIREMENT: THIS AUTOMATION WORKS EXCLUSIVELY WITH ANDROID TERMINALS.</p>
-            </div>
-
-            <div className="space-y-4 sm:space-y-5 text-left mb-10 w-full font-black">
-              <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2 uppercase">STEP 1</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans not-italic normal-case leading-relaxed">Scan the QR code above or use the buttons below to download the Relay Engine.</p>
-              </div>
-              <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2 uppercase">STEP 2</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans not-italic normal-case leading-relaxed">Open the terminal on your device and grant the required dispatch & camera permissions.</p>
-              </div>
-              <div className="bg-black border border-white/5 p-5 sm:p-6 rounded-xl sm:rounded-2xl">
-                <p className="text-[#25F4EE] font-black text-[10px] sm:text-[11px] tracking-widest mb-2 uppercase">STEP 3</p>
-                <p className="text-white text-[12px] sm:text-sm font-medium font-sans not-italic normal-case leading-relaxed">Click "SYNC RELAY DEVICE" on this dashboard and scan the QR Code with your terminal.</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 w-full">
-              <a href="https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk" target="_blank" rel="noreferrer" className="w-full bg-gradient-to-r from-[#25F4EE] to-[#1AB5B0] text-black font-black text-[12px] sm:text-sm py-5 sm:py-6 rounded-xl shadow-[0_0_20px_rgba(37,244,238,0.4)] flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-center flex-1 uppercase">
-                <DownloadCloud size={20} className="shrink-0" />
-                <span className="truncate">NATIVE ENGINE DIRECTORY</span>
-              </a>
-              <button onClick={() => {navigator.clipboard.writeText("https://expo.dev/artifacts/eas/egRVRodLFQ2vZoofTxnfGw.apk"); alert("Relay Engine Directory Copied!");}} className="bg-white/10 text-white font-black text-[12px] sm:text-sm py-5 sm:py-6 rounded-xl hover:bg-white/20 transition-colors flex items-center justify-center px-8 shrink-0 uppercase">
-                <Copy size={20} /> COPY DIRECTORY
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* === MASTER ADMIN: LEAD EDIT MODAL === */}
-      {editLeadModal && (
-        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-          <div className="bg-[#0a0a0a] border border-amber-500/40 rounded-[2rem] w-full max-w-md shadow-[0_0_40px_rgba(245,158,11,0.2)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Edit size={20} className="text-amber-500"/>
-                <h3 className="text-sm sm:text-base font-black tracking-widest text-white uppercase">EDIT LEAD — MASTER OVERRIDE</h3>
-              </div>
-              <button onClick={() => setEditLeadModal(null)} className="text-white/30 hover:text-white p-1"><X size={20}/></button>
-            </div>
-            <div className="p-6 sm:p-8 space-y-5">
-              <div>
-                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2 uppercase">IDENTITY (NAME)</label>
-                <input
-                  value={editLeadModal.nome_cliente}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, nome_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans not-italic normal-case text-base"
-                  placeholder="Lead full name"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2 uppercase">TARGET NUMBER (PHONE)</label>
-                <input
-                  type="tel"
-                  value={editLeadModal.telefone_cliente}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, telefone_cliente: e.target.value }))}
-                  className="input-premium w-full font-sans not-italic normal-case text-base"
-                  placeholder="+1 999 999 9999"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2 uppercase">ASSIGN FOLDER / CAMPAIGN</label>
-                <select
-                  value={editLeadModal.folderId || 'MANUAL'}
-                  onChange={e => setEditLeadModal(prev => ({ ...prev, folderId: e.target.value }))}
-                  className="input-premium w-full font-sans not-italic normal-case text-base bg-[#111] appearance-none"
-                >
-                  {folders.map(f => (
-                    <option key={f.id} value={f.id} className="bg-[#111]">{f.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-4 pt-3 uppercase">
-                <button onClick={() => setEditLeadModal(null)} className="flex-1 py-4 bg-white/5 text-white/50 rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleAdminEditLead} disabled={loading} className="flex-1 py-4 bg-amber-500 text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                  {loading ? 'SAVING...' : 'SAVE CHANGES'}
-               </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* === MASTER ADMIN: CREATE FOLDER MODAL === */}
-      {createFolderModal && (
-        <div className="fixed inset-0 z-[850] bg-[#010101]/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-          <div className="bg-[#0a0a0a] border border-[#25F4EE]/40 rounded-[2rem] w-full max-w-sm shadow-[0_0_40px_rgba(37,244,238,0.15)] overflow-hidden">
-            <div className="p-6 border-b border-white/10 bg-[#111] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Plus size={20} className="text-[#25F4EE]"/>
-                <h3 className="text-sm sm:text-base font-black tracking-widest text-white uppercase">NEW CAMPAIGN FOLDER</h3>
-              </div>
-              <button onClick={() => setCreateFolderModal(false)} className="text-white/30 hover:text-white p-1"><X size={20}/></button>
-            </div>
-            <div className="p-6 sm:p-8 space-y-5">
-              <div>
-                <label className="text-[10px] tracking-widest text-white/40 font-black block mb-2 uppercase">FOLDER / CAMPAIGN NAME</label>
-                <input
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
-                  className="input-premium w-full font-sans not-italic normal-case text-base"
-                  placeholder="e.g. Black Friday Campaign"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-4 uppercase">
-                <button onClick={() => setCreateFolderModal(false)} className="flex-1 py-4 bg-white/5 text-white/50 rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:text-white transition-colors border border-white/10">CANCEL</button>
-                <button onClick={handleCreateFolder} className="flex-1 py-4 bg-[#25F4EE] text-black rounded-xl text-[10px] sm:text-[11px] font-black tracking-widest hover:scale-[1.02] transition-transform shadow-[0_0_15px_rgba(37,244,238,0.3)]">CREATE</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              <p className="text-[10px] sm:text-[11px] font-black leading-relaxed tracking-wid
