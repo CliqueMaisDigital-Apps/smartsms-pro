@@ -163,10 +163,10 @@ export default function App() {
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
   const donysGmbLink = "https://share.google/K6VeiEqdHfaj811n7";
 
-  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES (FIXED SLIDE 2)
+  // STRICT PURGE: REPLACED ALL IMAGES WITH 100% BRAND-SAFE PREMIUM IMAGES (NO THIRD-PARTY LOGOS/PEOPLE)
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80" },
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=800&q=80" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80" },
     { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
   ];
 
