@@ -161,13 +161,13 @@ export default function App() {
   const [donysLegal, setDonysLegal] = useState(null);
 
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
-  const donysGmbLink = "https://share.google/i6zdW3uZdKolcBUYE";
+  const donysGmbLink = "https://www.google.com.br/search?kgmid=/g/11vbxk6mf3&hl=pt-PT&q=DONYS+%26+BACS+CONSTRUCTION&shndl=30&source=sh/x/loc/osrp/m1/2&kgs=397ea0d6912d358c&shem=shrtn&utm_source=shrtn,sh/x/loc/osrp/m1/2";
 
-  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES
+  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES (NO KRA)
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?auto=format&fit=crop&w=800&q=80" },
-    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" }
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1541888088322-263e8dfdeeb4?auto=format&fit=crop&w=800&q=80" },
+    { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
   ];
 
   // --- AUTHENTICATION & PROFILE STATES ---
@@ -1021,7 +1021,7 @@ export default function App() {
 
             // Fallbacks
             if (lang === 'PT') return { text: "Excelente observação. A nossa prioridade é garantir que as suas transmissões superam os filtros. Quer afinar o seu painel de envio agora?", buttons: [{ label: 'ABRIR DASHBOARD', action: 'DASH' }] };
-            if (lang === 'ES') return { text: "Excelente observación. Nuestra prioridad es garantizar que tus transmisiones superen los filtros. ¿Quieres ajustar tu panel de envío ahora?", buttons: [{ label: 'ABRIR DASHBOARD', action: 'DASH' }] };
+            if (lang === 'ES') return { text: "Excelente observação. Nuestra prioridad es garantizar que tus transmisiones superen los filtros. ¿Quieres ajustar tu panel de envío ahora?", buttons: [{ label: 'ABRIR DASHBOARD', action: 'DASH' }] };
             return { text: "Excellent observation.\n\nWhile we chat, your technical advantage over the competition is active. To keep our focus on conversions, how would you like to proceed?", buttons: [{ label: 'OPEN DASHBOARD', action: 'DASH' }, { label: 'TECHNICAL SUPPORT', action: 'GUIDE' }] };
         };
 
@@ -1181,9 +1181,9 @@ export default function App() {
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl whitespace-nowrap">
-                Premium <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg inline-block max-w-full">Construction</span>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
+                <span className="text-white drop-shadow-md">Premium</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg">Construction</span>
               </h1>
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
                 Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
