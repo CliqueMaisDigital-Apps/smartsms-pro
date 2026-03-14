@@ -161,12 +161,12 @@ export default function App() {
   const [donysLegal, setDonysLegal] = useState(null);
 
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
-  const donysGmbLink = "https://www.google.com.br/search?kgmid=/g/11vbxk6mf3&hl=pt-PT&q=DONYS+%26+BACS+CONSTRUCTION&shndl=30&source=sh/x/loc/osrp/m1/2&kgs=397ea0d6912d358c&shem=shrtn&utm_source=shrtn,sh/x/loc/osrp/m1/2";
+  const donysGmbLink = "https://share.google/K6VeiEqdHfaj811n7";
 
-  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES (NO KRA)
+  // REPLACED THIRD-PARTY LOGO IMAGE WITH 100% BRAND-SAFE PREMIUM IMAGES (FIXED SLIDE 2)
   const gmbPosts = [
     { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80" },
-    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1541888088322-263e8dfdeeb4?auto=format&fit=crop&w=800&q=80" },
+    { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80" },
     { id: 3, title: "Exterior Masonry - MA", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80" }
   ];
 
@@ -1319,9 +1319,6 @@ export default function App() {
                 <div className="grid md:grid-cols-2 w-full">
                   <a href={gmbPosts[currentSlide].link} target="_blank" rel="noopener noreferrer" className="h-64 sm:h-80 md:h-96 relative block hover:opacity-90 transition-opacity bg-cover bg-center w-full" style={{ backgroundImage: `url(${gmbPosts[currentSlide].image})` }}>
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1e] md:bg-gradient-to-r md:from-transparent md:to-[#0a0f1e]/10 via-transparent to-black/30 w-full"></div>
-                    <div className="absolute bottom-6 left-6 bg-red-600 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-xl z-10">
-                      {gmbPosts[currentSlide].type}
-                    </div>
                     <div className="absolute top-6 right-6 bg-black/60 p-2.5 rounded-full backdrop-blur-md shadow-xl z-10 border border-white/10 hover:bg-red-600 transition-colors">
                        <ExternalLink size={16} className="text-white" />
                     </div>
