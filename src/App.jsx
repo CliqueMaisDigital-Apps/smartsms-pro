@@ -1181,9 +1181,9 @@ export default function App() {
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-8xl font-black mb-6 sm:mb-8 leading-[0.9] tracking-tighter uppercase italic break-words drop-shadow-2xl">
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl">
                 Premium <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg">Construction</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg inline-block max-w-full">Construction</span>
               </h1>
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
                 Excellence in civil construction and remodeling across Malden and the Greater Boston area. Professional service via SMS for your convenience.
@@ -1202,7 +1202,7 @@ export default function App() {
             </div>
 
             {/* Lead Form */}
-            <div className="relative group w-full max-w-md mx-auto lg:max-w-none" id="quote-form">
+            <div className="relative group w-full max-w-md mx-auto lg:max-w-md lg:ml-auto lg:mr-0" id="quote-form">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
               <div className="relative bg-[#0a0f1e] p-6 sm:p-8 md:p-10 rounded-[2rem] border border-slate-700 shadow-2xl w-full">
                   <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Claim Your Free In-Home Estimate</h3>
