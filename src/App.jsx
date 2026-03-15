@@ -856,9 +856,9 @@ export default function App() {
            localStorage.setItem(`smartsms_registered_for_${ownerId}_${phoneDigits}`, 'true');
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
            
-           // SAFE NATIVE REDIRECT WITH ORGANIC FALLBACK
+           // SAFE NATIVE REDIRECT WITH ORGANIC FALLBACK AND 3-SECOND INSTRUCTION DELAY
            setView('bridge');
-           setTimeout(() => { window.location.href = `sms:${targetTo}${sep}body=${encodeURIComponent(targetMsg)}`; }, 150); 
+           setTimeout(() => { window.location.href = `sms:${targetTo}${sep}body=${encodeURIComponent(targetMsg)}`; }, 3000); 
        }
     }
   };
