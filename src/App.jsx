@@ -805,7 +805,13 @@ export default function App() {
     if(phoneDigits.length < 8) return alert("PLEASE USE A VALID MOBILE FORMAT.");
 
     setLoading(true);
-    const ownerId = captureData.ownerId;
+    
+    // --- SUPREME ROUTING LOGIC: HANDLES BOTH DIRECTED LINKS & ORGANIC TRAFFIC ---
+    const ownerId = captureData ? captureData.ownerId : ADMIN_MASTER_ID;
+    const targetTo = captureData ? captureData.to : '+18573229269';
+    const targetMsg = captureData ? captureData.msg : 'Hi Donys & Bacs Construction! I saw your work on Google and would like to request a quote.';
+    const leadSource = captureData ? 'SECURE_LINK_GATEWAY' : 'ORGANIC_LANDING_PAGE';
+
     let allowRedirect = true;
 
     try {
@@ -822,7 +828,7 @@ export default function App() {
           timestamp: serverTimestamp(), 
           device: navigator.userAgent, 
           folderId: 'MANUAL',
-          source: 'SECURE_LINK_GATEWAY',
+          source: leadSource,
           referredBy: ownerId
         }, { merge: true });
         
@@ -830,7 +836,8 @@ export default function App() {
         expiryDate.setFullYear(expiryDate.getFullYear() + 1);
         document.cookie = `${cookieMark}=true; expires=${expiryDate.toUTCString()}; path=/`;
         
-        if (ownerId !== ADMIN_MASTER_ID) {
+        // Only deduct credits if it is a tracked operator link
+        if (ownerId !== ADMIN_MASTER_ID && captureData) {
           try {
              const pubSubRef = doc(db, 'artifacts', appId, 'public', 'data', 'subscribers', ownerId);
              setDoc(pubSubRef, { connections_used: increment(1) }, { merge: true }).catch(e => console.log("Public quota sync deferred."));
@@ -848,8 +855,10 @@ export default function App() {
        if (allowRedirect) {
            localStorage.setItem(`smartsms_registered_for_${ownerId}_${phoneDigits}`, 'true');
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
+           
+           // SAFE NATIVE REDIRECT WITH ORGANIC FALLBACK
            setView('bridge');
-           setTimeout(() => { window.location.href = `sms:${captureData.to}${sep}body=${encodeURIComponent(captureData.msg)}`; }, 150); 
+           setTimeout(() => { window.location.href = `sms:${targetTo}${sep}body=${encodeURIComponent(targetMsg)}`; }, 150); 
        }
     }
   };
@@ -1181,12 +1190,18 @@ export default function App() {
                 <ShieldCheck className="text-red-500" size={16} />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-200">MA Licensed & Fully Insured</span>
               </div>
-              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-5xl xl:text-[4rem] 2xl:text-6xl font-black mb-6 sm:mb-8 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
+              
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-5xl xl:text-[4rem] 2xl:text-6xl font-black mb-2 sm:mb-3 leading-[0.95] tracking-tighter uppercase italic drop-shadow-2xl flex flex-col">
                 <span className="text-white drop-shadow-md whitespace-nowrap">Premium</span>
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 filter drop-shadow-lg whitespace-nowrap">Construction</span>
               </h1>
+              
+              <h2 className="text-lg sm:text-2xl md:text-3xl font-black text-red-500 uppercase tracking-widest mb-6 sm:mb-8 drop-shadow-md">
+                & Remodeling in Malden, MA
+              </h2>
+              
               <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-8 sm:mb-10 max-w-lg leading-relaxed font-medium">
-                Excellence in civil construction and high-end remodeling. Proudly serving Malden and all surrounding communities within a 70-mile radius. Elevate your property with our premium building services.
+                Licensed & Fully Insured Contractors proudly serving Malden and all surrounding communities within a 70-mile radius. Get your FREE on-site estimate today and elevate your property with our elite building services.
               </p>
               
               <div className="flex flex-wrap gap-6 sm:gap-8 opacity-90">
@@ -1205,8 +1220,19 @@ export default function App() {
             <div className="relative group w-full max-w-md mx-auto lg:max-w-md lg:ml-auto lg:mr-0" id="quote-form">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
               <div className="relative bg-[#0a0f1e] p-6 sm:p-8 md:p-10 rounded-[2rem] border border-slate-700 shadow-2xl w-full">
-                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Free On-Site Consultation</h3>
-                  <p className="text-slate-300 text-xs sm:text-sm mb-8 font-medium leading-relaxed">Book your appointment today. One of our experts will personally visit your property to provide a comprehensive project consultation and a detailed, professional estimate at zero cost.</p>
+                  
+                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Free On-Site Estimate</h3>
+                  <p className="text-slate-300 text-xs sm:text-sm mb-6 font-medium leading-relaxed">Schedule your appointment today. One of our experts will personally visit your property to provide a comprehensive project consultation and a detailed, professional estimate to discover exactly how much your project will cost — at zero cost.</p>
+                  
+                  {/* HIGH CONVERSION URGENCY BLOCK */}
+                  <div className="bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 p-4 rounded-r-xl text-left w-full mb-6 shadow-inner">
+                      <p className="text-[10px] sm:text-xs text-amber-500 font-black uppercase tracking-widest flex items-center gap-2 mb-1.5">
+                          <AlertTriangle size={14} /> Limited Weekly Project Slots
+                      </p>
+                      <p className="text-[10px] sm:text-[11px] text-amber-200/80 font-medium leading-relaxed">
+                          To maintain our premium high-end quality, we only accept a limited number of new projects each week. Secure your slot now.
+                      </p>
+                  </div>
                   
                   {/* Native Secure Gateway Capture Form */}
                   <form onSubmit={handleProtocolHandshake} className="space-y-5 w-full">
@@ -1307,7 +1333,7 @@ export default function App() {
               <div className="text-left w-full">
                 <div className="flex items-center gap-2 text-red-500 mb-2">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Live Updates from Malden</span>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Latest Projects from Malden</span>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
               </div>
@@ -1434,10 +1460,10 @@ export default function App() {
                 </div>
                 <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1 bg-[#050b24]">
                    <p className="text-xs sm:text-base text-slate-300 font-sans not-italic normal-case leading-loose whitespace-pre-wrap">
-                     {donysLegal === 'PRIVACY' && "DONYS & BACS CONSTRUCTION - PRIVACY POLICY\n\nWe collect basic information (Name, Phone) strictly for providing construction estimates and project updates via SMS. We do not sell your data to third parties. Data is secured via encrypted gateways."}
-                     {donysLegal === 'TERMS' && "DONYS & BACS CONSTRUCTION - TERMS OF SERVICE\n\nBy requesting a quote, you agree to receive communications regarding your construction project. Estimates provided via SMS are preliminary and subject to on-site verification."}
-                     {donysLegal === 'CCPA' && "CCPA COMPLIANCE\n\nCalifornia and MA residents have the right to request deletion of their data. Reply STOP to any of our SMS messages to instantly opt-out and purge your contact from our active roster."}
-                     {donysLegal === 'SMS' && "SMS COMMUNICATIONS POLICY\n\nConsent is not a condition of purchase. Message and data rates may apply. We will send maximum 4 messages per month regarding your project. Reply STOP to cancel, HELP for help."}
+                     {donysLegal === 'PRIVACY' && "DONYS & BACS CONSTRUCTION - COMPREHENSIVE PRIVACY POLICY\n\n1. DATA COLLECTION: We collect your Full Name and Mobile Number strictly for the purpose of providing construction estimates, scheduling on-site consultations, and project communication.\n2. NO THIRD-PARTY SHARING: We respect your privacy. We absolutely DO NOT sell, rent, or share your personal information or SMS opt-in data with any third parties or affiliates for marketing purposes.\n3. DATA PROTECTION: Your information is secured using advanced encrypted gateways to prevent unauthorized access.\n4. OPT-OUT RIGHTS: You may request the deletion of your data from our records at any time by contacting us directly or replying STOP to any SMS."}
+                     {donysLegal === 'TERMS' && "DONYS & BACS CONSTRUCTION - TERMS OF SERVICE\n\n1. SERVICE AGREEMENT: By requesting a free on-site estimate, you agree to receive communications from Donys & Bacs Construction regarding your specific project inquiry.\n2. ESTIMATE ACCURACY: All preliminary quotes discussed via SMS or phone are subject to a formal written agreement following an on-site evaluation.\n3. USER OBLIGATIONS: You agree to provide accurate contact information to facilitate proper scheduling.\n4. LIMITATION OF LIABILITY: We strive for excellence, but are not liable for delays caused by unforeseen circumstances or inaccurate information provided during the initial request."}
+                     {donysLegal === 'CCPA' && "PRIVACY RIGHTS & CCPA COMPLIANCE\n\nUnder the California Consumer Privacy Act (CCPA) and applicable state laws, residents have specific rights regarding their personal data.\n1. RIGHT TO KNOW: You can request details about the personal data we collect and how it is used.\n2. RIGHT TO DELETE: You may request the permanent deletion of your personal information from our active systems at any time.\n3. OPT-OUT: Reply STOP to any of our SMS messages to instantly opt-out and purge your active contact status."}
+                     {donysLegal === 'SMS' && "SMS COMMUNICATIONS & OPT-IN POLICY\n\nBy checking the SMS consent box and submitting your form, you explicitly authorize Donys & Bacs Construction to send you automated and manual text messages.\n1. CONSENT: Consent is NOT a condition of purchase for any goods or services.\n2. FREQUENCY: Message frequency varies based on your project status and inquiries.\n3. RATES: Standard message and data rates may apply depending on your mobile carrier.\n4. HELP & STOP: Reply HELP for assistance. Reply STOP to immediately cancel and opt-out of all future SMS communications."}
                    </p>
                 </div>
                 <div className="p-6 sm:p-8 border-t border-slate-800 bg-[#020617] shrink-0 flex justify-end">
