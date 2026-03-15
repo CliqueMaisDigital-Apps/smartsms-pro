@@ -163,9 +163,9 @@ export default function App() {
   // UPDATED GMB LINK AS REQUESTED (APPLIES TO ALL BUTTONS AND IMAGES)
   const donysGmbLink = "https://share.google/K6VeiEqdHfaj811n7";
 
-  // REPLACED SLIDE 1 WITH SPECIFIC URL REQUESTED BY USER
+  // REPLACED SLIDE 1 WITH AUTHENTIC US HIGH-END WOOD FRAMING CONSTRUCTION IMAGE
   const gmbPosts = [
-    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://economicnewsbrasil.com.br/wp-content/uploads/2023/06/Captura-de-Tela-2023-06-09-as-10.48.01.jpg", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
+    { id: 1, title: "Recent Project in Malden, MA", type: "Post", date: "Jan 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1517581177682-a085bb7ffb15?auto=format&fit=crop&w=800&q=80", desc: "Check out our latest work verified in the Malden area. We maintain a transparent record of all our Massachusetts local renovations." },
     { id: 2, title: "Kitchen Remodel - Greater Boston", type: "Update", date: "Feb 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80", desc: "Elevate your culinary space. See how we transform outdated kitchens into stunning, modern centerpieces tailored to your lifestyle." },
     { id: 3, title: "High-End Custom Builds", type: "Photo", date: "Mar 2026", link: donysGmbLink, image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=800&q=80", desc: "Delivering uncompromising luxury and elite craftsmanship. Proudly bringing premium construction services to Malden and all surrounding communities within a 70-mile radius." }
   ];
@@ -1333,7 +1333,7 @@ export default function App() {
               <div className="text-left w-full">
                 <div className="flex items-center gap-2 text-red-500 mb-2">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Latest Projects from Malden</span>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">Latest Projects Across a 70-Mile Radius</span>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter">Massachusetts Showcase</h2>
               </div>
