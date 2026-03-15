@@ -1221,8 +1221,8 @@ export default function App() {
               <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-slate-800 rounded-[2rem] blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
               <div className="relative bg-[#0a0f1e] p-6 sm:p-8 md:p-10 rounded-[2rem] border border-slate-700 shadow-2xl w-full">
                   
-                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Free On-Site Estimate</h3>
-                  <p className="text-slate-300 text-xs sm:text-sm mb-6 font-medium leading-relaxed">Schedule your appointment today. One of our experts will personally visit your property to provide a comprehensive project consultation and a detailed, professional estimate to discover exactly how much your project will cost — at zero cost.</p>
+                  <h3 className="text-2xl sm:text-3xl font-black mb-3 uppercase italic tracking-tighter text-white drop-shadow-md">Expert On-Site Consultation</h3>
+                  <p className="text-slate-300 text-xs sm:text-sm mb-6 font-medium leading-relaxed">Secure your exclusive appointment today. One of our senior specialists will personally visit your property to deliver a comprehensive project analysis and a precise, professional structural estimate.</p>
                   
                   {/* HIGH CONVERSION URGENCY BLOCK */}
                   <div className="bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 p-4 rounded-r-xl text-left w-full mb-6 shadow-inner">
