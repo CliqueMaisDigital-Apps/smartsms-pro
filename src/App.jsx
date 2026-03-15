@@ -1090,28 +1090,41 @@ export default function App() {
 
   const renderLegalContent = () => {
     const contents = {
-      PRIVACY: { icon: FileLock2, title: 'PRIVACY POLICY', text: "SMART SMS PRO — PRIVACY POLICY\n\nThis Privacy Policy describes how CLICKMORE DIGITAL collects, uses, and shares information.\n\nINFORMATION WE COLLECT: We collect information you provide directly to us, such as your name, email, and phone number.\n\nHOW WE USE YOUR INFORMATION: We use the information to provide, maintain, and improve our services.\n\nSECURITY: We implement appropriate technical measures to protect your personal information against unauthorized access." },
-      TERMS: { icon: Scale, title: 'TERMS OF USE', text: "SMART SMS PRO — TERMS OF USE\n\nACCEPTABLE USE: You agree to use the service only for lawful purposes. You shall not use the service to send spam.\n\nZERO TOLERANCE POLICY: Any attempt to use the platform for scams, phishing, or illegal activities will result in immediate account termination. It is strictly forbidden to bypass, deceive, divert, or commit any fraud using our ecosystem.\n\nLIMITATION OF LIABILITY: CLICKMORE DIGITAL shall not be liable for any indirect damages resulting from your use of the service." },
-      LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL', text: "LGPD COMPLIANCE — LAW 13.709/2018\n\nSMART SMS PRO operates in full compliance with the LGPD.\n\nLEGAL BASES: Personal data processing is based on consent, legal obligation, or legitimate interest.\n\nDATA SUBJECT RIGHTS: You have the right to confirm the existence of processing, access, correct, and delete data." },
-      GDPR: { icon: Globe, title: 'GDPR COMPLIANCE NODE', text: "GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the GDPR.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on consent, contract performance, or legal obligation.\n\nDATA SUBJECT RIGHTS: You have the right to access, rectify, erase, and restrict processing of your personal data." }
+      PRIVACY: { icon: FileLock2, title: 'PRIVACY POLICY', text: "SMART SMS PRO — COMPREHENSIVE PRIVACY POLICY\n\n1. INFORMATION COLLECTION: We collect personal data (Name, Phone, Email) solely for the purpose of service delivery, communication, and estimate provisioning.\n2. NO THIRD-PARTY SHARING: We respect your privacy. We DO NOT sell, rent, trade, or share your personal information or SMS opt-in data with any third parties or affiliates for marketing purposes under any circumstances.\n3. DATA SECURITY: All data is encrypted at rest and in transit using enterprise-grade cryptographic protocols to prevent unauthorized access.\n4. YOUR RIGHTS: You retain the right to request access, modification, or permanent deletion of your data from our systems at any time." },
+      TERMS: { icon: Scale, title: 'TERMS OF USE', text: "SMART SMS PRO — TERMS OF SERVICE\n\n1. ACCEPTABLE USE: By accessing this platform or submitting a request, you agree to provide accurate information and use the service lawfully.\n2. SERVICE DELIVERY: Estimates and communications provided are preliminary and subject to formal verification.\n3. ZERO TOLERANCE: Any misuse, including spam, fraud, phishing, or abuse of the communication gateway, will result in an immediate and permanent ban.\n4. LIABILITY: The provider is not liable for indirect damages arising from service usage. Governing state and federal laws apply." },
+      LGPD: { icon: ShieldCheck, title: 'LGPD PROTOCOL', text: "LGPD COMPLIANCE — LAW 13.709/2018\n\nSMART SMS PRO operates in full compliance with the LGPD.\n\nLEGAL BASES: Personal data processing is based on explicit consent, legal obligation, or legitimate interest.\n\nDATA SUBJECT RIGHTS: You have the right to confirm the existence of processing, access, correct, and securely delete your data. SMS opt-in data is strictly confidential." },
+      GDPR: { icon: Globe, title: 'GDPR COMPLIANCE NODE', text: "GENERAL DATA PROTECTION REGULATION (EU) 2016/679\n\nSMART SMS PRO is committed to full compliance with the GDPR.\n\nLAWFUL BASIS FOR PROCESSING: We process personal data based on explicit consent, contract performance, or legal obligation. Data is never sold to third parties.\n\nDATA SUBJECT RIGHTS: You have the right to access, rectify, erase, and restrict processing of your personal data at your discretion." }
     };
     return contents[legalContent] || null;
   };
 
   if (view === 'bridge') {
     return (
-      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-6 p-6 text-center font-black uppercase">
-        <div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
-        <div className="space-y-3">
-          <h2 className="text-2xl sm:text-3xl text-white tracking-tighter uppercase font-black">REDIRECTING TO GATEWAY...</h2>
-          <p className="text-xs text-white/40 tracking-widest text-balance uppercase font-medium">Opening your native SMS application. If it doesn't open automatically, click below.</p>
+      <div className="min-h-screen bg-[#010101] flex flex-col items-center justify-center gap-8 p-6 text-center font-black uppercase">
+        
+        {/* --- HIGH CONVERSION INSTRUCTION BLOCK --- */}
+        <div className="bg-[#25F4EE]/10 border-2 border-[#25F4EE] p-6 sm:p-8 rounded-2xl max-w-md w-full shadow-[0_0_30px_rgba(37,244,238,0.2)] animate-in slide-in-from-bottom-4">
+          <h3 className="text-amber-500 text-lg sm:text-xl tracking-widest uppercase font-black mb-3 flex items-center justify-center gap-3">
+            <AlertTriangle size={24} className="animate-pulse" /> ALMOST DONE: STEP 2 OF 2
+          </h3>
+          <p className="text-white text-base sm:text-lg font-black normal-case not-italic tracking-normal leading-relaxed">
+            Tap <span className="text-[#25F4EE]">"SEND"</span> on your SMS app to confirm your consultation request.
+          </p>
         </div>
+
+        <div className="w-16 h-16 border-4 border-[#25F4EE]/30 border-t-[#25F4EE] rounded-full animate-spin shadow-[0_0_15px_#25F4EE]"></div>
+        
+        <div className="space-y-3">
+          <h2 className="text-xl sm:text-2xl text-white/80 tracking-tighter uppercase font-black">OPENING SECURE GATEWAY...</h2>
+          <p className="text-[10px] sm:text-xs text-white/40 tracking-widest text-balance uppercase font-medium">Please wait 3 seconds or click below.</p>
+        </div>
+        
         {captureData && (
-          <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-sm tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform uppercase">
-            OPEN SMS APP MANUALLY
+          <a href={`sms:${captureData.to}${/iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(captureData.msg)}`} className="bg-[#25F4EE] text-black px-8 py-4 rounded-xl font-black text-sm tracking-widest shadow-[0_0_20px_#25F4EE] hover:scale-105 transition-transform uppercase mt-2">
+            OPEN SMS APP NOW
           </a>
         )}
-        <p className="text-[10px] text-white/20 tracking-widest uppercase font-medium">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
+        <p className="text-[10px] text-white/20 tracking-widest uppercase font-medium mt-4">IDENTITY VERIFIED — ZERO-KNOWLEDGE ENCRYPTED</p>
       </div>
     );
   }
