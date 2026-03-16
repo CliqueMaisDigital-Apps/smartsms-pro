@@ -882,7 +882,7 @@ export default function App() {
            if (view === 'capture' && typeof window.gtag === 'function') {
                // ⚠️ OPERATOR: BASE CONVERSION TRIGGER SECURED FOR AW-17954547498
                window.gtag('event', 'conversion', {
-                   'send_to': 'AW-17954547498'
+                   'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC'
                });
            }
 
@@ -1216,6 +1216,12 @@ export default function App() {
             </div>
             <a 
               href={donysSmsLink}
+              onClick={() => {
+                // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK) ---
+                if (typeof window.gtag === 'function') {
+                  window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC' });
+                }
+              }}
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
             >
               <MessageSquareText size={18} /> <span className="hidden sm:inline whitespace-nowrap">Text Us: (857) 322-9269</span>
@@ -1467,7 +1473,7 @@ export default function App() {
                       onClick={() => {
                         // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK) ---
                         if (typeof window.gtag === 'function') {
-                          window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498' });
+                          window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC' });
                         }
                       }}
                       className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer"
