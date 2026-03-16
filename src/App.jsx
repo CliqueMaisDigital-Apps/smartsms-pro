@@ -127,6 +127,31 @@ export default function App() {
   const [cookieConsent, setCookieConsent] = useState('pending');
   const [showCookieDetails, setShowCookieDetails] = useState(false);
 
+  // --- SUPREME GOOGLE ADS TAG INJECTION ---
+  useEffect(() => {
+    const GA_MEASUREMENT_ID = 'AW-17954547498'; 
+    
+    if (!document.getElementById('google-ads-external-script')) {
+      // 1. Inject External Gateway Script
+      const externalScript = document.createElement('script');
+      externalScript.id = 'google-ads-external-script';
+      externalScript.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+      externalScript.async = true;
+      document.head.appendChild(externalScript);
+
+      // 2. Inject Inline Configuration Script (Exact match for Google Crawler)
+      const inlineScript = document.createElement('script');
+      inlineScript.id = 'google-ads-inline-script';
+      inlineScript.innerHTML = `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${GA_MEASUREMENT_ID}');
+      `;
+      document.head.appendChild(inlineScript);
+    }
+  }, []);
+
   // --- DATA STATES ---
   const [logs, setLogs] = useState([]); 
   const [linksHistory, setLinksHistory] = useState([]);
@@ -853,6 +878,14 @@ export default function App() {
     } finally {
        setLoading(false);
        if (allowRedirect) {
+           // --- GOOGLE ADS CONVERSION TRIGGER ---
+           if (view === 'capture' && typeof window.gtag === 'function') {
+               // ⚠️ OPERATOR: BASE CONVERSION TRIGGER SECURED FOR AW-17954547498
+               window.gtag('event', 'conversion', {
+                   'send_to': 'AW-17954547498'
+               });
+           }
+
            localStorage.setItem(`smartsms_registered_for_${ownerId}_${phoneDigits}`, 'true');
            const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
            
@@ -1429,7 +1462,16 @@ export default function App() {
                 <h5 className="font-black uppercase italic tracking-widest text-sm text-red-600">Contact Point</h5>
                 <ul className="space-y-4 text-slate-400 font-bold uppercase tracking-wider text-xs">
                   <li>
-                    <a href={donysSmsLink} className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
+                    <a 
+                      href={donysSmsLink} 
+                      onClick={() => {
+                        // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK) ---
+                        if (typeof window.gtag === 'function') {
+                          window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498' });
+                        }
+                      }}
+                      className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer"
+                    >
                       <MessageSquareText size={16} className="text-red-500" /> <span className="whitespace-nowrap">(857) 322-9269 (SMS)</span>
                     </a>
                   </li>
