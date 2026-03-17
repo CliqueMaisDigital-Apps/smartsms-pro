@@ -129,7 +129,7 @@ export default function App() {
 
   // --- SUPREME GOOGLE ADS TAG INJECTION ---
   useEffect(() => {
-    const GA_MEASUREMENT_ID = 'AW-17954547498'; 
+    const GA_MEASUREMENT_ID = 'AW-7536934469'; 
     
     if (!document.getElementById('google-ads-external-script')) {
       // 1. Inject External Gateway Script
@@ -880,9 +880,9 @@ export default function App() {
        if (allowRedirect) {
            // --- GOOGLE ADS CONVERSION TRIGGER ---
            if (view === 'capture' && typeof window.gtag === 'function') {
-               // ⚠️ OPERATOR: BASE CONVERSION TRIGGER SECURED FOR AW-17954547498
+               // ⚠️ OPERATOR: BASE CONVERSION TRIGGER SECURED FOR AW-7536934469
                window.gtag('event', 'conversion', {
-                   'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC'
+                   'send_to': 'AW-7536934469/RoDCCMX88YkcEKrOsvFC'
                });
            }
 
@@ -1217,9 +1217,9 @@ export default function App() {
             <a 
               href={donysSmsLink}
               onClick={() => {
-                // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK) ---
+                // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK - SECONDARY) ---
                 if (typeof window.gtag === 'function') {
-                  window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC' });
+                  window.gtag('event', 'conversion', { 'send_to': 'AW-7536934469/Do8GCMvVh4ocEKrOsvFC' });
                 }
               }}
               className="flex items-center gap-2 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 px-6 py-2.5 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
@@ -1471,9 +1471,9 @@ export default function App() {
                     <a 
                       href={donysSmsLink} 
                       onClick={() => {
-                        // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK) ---
+                        // --- GOOGLE ADS CONVERSION TRIGGER (DIRECT SMS CLICK - SECONDARY) ---
                         if (typeof window.gtag === 'function') {
-                          window.gtag('event', 'conversion', { 'send_to': 'AW-17954547498/RoDCCMX88YkcEKrOsvFC' });
+                          window.gtag('event', 'conversion', { 'send_to': 'AW-7536934469/Do8GCMvVh4ocEKrOsvFC' });
                         }
                       }}
                       className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer"
